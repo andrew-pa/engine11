@@ -21,6 +21,8 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glfw)
 
+find_package(Vulkan REQUIRED)
+
 include_directories(include/)
 add_executable(egg
     src/main.cpp
@@ -29,5 +31,5 @@ add_executable(egg
     src/renderer/imgui_renderer.cpp
     src/renderer/scene_renderer.cpp)
 target_compile_features(egg PUBLIC cxx_std_14)
-target_link_libraries(egg flecs::flecs_static glfw)
+target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan)
 

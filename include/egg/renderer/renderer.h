@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <memory>
+#include <vulkan/vulkan.hpp>
 
 /// an actual rendering algorithm ie shaders, pipelines and building command buffers
 class render_pipeline {
@@ -24,6 +25,9 @@ class scene_renderer;
     render pipeline
 */
 class renderer {
+    vk::UniqueInstance instance;
+    vk::DebugReportCallbackEXT debug_report_callback;
+
     frame_renderer* fr;
     imgui_renderer* ir;
     scene_renderer* sr;

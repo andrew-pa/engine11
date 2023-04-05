@@ -10,15 +10,15 @@ int main(int argc, char* argv[]) {
     if (glfwInit() == 0)
         return -1;
 
-    /* Create a windowed mode window and its OpenGL context */
+    // disable GLFW setting up an OpenGL swapchain
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+    // Create a windowed mode window
     window = glfwCreateWindow(1280, 960, "erg", nullptr, nullptr);
     if (window == nullptr) {
         glfwTerminate();
         return -1;
     }
-
-    /* Make the window's context current */
-    glfwMakeContextCurrent(window);
 
     flecs::world world;
 
