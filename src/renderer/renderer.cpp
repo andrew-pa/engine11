@@ -1,5 +1,5 @@
 #include "egg/renderer/renderer.h"
-#include "egg/renderer/frame_renderer.h"
+#include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/imgui_renderer.h"
 #include "egg/renderer/scene_renderer.h"
 #include <iostream>

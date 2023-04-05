@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.20)
 include(FetchContent)
 
 project(egg
@@ -27,7 +27,9 @@ include_directories(include/)
 add_executable(egg
     src/main.cpp
     src/renderer/renderer.cpp
-    src/renderer/frame_renderer.cpp
+    src/renderer/core/frame_renderer.cpp
+    src/renderer/core/device.cpp
+    src/renderer/core/swap_chain.cpp
     src/renderer/imgui_renderer.cpp
     src/renderer/scene_renderer.cpp)
 target_compile_features(egg PUBLIC cxx_std_14)

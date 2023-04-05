@@ -1,4 +1,4 @@
-#include "egg/renderer/frame_renderer.h"
+#include "egg/renderer/core/frame_renderer.h"
 
 frame_renderer::frame_renderer(GLFWwindow* window, vk::Instance instance) {
     // create window surface
@@ -10,6 +10,7 @@ frame_renderer::frame_renderer(GLFWwindow* window, vk::Instance instance) {
     window_surface = vk::UniqueSurfaceKHR(surface);
 
     // create device & swap chain
+    device = std::make_unique<vkx::device>(instance, window_surface.get());
 }
 
 frame frame_renderer::begin_frame() { return frame{}; }

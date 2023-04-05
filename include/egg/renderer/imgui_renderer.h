@@ -1,5 +1,5 @@
 #pragma once
-#include "frame_renderer.h"
+#include "egg/renderer/core/frame_renderer.h"
 
 class imgui_renderer {
   public:
