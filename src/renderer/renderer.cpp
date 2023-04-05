@@ -31,46 +31,29 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     return VK_FALSE;
 }
 
-const vk::ApplicationInfo APP_INFO = vk::ApplicationInfo {
-    "egg",
-    VK_MAKE_VERSION(0, 0, 0),
-    "egg",
-    VK_MAKE_VERSION(0, 0, 0),
-    VK_API_VERSION_1_3
-};
+const vk::ApplicationInfo APP_INFO
+    = vk::ApplicationInfo{"egg", VK_MAKE_VERSION(0, 0, 0), "egg", VK_MAKE_VERSION(0, 0, 0), VK_API_VERSION_1_3};
 
-renderer::renderer(
-        GLFWwindow* window,
-        flecs::world& world,
-        std::unique_ptr<render_pipeline> pipeline)
-{
+renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline) {
     // create Vulkan instance
-    uint32_t glfw_ext_count = 0;
-    auto* glfw_req_exts = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
-    std::vector<const char*> extensions{glfw_req_exts, glfw_req_exts+glfw_ext_count};
+    uint32_t                 glfw_ext_count = 0;
+    auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
+    std::vector<const char*> extensions{glfw_req_exts, glfw_req_exts + glfw_ext_count};
 #ifndef NDEBUG
     extensions.emplace_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #endif
-    instance = vk::createInstanceUnique(vk::InstanceCreateInfo {
-            {}, &APP_INFO,
-            0, {},
-            (uint32_t)extensions.size(), extensions.data()
-            });
+    instance = vk::createInstanceUnique(vk::InstanceCreateInfo{
+        {}, &APP_INFO, 0, {}, (uint32_t)extensions.size(), extensions.data()});
 
     // set up vulkan debugging reports
 #ifndef NDEBUG
-    auto cbco = vk::DebugReportCallbackCreateInfoEXT {
-        vk::DebugReportFlagBitsEXT::eError 
-            | vk::DebugReportFlagBitsEXT::eDebug
-            | vk::DebugReportFlagBitsEXT::ePerformanceWarning
-            | vk::DebugReportFlagBitsEXT::eWarning,
-        debug_callback
-    };
+    auto cbco = vk::DebugReportCallbackCreateInfoEXT{
+        vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eDebug
+            | vk::DebugReportFlagBitsEXT::ePerformanceWarning | vk::DebugReportFlagBitsEXT::eWarning,
+        debug_callback};
     instance->createDebugReportCallbackEXT(
-            &cbco,
-            nullptr,
-            &debug_report_callback,
-            vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr));
+        &cbco, nullptr, &debug_report_callback, vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr)
+    );
 #endif
 
     // create different rendering layers
@@ -91,4 +74,3 @@ void renderer::render_frame() {
     sr->render_frame(frame);
     fr->end_frame(std::move(frame));
 }
-

@@ -4,9 +4,10 @@
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
-/// an actual rendering algorithm ie shaders, pipelines and building command buffers
+/// an actual rendering algorithm ie shaders, pipelines and building command
+/// buffers
 class render_pipeline {
-public:
+  public:
     virtual ~render_pipeline() = default;
 };
 
@@ -25,21 +26,17 @@ class scene_renderer;
     render pipeline
 */
 class renderer {
-    vk::UniqueInstance instance;
+    vk::UniqueInstance         instance;
     vk::DebugReportCallbackEXT debug_report_callback;
 
     frame_renderer* fr;
     imgui_renderer* ir;
     scene_renderer* sr;
-public:
-    renderer(
-            GLFWwindow* window,
-            flecs::world& world,
-            std::unique_ptr<render_pipeline> pipeline);
+
+  public:
+    renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
 
     void render_frame();
 
     ~renderer();
 };
-
-

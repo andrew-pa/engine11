@@ -3,14 +3,14 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
-struct frame {
-};
+struct frame {};
 
 class frame_renderer {
     vk::UniqueSurfaceKHR window_surface;
-public:
+
+  public:
     frame_renderer(GLFWwindow* window, vk::Instance instance);
 
     frame begin_frame();
-    void end_frame(frame&& frame);
+    void  end_frame(frame&& frame);
 };

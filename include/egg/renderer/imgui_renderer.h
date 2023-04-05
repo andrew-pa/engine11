@@ -2,6 +2,6 @@
 #include "frame_renderer.h"
 
 class imgui_renderer {
-public:
+  public:
     void render_frame(frame& frame);
 };
