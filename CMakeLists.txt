@@ -21,6 +21,12 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(glfw)
 
+FetchContent_Declare(
+    vma
+    GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+    GIT_TAG v3.0.1)
+FetchContent_MakeAvailable(vma)
+
 find_package(Vulkan REQUIRED)
 
 include_directories(include/)
@@ -33,5 +39,5 @@ add_executable(egg
     src/renderer/imgui_renderer.cpp
     src/renderer/scene_renderer.cpp)
 target_compile_features(egg PUBLIC cxx_std_14)
-target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan)
+target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan VulkanMemoryAllocator)
 
