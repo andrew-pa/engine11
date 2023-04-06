@@ -1,4 +1,4 @@
-#include "egg/renderer/core/device.h"
+#include "egg/renderer/core/frame_renderer.h"
 #include <iostream>
 #include <unordered_set>
 
@@ -23,15 +23,13 @@ struct queue_family_indices {
     bool complete() const { return graphics >= 0 && present >= 0; }
 };
 
-namespace vkx {
-
-device::device(vk::Instance instance, vk::SurfaceKHR surface) {
+void frame_renderer::init_device(vk::Instance instance) {
     queue_family_indices qfixs;
 
     // find physical device and queue family indices
     auto physical_devices = instance.enumeratePhysicalDevices();
     for(auto physical_device : physical_devices) {
-        qfixs.gather(physical_device, surface);
+        qfixs.gather(physical_device, window_surface.get());
         if(qfixs.complete()) {
             phy_dev = physical_device;
             break;
@@ -81,6 +79,7 @@ device::device(vk::Instance instance, vk::SurfaceKHR surface) {
 
     graphics_queue = dev->getQueue(qfixs.graphics, 0);
     present_queue  = dev->getQueue(qfixs.present, 0);
-}
 
-}  // namespace vkx
+    graphics_queue_family_index = qfixs.graphics;
+    present_queue_family_index = qfixs.present;
+}
