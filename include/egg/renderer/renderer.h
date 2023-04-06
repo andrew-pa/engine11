@@ -1,7 +1,9 @@
 #pragma once
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <memory>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
 /// an actual rendering algorithm ie shaders, pipelines and building command
@@ -29,6 +31,15 @@ class renderer {
     vk::UniqueInstance         instance;
     vk::DebugReportCallbackEXT debug_report_callback;
 
+    vk::UniqueSurfaceKHR window_surface;
+
+    vk::UniqueDevice   dev;
+    vk::PhysicalDevice phy_dev;
+    uint32_t           graphics_queue_family_index, present_queue_family_index;
+    vk::Queue          graphics_queue, present_queue;
+    VmaAllocator       allocator;
+    void               init_device(vk::Instance instance);
+
     frame_renderer* fr;
     imgui_renderer* ir;
     scene_renderer* sr;
@@ -36,7 +47,11 @@ class renderer {
   public:
     renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
 
+    void resize();
+
     void render_frame();
 
     ~renderer();
+
+    friend class frame_renderer;
 };

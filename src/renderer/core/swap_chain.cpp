@@ -2,7 +2,7 @@
 #include <iostream>
 
 void frame_renderer::init_swapchain() {
-    auto     surface_caps = phy_dev.getSurfaceCapabilitiesKHR(window_surface.get());
+    auto     surface_caps = r->phy_dev.getSurfaceCapabilitiesKHR(r->window_surface.get());
     uint32_t image_count  = surface_caps.minImageCount + 1;
     std::cout << "using a swap chain with " << image_count << " images\n";
 
@@ -11,7 +11,7 @@ void frame_renderer::init_swapchain() {
 
     vk::SwapchainCreateInfoKHR cfo{
         {},
-        window_surface.get(),
+        r->window_surface.get(),
         image_count,
         swapchain_format,
         vk::ColorSpaceKHR::eSrgbNonlinear,
@@ -19,10 +19,11 @@ void frame_renderer::init_swapchain() {
         1,
         vk::ImageUsageFlagBits::eColorAttachment};
 
-    if(graphics_queue != present_queue) {
+    if(r->graphics_queue_family_index != r->present_queue_family_index) {
         cfo.imageSharingMode      = vk::SharingMode::eConcurrent;
         cfo.queueFamilyIndexCount = 2;
-        throw 3;
+        uint32_t q[]              = {r->graphics_queue_family_index, r->present_queue_family_index};
+        cfo.pQueueFamilyIndices   = q;
     } else {
         cfo.imageSharingMode = vk::SharingMode::eExclusive;
     }
@@ -32,8 +33,8 @@ void frame_renderer::init_swapchain() {
     cfo.presentMode    = vk::PresentModeKHR::eFifo;
     cfo.clipped        = VK_TRUE;
 
-    swapchain        = dev->createSwapchainKHRUnique(cfo);
-    swapchain_images = dev->getSwapchainImagesKHR(swapchain.get());
+    swapchain        = r->dev->createSwapchainKHRUnique(cfo);
+    swapchain_images = r->dev->getSwapchainImagesKHR(swapchain.get());
 
     vk::ImageViewCreateInfo ivcfo{
         {},
@@ -47,13 +48,12 @@ void frame_renderer::init_swapchain() {
     swapchain_image_views.clear();
     for(auto img : swapchain_images) {
         ivcfo.image = img;
-        swapchain_image_views.emplace_back(dev->createImageViewUnique(ivcfo));
+        swapchain_image_views.emplace_back(r->dev->createImageViewUnique(ivcfo));
     }
 
     if(swapchain_images.size() != command_buffers.size()) {
         command_buffers.clear();
-        command_buffers = dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo {
-            command_pool, vk::CommandBufferLevel::ePrimary, swapchain_images.size()
-        });
+        command_buffers = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
+            command_pool.get(), vk::CommandBufferLevel::ePrimary, (uint32_t)swapchain_images.size()});
     }
 }

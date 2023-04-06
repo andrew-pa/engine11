@@ -1,9 +1,7 @@
 #pragma once
-#include <memory>
-#define GLFW_INCLUDE_VULKAN
-#include "egg/renderer/core/swap_chain.h"
+#include "egg/renderer/renderer.h"
 #include <GLFW/glfw3.h>
-#include <vk_mem_alloc.h>
+#include <memory>
 #include <vulkan/vulkan.hpp>
 
 struct frame {
@@ -12,14 +10,7 @@ struct frame {
 };
 
 class frame_renderer {
-    vk::UniqueDevice   dev;
-    vk::PhysicalDevice phy_dev;
-    uint32_t graphics_queue_family_index, present_queue_family_index;
-    vk::Queue          graphics_queue, present_queue;
-    VmaAllocator       allocator;
-    void               init_device(vk::Instance instance);
-
-    vk::UniqueSurfaceKHR             window_surface;
+    renderer*                        r;
     vk::UniqueSwapchainKHR           swapchain;
     std::vector<vk::Image>           swapchain_images;
     std::vector<vk::UniqueImageView> swapchain_image_views;
@@ -28,11 +19,11 @@ class frame_renderer {
     vk::UniqueSemaphore              image_available, render_finished;
     void                             init_swapchain();
 
-    vk::UniqueCommandPool command_pool;
+    vk::UniqueCommandPool                command_pool;
     std::vector<vk::UniqueCommandBuffer> command_buffers;
 
   public:
-    frame_renderer(GLFWwindow* window, vk::Instance instance);
+    frame_renderer(renderer* r);
 
     void reset_swapchain();
 

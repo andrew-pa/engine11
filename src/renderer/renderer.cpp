@@ -55,9 +55,18 @@ renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<rend
         &cbco, nullptr, &debug_report_callback, vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr)
     );
 #endif
+    // create window surface
+    VkSurfaceKHR surface;
+
+    auto err = glfwCreateWindowSurface(instance.get(), window, nullptr, &surface);
+    if(err != VK_SUCCESS) throw std::runtime_error("failed to create window surface " + std::to_string(err));
+
+    window_surface = vk::UniqueSurfaceKHR(surface);
+
+    init_device(instance.get());
 
     // create different rendering layers
-    fr = new frame_renderer(window, instance.get());
+    fr = new frame_renderer(this);
     ir = new imgui_renderer();
     sr = new scene_renderer(world, std::move(pipeline));
 }
@@ -67,6 +76,8 @@ renderer::~renderer() {
     delete ir;
     delete fr;
 }
+
+void renderer::resize() { fr->reset_swapchain(); }
 
 void renderer::render_frame() {
     auto frame = fr->begin_frame();

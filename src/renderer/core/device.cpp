@@ -1,4 +1,5 @@
 #include "egg/renderer/core/frame_renderer.h"
+#include "egg/renderer/renderer.h"
 #include <iostream>
 #include <unordered_set>
 
@@ -23,7 +24,7 @@ struct queue_family_indices {
     bool complete() const { return graphics >= 0 && present >= 0; }
 };
 
-void frame_renderer::init_device(vk::Instance instance) {
+void renderer::init_device(vk::Instance instance) {
     queue_family_indices qfixs;
 
     // find physical device and queue family indices
@@ -81,5 +82,5 @@ void frame_renderer::init_device(vk::Instance instance) {
     present_queue  = dev->getQueue(qfixs.present, 0);
 
     graphics_queue_family_index = qfixs.graphics;
-    present_queue_family_index = qfixs.present;
+    present_queue_family_index  = qfixs.present;
 }
