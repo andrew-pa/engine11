@@ -47,7 +47,7 @@ class renderer {
   public:
     renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
 
-    void resize();
+    void resize(GLFWwindow* window);
 
     void render_frame();
 

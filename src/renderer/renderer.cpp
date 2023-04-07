@@ -34,6 +34,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 const vk::ApplicationInfo APP_INFO
     = vk::ApplicationInfo{"egg", VK_MAKE_VERSION(0, 0, 0), "egg", VK_MAKE_VERSION(0, 0, 0), VK_API_VERSION_1_3};
 
+vk::Extent2D get_window_extent(GLFWwindow* window) {
+    vk::Extent2D e;
+    glfwGetWindowSize(window, (int*)&e.width, (int*)&e.height);
+    return e;
+}
+
 renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline) {
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
@@ -66,7 +72,7 @@ renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<rend
     init_device(instance.get());
 
     // create different rendering layers
-    fr = new frame_renderer(this);
+    fr = new frame_renderer(this, get_window_extent(window));
     ir = new imgui_renderer();
     sr = new scene_renderer(world, std::move(pipeline));
 }
@@ -77,7 +83,7 @@ renderer::~renderer() {
     delete fr;
 }
 
-void renderer::resize() { fr->reset_swapchain(); }
+void renderer::resize(GLFWwindow* window) { fr->reset_swapchain(get_window_extent(window)); }
 
 void renderer::render_frame() {
     auto frame = fr->begin_frame();

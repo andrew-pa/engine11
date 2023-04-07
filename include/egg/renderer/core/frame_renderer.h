@@ -23,9 +23,9 @@ class frame_renderer {
     std::vector<vk::UniqueCommandBuffer> command_buffers;
 
   public:
-    frame_renderer(renderer* r);
+    frame_renderer(renderer* r, vk::Extent2D swapchain_extent);
 
-    void reset_swapchain();
+    void reset_swapchain(vk::Extent2D new_swapchain_extent);
 
     frame begin_frame();
     void  end_frame(frame&& frame);

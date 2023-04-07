@@ -3,18 +3,22 @@
 
 void frame_renderer::init_swapchain() {
     auto     surface_caps = r->phy_dev.getSurfaceCapabilitiesKHR(r->window_surface.get());
-    uint32_t image_count  = surface_caps.minImageCount + 1;
+    uint32_t image_count  = std::max(surface_caps.minImageCount, 2u);
     std::cout << "using a swap chain with " << image_count << " images\n";
 
-    swapchain_format = vk::Format::eB8G8R8A8Unorm;
-    swapchain_extent = surface_caps.currentExtent;
+    std::cout << "swapchain extent: " << swapchain_extent.width << "x" << swapchain_extent.height << "\n";
+
+    auto fmts = r->phy_dev.getSurfaceFormatsKHR(r->window_surface.get());
+    for(auto fmt : fmts)
+        std::cout << "available format " << vk::to_string(fmt.format) << " / " << vk::to_string(fmt.colorSpace) << "\n";
+    swapchain_format = fmts[0].format;
 
     vk::SwapchainCreateInfoKHR cfo{
         {},
         r->window_surface.get(),
         image_count,
         swapchain_format,
-        vk::ColorSpaceKHR::eSrgbNonlinear,
+        fmts[0].colorSpace,
         swapchain_extent,
         1,
         vk::ImageUsageFlagBits::eColorAttachment};
@@ -29,7 +33,7 @@ void frame_renderer::init_swapchain() {
     }
 
     cfo.preTransform   = surface_caps.currentTransform;
-    cfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    cfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eInherit;
     cfo.presentMode    = vk::PresentModeKHR::eFifo;
     cfo.clipped        = VK_TRUE;
 
