@@ -19,8 +19,26 @@ void frame_renderer::reset_swapchain(vk::Extent2D new_swapchain_extent) {
     init_swapchain();
 }
 
+std::vector<vk::UniqueFramebuffer> frame_renderer::create_framebuffers(
+    vk::RenderPass render_pass, const std::function<void(size_t, std::vector<vk::ImageView>&)>& custom_image_views
+) {
+    std::vector<vk::UniqueFramebuffer> framebuffers;
+    framebuffers.reserve(swapchain_image_views.size());
+    vk::FramebufferCreateInfo cfo{
+        vk::FramebufferCreateFlags(), render_pass, 0, nullptr, swapchain_extent.width, swapchain_extent.height, 1};
+    std::vector<vk::ImageView> att;
+    for(size_t i = 0; i < swapchain_image_views.size(); ++i) {
+        att.clear();
+        att.emplace_back(swapchain_image_views[i].get());
+        custom_image_views(i, att);
+        cfo.pAttachments    = att.data();
+        cfo.attachmentCount = att.size();
+        framebuffers.emplace_back(r->dev->createFramebufferUnique(cfo));
+    }
+    return framebuffers;
+}
+
 frame frame_renderer::begin_frame() {
-    r->present_queue.waitIdle();
     uint32_t frame_index = -1;
     auto err = r->dev->acquireNextImageKHR(swapchain.get(), UINT64_MAX, image_available.get(), VK_NULL_HANDLE, &frame_index);
     if(err != vk::Result::eSuccess) {

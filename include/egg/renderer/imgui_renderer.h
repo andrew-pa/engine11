@@ -1,7 +1,24 @@
 #pragma once
+#include "backends/imgui_impl_vulkan.h"
 #include "egg/renderer/core/frame_renderer.h"
+#include "imgui.h"
 
 class imgui_renderer {
+    renderer*                                                                    r;
+    vk::UniqueDescriptorPool                                                     desc_pool;
+    vk::UniqueRenderPass                                                         render_pass;
+    vk::RenderPassBeginInfo                                                      start_render_pass;
+    std::vector<vk::UniqueFramebuffer>                                           framebuffers;
+    char                                                                         font_upload_state;
+    std::unordered_map<std::string, std::pair<std::function<void(bool*)>, bool>> windows;
+
   public:
+    imgui_renderer(renderer* r, GLFWwindow* window);
+    ~imgui_renderer();
+
+    void create_swapchain_depd(frame_renderer* fr);
+
+    void add_window(const std::string& name, const std::function<void(bool*)>& draw);
+
     void render_frame(frame& frame);
 };

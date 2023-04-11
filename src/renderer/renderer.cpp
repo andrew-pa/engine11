@@ -71,9 +71,26 @@ renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<rend
 
     init_device(instance.get());
 
+    // read surface capabilities, which should be stable throughout execution
+    auto surface_caps   = phy_dev.getSurfaceCapabilitiesKHR(window_surface.get());
+    surface_image_count = std::max(surface_caps.minImageCount, 2u);
+    std::cout << "using a swap chain with " << surface_image_count << " images\n";
+
+    auto fmts = phy_dev.getSurfaceFormatsKHR(window_surface.get());
+    for(auto fmt : fmts)
+        std::cout << "available format " << vk::to_string(fmt.format) << " / " << vk::to_string(fmt.colorSpace) << "\n";
+    surface_format = fmts[0];
+
+    glfwSetWindowUserPointer(window, this);
+    glfwSetWindowSizeCallback(window, [](GLFWwindow* wnd, int w, int h) {
+        auto* r = (renderer*)glfwGetWindowUserPointer(wnd);
+        r->resize(wnd);
+    });
+
     // create different rendering layers
     fr = new frame_renderer(this, get_window_extent(window));
-    ir = new imgui_renderer();
+    ir = new imgui_renderer(this, window);
+    ir->create_swapchain_depd(fr);
     sr = new scene_renderer(world, std::move(pipeline));
 }
 
@@ -83,7 +100,10 @@ renderer::~renderer() {
     delete fr;
 }
 
-void renderer::resize(GLFWwindow* window) { fr->reset_swapchain(get_window_extent(window)); }
+void renderer::resize(GLFWwindow* window) {
+    fr->reset_swapchain(get_window_extent(window));
+    ir->create_swapchain_depd(fr);
+}
 
 void renderer::render_frame() {
     auto frame = fr->begin_frame();

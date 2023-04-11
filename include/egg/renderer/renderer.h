@@ -22,6 +22,7 @@ class scene_renderer;
 
 /*
  * responsibilities:
+    initializing Vulkan
     low level rendering: swap chain, render passes
     imgui init & render
     high level rendering: upload scene onto GPU
@@ -32,6 +33,8 @@ class renderer {
     vk::DebugReportCallbackEXT debug_report_callback;
 
     vk::UniqueSurfaceKHR window_surface;
+    vk::SurfaceFormatKHR surface_format;
+    uint32_t             surface_image_count;
 
     vk::UniqueDevice   dev;
     vk::PhysicalDevice phy_dev;
@@ -54,4 +57,6 @@ class renderer {
     ~renderer();
 
     friend class frame_renderer;
+    friend class imgui_renderer;
+    friend class scene_renderer;
 };
