@@ -49,13 +49,13 @@ find_package(Vulkan REQUIRED)
 
 include_directories(include/ ${imgui_SOURCE_DIR})
 add_executable(egg
-    src/main.cpp
-    src/renderer/renderer.cpp
-    src/renderer/core/frame_renderer.cpp
-    src/renderer/core/device.cpp
-    src/renderer/core/swap_chain.cpp
-    src/renderer/imgui_renderer.cpp
-    src/renderer/scene_renderer.cpp)
+    src/egg/main.cpp
+    src/egg/renderer/renderer.cpp
+    src/egg/renderer/core/frame_renderer.cpp
+    src/egg/renderer/core/device.cpp
+    src/egg/renderer/core/swap_chain.cpp
+    src/egg/renderer/imgui_renderer.cpp
+    src/egg/renderer/scene_renderer.cpp)
 target_compile_features(egg PUBLIC cxx_std_14)
 target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan VulkanMemoryAllocator imguilib)
 
