@@ -89,7 +89,7 @@ add_executable(egg
 target_compile_features(egg PUBLIC cxx_std_17)
 target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan VulkanMemoryAllocator imguilib)
 
-add_executable(asset-bundler src/asset-bundler/main.cpp)
+add_executable(asset-bundler src/asset-bundler/main.cpp src/asset-bundler/output_bundle.cpp src/asset-bundler/importer.cpp)
 target_compile_features(asset-bundler PUBLIC cxx_std_17)
 target_link_libraries(asset-bundler libzstd_static assimp stblib Vulkan::Vulkan)
 
