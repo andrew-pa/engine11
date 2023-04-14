@@ -23,8 +23,9 @@
 
 using std::byte;
 using std::filesystem::path;
-using texture_id = uint16_t;
-using string_id  = uint32_t;
+using texture_id                 = uint16_t;
+const texture_id INVALID_TEXTURE = 0;
+using string_id                  = uint32_t;
 
 struct texture_info {
     texture_info(string_id name, uint32_t width, uint32_t height, vk::Format format, stbi_uc* data, size_t len)
@@ -59,12 +60,47 @@ bool texture_is_single_value(int w, int h, int channels, const stbi_uc* data) {
     return true;
 }
 
+struct vertex {
+    aiVector3D position, normal, tangent;
+    aiVector2D tex_coord;
+};
+
+using index_type = uint32_t;
+
+struct mesh_info {
+    size_t vertex_offset, index_offset, index_count, material_index;
+};
+
+struct material_info {
+    texture_id base_color, normals, roughness, metallic;
+
+    material_info()
+        : base_color(INVALID_TEXTURE), normals(INVALID_TEXTURE), roughness(INVALID_TEXTURE), metallic(INVALID_TEXTURE) {}
+
+    void set_texture(aiTextureType type, texture_id texture) {
+#define X(T, N)                                                                                                                \
+    case T: N = texture; break;
+        switch(type) {
+            X(aiTextureType_DIFFUSE, base_color)
+            X(aiTextureType_NORMALS, normals)
+            X(aiTextureType_METALNESS, metallic)
+            X(aiTextureType_SHININESS, roughness)
+            default: throw std::runtime_error("unsupported texture type");
+        }
+#undef X
+    }
+};
+
 class output_bundle {
     path                                       output_path;
     string_id                                  next_string_id = 1;
     std::unordered_map<string_id, std::string> strings;
     texture_id                                 next_texture_id = 1;
     std::map<texture_id, texture_info>         textures;
+    std::vector<material_info>                 materials;
+
+    std::vector<vertex>     vertices;
+    std::vector<index_type> indices;
 
   public:
     output_bundle(path output_path) : output_path(std::move(output_path)) {}
@@ -91,6 +127,30 @@ class output_bundle {
         );
     }
 
+    // returns the current vertex offset
+    size_t start_vertex_gather(size_t num_verts) {
+        vertices.reserve(num_verts);
+        return vertices.size();
+    }
+
+    // returns the current index offset
+    size_t start_index_gather(size_t num_idx) {
+        indices.reserve(num_idx);
+        return indices.size();
+    }
+
+    inline void add_vertex(vertex&& v) { vertices.emplace_back(v); }
+
+    inline void add_index(index_type i) { indices.emplace_back(i); }
+
+    void add_mesh(mesh_info&& info) {
+        // TODO
+    }
+
+    inline size_t num_materials() { return materials.size(); }
+
+    void add_material(material_info&& mat) { materials.emplace_back(mat); }
+
     void write() {}
 
     ~output_bundle() {
@@ -108,29 +168,62 @@ struct importer {
 
     importer(output_bundle& out) : out(out) {}
 
-    void add_texture_path(std::filesystem::path p) { textures.emplace(out.reserve_texture_id(), p); }
+    texture_id add_texture_path(std::filesystem::path p) {
+        auto id = out.reserve_texture_id();
+        textures.emplace(id, p);
+        return id;
+    }
+
+    void load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset) {
+        std::cout << "\t\t " << m->mName.C_Str() << " (" << scene->mMaterials[m->mMaterialIndex]->GetName().C_Str() << ") "
+                  << m->mNumVertices << " vertices, " << m->mNumFaces << " faces"
+                  << " \n";
+        size_t vertex_offset = out.start_vertex_gather(m->mNumVertices);
+        for(size_t i = 0; i < m->mNumVertices; ++i) {
+            out.add_vertex(vertex{
+                .position  = m->mVertices[i],
+                .normal    = m->mNormals[i],
+                .tangent   = m->mTangents[i],
+                .tex_coord = aiVector2D(m->mTextureCoords[0][i].x, m->mTextureCoords[0][i].y)});
+        }
+        auto   index_count  = m->mNumFaces * 3;
+        size_t index_offset = out.start_index_gather(index_count);
+        for(size_t f = 0; f < m->mNumFaces; ++f) {
+            assert(m->mFaces[f].mNumIndices == 3);
+            for(int i = 0; i < 3; ++i)
+                out.add_index(m->mFaces[f].mIndices[i]);
+        }
+        out.add_mesh(mesh_info{
+            .vertex_offset  = vertex_offset,
+            .index_offset   = index_offset,
+            .index_count    = index_count,
+            .material_index = m->mMaterialIndex + mat_index_offset});
+    }
 
     void load_model(const path& ip) {
         std::cout << "\t" << ip << "\n";
-        const aiScene* scene
-            = aimp.ReadFile(ip, aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
-        std::cout << "\t\t # meshes: " << scene->mNumMeshes << "; # materials: " << scene->mNumMaterials << "\n";
-        for(size_t i = 0; i < scene->mNumMeshes; ++i) {
-            const auto* m = scene->mMeshes[i];
-            std::cout << "\t\t " << m->mName.C_Str() << " (" << scene->mMaterials[m->mMaterialIndex]->GetName().C_Str()
-                      << ") \n";
-        }
+        const aiScene* scene = aimp.ReadFile(
+            ip, aiProcessPreset_TargetRealtime_Fast
+        );  // aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
+        std::cout << "\t\t " << scene->mNumMeshes << " meshes, " << scene->mNumMaterials << " materials\n";
+
+        size_t start_mat_index = out.num_materials();
+        for(size_t i = 0; i < scene->mNumMeshes; ++i)
+            load_mesh(scene->mMeshes[i], scene, start_mat_index);
+
         for(size_t i = 0; i < scene->mNumMaterials; ++i) {
-            const auto* mat = scene->mMaterials[i];
+            const auto*   mat = scene->mMaterials[i];
+            material_info info;
             for(auto tt : {aiTextureType_DIFFUSE, aiTextureType_NORMALS, aiTextureType_METALNESS, aiTextureType_SHININESS}) {
                 aiString tpath;
                 if(mat->GetTexture(tt, 0, &tpath) == aiReturn_SUCCESS) {
                     std::string tp{tpath.C_Str()};
-                    for(size_t i = 0; i < tp.size(); ++i)
-                        if(tp[i] == '\\') tp[i] = '/';
-                    add_texture_path(ip.parent_path() / tp);
+                    for(char& i : tp)
+                        if(i == '\\') i = '/';
+                    info.set_texture(tt, add_texture_path(ip.parent_path() / tp));
                 }
             }
+            out.add_material(std::move(info));
         }
     }
 
