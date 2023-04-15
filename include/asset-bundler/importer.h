@@ -18,6 +18,10 @@ class importer {
         return id;
     }
 
+    void      load_graph(const aiNode* node);
+    object_id load_object(const aiNode* node);
+    void      load_group(const aiNode* node);
+
     void load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset);
 
     void load_model(const path& ip);

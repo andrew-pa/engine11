@@ -15,6 +15,7 @@ using std::filesystem::path;
 using texture_id                 = uint16_t;
 const texture_id INVALID_TEXTURE = 0;
 using string_id                  = uint32_t;
+using object_id                  = uint32_t;
 
 struct texture_info {
     texture_info(string_id name, uint32_t width, uint32_t height, vk::Format format, stbi_uc* data, size_t len)
@@ -52,10 +53,12 @@ struct mesh_info {
 };
 
 struct material_info {
+    string_id  name;
     texture_id base_color, normals, roughness, metallic;
 
-    material_info()
-        : base_color(INVALID_TEXTURE), normals(INVALID_TEXTURE), roughness(INVALID_TEXTURE), metallic(INVALID_TEXTURE) {}
+    material_info(string_id name)
+        : name(name), base_color(INVALID_TEXTURE), normals(INVALID_TEXTURE), roughness(INVALID_TEXTURE),
+          metallic(INVALID_TEXTURE) {}
 
     void set_texture(aiTextureType type, texture_id texture) {
 #define X(T, N)                                                                                                                \
@@ -69,4 +72,15 @@ struct material_info {
         }
 #undef X
     }
+};
+
+struct object_info {
+    string_id             name;
+    std::vector<uint32_t> mesh_indices;
+    aiMatrix4x4           transform;
+};
+
+struct group_info {
+    string_id              name;
+    std::vector<object_id> objects;
 };

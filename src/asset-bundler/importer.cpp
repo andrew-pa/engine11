@@ -40,12 +40,50 @@ void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index
         .material_index = m->mMaterialIndex + mat_index_offset});
 }
 
+// only support two levels: groups and objects? makes scene graphs simpler but ECS probably won't be a scene graph itself????
+void importer::load_graph(const aiNode* node) {
+    for(size_t i = 0; i < node->mNumChildren; ++i) {
+        auto* c = node->mChildren[i];
+        if(c->mNumMeshes > 0 && c->mNumChildren == 0)
+            load_object(c);
+        else
+            load_group(c);
+    }
+}
+
+void importer::load_group(const aiNode* node) {
+    std::cout << "\t\t\t group: " << node->mName.C_Str() << "\n";
+    std::vector<object_id> members;
+    members.reserve(node->mNumChildren);
+    for(size_t i = 0; i < node->mNumChildren; ++i) {
+        auto* c = node->mChildren[i];
+        if(c->mNumMeshes > 0 && c->mNumChildren == 0)
+            members.emplace_back(load_object(c));
+        else
+            std::cout << "\t\t\t\t invalid subgroup " << c->mNumChildren << "\n";
+    }
+    out.add_group({out.add_string(node->mName.C_Str()), members});
+}
+
+object_id importer::load_object(const aiNode* node) {
+    std::cout << "\t\t\t\t object: " << node->mName.C_Str() << " " << node->mNumMeshes << " meshes \n";
+    // if(!node->mTransformation.IsIdentity()) std::cout << "\t\t\t\t\t transform != identity\n";
+    std::vector<uint32_t> meshes;
+    meshes.reserve(node->mNumMeshes);
+    for(size_t i = 0; i < node->mNumMeshes; ++i)
+        // !!! Assume that we load meshes after we load the graph
+        meshes.emplace_back(node->mMeshes[i] + out.num_meshes());
+    return out.add_object({out.add_string(node->mName.C_Str()), meshes, node->mTransformation});
+}
+
 void importer::load_model(const path& ip) {
     std::cout << "\t" << ip << "\n";
     const aiScene* scene = aimp.ReadFile(
         ip, aiProcessPreset_TargetRealtime_Fast
     );  // aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
-    std::cout << "\t\t " << scene->mNumMeshes << " meshes, " << scene->mNumMaterials << " materials\n";
+    std::cout << "\t\t" << scene->mNumMeshes << " meshes, " << scene->mNumMaterials << " materials\n";
+
+    load_graph(scene->mRootNode);
 
     size_t start_mat_index = out.num_materials();
     for(size_t i = 0; i < scene->mNumMeshes; ++i)
@@ -53,7 +91,7 @@ void importer::load_model(const path& ip) {
 
     for(size_t i = 0; i < scene->mNumMaterials; ++i) {
         const auto*   mat = scene->mMaterials[i];
-        material_info info;
+        material_info info{out.add_string(mat->GetName().C_Str())};
         for(auto tt : {aiTextureType_DIFFUSE, aiTextureType_NORMALS, aiTextureType_METALNESS, aiTextureType_SHININESS}) {
             aiString tpath;
             if(mat->GetTexture(tt, 0, &tpath) == aiReturn_SUCCESS) {
