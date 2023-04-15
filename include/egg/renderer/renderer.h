@@ -1,5 +1,7 @@
 #pragma once
+#include <filesystem>
 #define GLFW_INCLUDE_VULKAN
+#include "egg/bundle.h"
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <memory>
@@ -51,6 +53,8 @@ class renderer {
     renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
 
     void resize(GLFWwindow* window);
+
+    std::shared_ptr<asset_bundle> load_bundle_direct_to_gpu(const std::filesystem::path& p);
 
     void render_frame();
 

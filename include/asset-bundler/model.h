@@ -1,4 +1,5 @@
 #pragma once
+#include "asset-bundler/format.h"
 #include <assimp/scene.h>
 #include <filesystem>
 #include <iostream>
@@ -10,12 +11,7 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-using std::byte;
 using std::filesystem::path;
-using texture_id                 = uint16_t;
-const texture_id INVALID_TEXTURE = 0;
-using string_id                  = uint32_t;
-using object_id                  = uint32_t;
 
 struct texture_info {
     texture_info(string_id name, uint32_t width, uint32_t height, vk::Format format, stbi_uc* data, size_t len)
@@ -48,6 +44,7 @@ struct vertex {
 
 using index_type = uint32_t;
 
+// TODO these are duplicate of mesh_header and material_header
 struct mesh_info {
     size_t vertex_offset, index_offset, index_count, material_index;
 };

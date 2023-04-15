@@ -78,9 +78,8 @@ object_id importer::load_object(const aiNode* node) {
 
 void importer::load_model(const path& ip) {
     std::cout << "\t" << ip << "\n";
-    const aiScene* scene = aimp.ReadFile(
-        ip, aiProcessPreset_TargetRealtime_Fast
-    );  // aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_GenBoundingBoxes | aiProcess_FlipUVs);
+    // TODO: why does aiProcessPreset_TargetRealtime_MaxQuality seg fault because it doesn't generate tangents??
+    const aiScene* scene = aimp.ReadFile(ip, aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs);
     std::cout << "\t\t" << scene->mNumMeshes << " meshes, " << scene->mNumMaterials << " materials\n";
 
     load_graph(scene->mRootNode);

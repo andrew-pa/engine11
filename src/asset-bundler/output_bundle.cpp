@@ -13,6 +13,7 @@ void output_bundle::add_texture(
         height = 1;
     }
     // TODO: we should probably also compute mipmaps
+    // TODO: possibly we could also apply compression with stb_dxt and save more VRAM
     textures.emplace(id, texture_info{ns, width, height, format_from_channels(nchannels), data, width * height * nchannels});
 }
 
@@ -48,23 +49,27 @@ void output_bundle::write() {
 
     // copy data into buffer in correct format
     std::cout << "copying data...\n";
-    auto* header               = (asset_bundle_format::header*)buffer;
-    header->num_strings        = strings.size();
-    header->num_textures       = textures.size();
-    header->num_materials      = materials.size();
-    header->num_meshes         = meshes.size();
-    header->num_objects        = objects.size();
-    header->num_groups         = groups.size();
-    header->num_total_vertices = vertices.size();
-    header->num_total_indices  = indices.size();
-    byte* header_ptr           = buffer + sizeof(asset_bundle_format::header);
-    byte* data_ptr             = buffer + header_size;
+    auto* header = (asset_bundle_format::header*)buffer;
+    *header
+        = {.num_strings        = strings.size(),
+           .num_textures       = textures.size(),
+           .num_materials      = materials.size(),
+           .num_meshes         = meshes.size(),
+           .num_objects        = objects.size(),
+           .num_groups         = groups.size(),
+           .num_total_vertices = vertices.size(),
+           .num_total_indices  = indices.size(),
+           .data_offset        = header_size};
+    byte* header_ptr = buffer + sizeof(asset_bundle_format::header);
+    byte* data_ptr   = buffer + header_size;
     copy_strings(header_ptr, data_ptr, buffer);
-    copy_textures(header_ptr, data_ptr, buffer);
     copy_materials(header_ptr);
     copy_meshes(header_ptr);
     copy_objects(header_ptr, data_ptr, buffer);
     copy_groups(header_ptr, data_ptr, buffer);
+
+    header->gpu_data_offset = (size_t)(data_ptr - buffer);
+    copy_textures(header_ptr, data_ptr, buffer);
     header->vertex_start_offset = (size_t)(data_ptr - buffer);
     memcpy(data_ptr, vertices.data(), vertices.size() * sizeof(vertex));
     data_ptr += vertices.size() * sizeof(vertex);

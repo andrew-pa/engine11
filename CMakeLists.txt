@@ -85,9 +85,11 @@ add_executable(egg
     src/egg/renderer/core/device.cpp
     src/egg/renderer/core/swap_chain.cpp
     src/egg/renderer/imgui_renderer.cpp
-    src/egg/renderer/scene_renderer.cpp)
+    src/egg/renderer/scene_renderer.cpp
+    src/egg/renderer/memory.cpp
+    src/egg/bundle.cpp)
 target_compile_features(egg PUBLIC cxx_std_17)
-target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan VulkanMemoryAllocator imguilib)
+target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan VulkanMemoryAllocator imguilib libzstd_static)
 
 add_executable(asset-bundler src/asset-bundler/main.cpp src/asset-bundler/output_bundle.cpp src/asset-bundler/importer.cpp)
 target_compile_features(asset-bundler PUBLIC cxx_std_17)

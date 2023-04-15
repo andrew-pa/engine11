@@ -6,13 +6,11 @@
 int main(int argc, char* argv[]) {
     GLFWwindow* window;
 
-    /* Initialize the library */
     if(glfwInit() == 0) return -1;
 
     // disable GLFW setting up an OpenGL swapchain
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    // Create a windowed mode window
     window = glfwCreateWindow(1280, 960, "erg", nullptr, nullptr);
     if(window == nullptr) {
         glfwTerminate();
@@ -23,7 +21,8 @@ int main(int argc, char* argv[]) {
 
     renderer rndr{window, world, nullptr};
 
-    /* Loop until the user closes the window */
+    auto bndl = rndr.load_bundle_direct_to_gpu(argv[1]);
+
     while(glfwWindowShouldClose(window) == 0) {
         world.progress();
         rndr.render_frame();
