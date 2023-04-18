@@ -14,7 +14,14 @@
 using std::filesystem::path;
 
 struct texture_info {
-    texture_info(string_id name, uint32_t width, uint32_t height, vk::Format format, stbi_uc* data, size_t len)
+    texture_info(
+        string_id  name,
+        uint32_t   width,
+        uint32_t   height,
+        vk::Format format,
+        stbi_uc*   data,
+        size_t     len
+    )
         : name(name), width(width), height(height), format(format), data(data), len(len) {}
 
     string_id  name;
@@ -31,7 +38,10 @@ inline vk::Format format_from_channels(int nchannels) {
         case 3: return vk::Format::eR8G8B8Unorm;
         case 4: return vk::Format::eR8G8B8A8Unorm;
         default:
-            throw std::runtime_error("invalid number of channels to convert to Vulkan format: " + std::to_string(nchannels));
+            throw std::runtime_error(
+                "invalid number of channels to convert to Vulkan format: "
+                + std::to_string(nchannels)
+            );
     }
 }
 
@@ -54,11 +64,11 @@ struct material_info {
     texture_id base_color, normals, roughness, metallic;
 
     material_info(string_id name)
-        : name(name), base_color(INVALID_TEXTURE), normals(INVALID_TEXTURE), roughness(INVALID_TEXTURE),
-          metallic(INVALID_TEXTURE) {}
+        : name(name), base_color(INVALID_TEXTURE), normals(INVALID_TEXTURE),
+          roughness(INVALID_TEXTURE), metallic(INVALID_TEXTURE) {}
 
     void set_texture(aiTextureType type, texture_id texture) {
-#define X(T, N)                                                                                                                \
+#define X(T, N)                                                                                    \
     case T: N = texture; break;
         switch(type) {
             X(aiTextureType_DIFFUSE, base_color)

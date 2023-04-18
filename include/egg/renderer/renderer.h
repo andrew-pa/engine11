@@ -45,6 +45,8 @@ class renderer {
     VmaAllocator       allocator;
     void               init_device(vk::Instance instance);
 
+    vk::UniqueCommandPool command_pool;
+
     frame_renderer* fr;
     imgui_renderer* ir;
     scene_renderer* sr;

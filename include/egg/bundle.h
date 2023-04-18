@@ -30,4 +30,5 @@ class asset_bundle {
 
     std::string_view                           string(string_id id) const;
     const asset_bundle_format::texture_header& texture(texture_id id) const;
+    const asset_bundle_format::texture_header& texture_by_index(size_t i) const;
 };

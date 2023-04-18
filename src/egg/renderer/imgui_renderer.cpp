@@ -9,7 +9,8 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r), font_upl
     glfwGetWindowContentScale(window, &xsc, &ysc);
     ImGui::GetStyle().ScaleAllSizes(std::max(xsc, ysc));
 
-    vk::DescriptorPoolSize pool_sizes[] = {vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 256)};
+    vk::DescriptorPoolSize pool_sizes[]
+        = {vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 256)};
 
     desc_pool = r->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{
         vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1024, 1, pool_sizes});
@@ -32,7 +33,11 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r), font_upl
     };
 
     vk::SubpassDescription subpasses[]{
-        {vk::SubpassDescriptionFlags(), vk::PipelineBindPoint::eGraphics, 0, nullptr, 1, refs, nullptr, nullptr}
+        {vk::SubpassDescriptionFlags(),
+         vk::PipelineBindPoint::eGraphics,
+         0, nullptr,
+         1, refs,
+         nullptr, nullptr}
     };
 
     vk::SubpassDependency depds[]{

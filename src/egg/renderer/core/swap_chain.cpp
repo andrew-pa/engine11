@@ -2,7 +2,8 @@
 #include <iostream>
 
 void frame_renderer::init_swapchain() {
-    // std::cout << "swapchain extent: " << swapchain_extent.width << "x" << swapchain_extent.height << "\n";
+    // std::cout << "swapchain extent: " << swapchain_extent.width << "x" << swapchain_extent.height
+    // << "\n";
 
     vk::SwapchainCreateInfoKHR cfo{
         {},
@@ -50,6 +51,8 @@ void frame_renderer::init_swapchain() {
     if(swapchain_images.size() != command_buffers.size()) {
         command_buffers.clear();
         command_buffers = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
-            command_pool.get(), vk::CommandBufferLevel::ePrimary, (uint32_t)swapchain_images.size()});
+            r->command_pool.get(),
+            vk::CommandBufferLevel::ePrimary,
+            (uint32_t)swapchain_images.size()});
     }
 }

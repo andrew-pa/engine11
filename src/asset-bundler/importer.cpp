@@ -15,8 +15,9 @@ importer::importer(output_bundle& out, int argc, char* argv[]) : out(out) {
 }
 
 void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset) {
-    std::cout << "\t\t " << m->mName.C_Str() << " (" << scene->mMaterials[m->mMaterialIndex]->GetName().C_Str() << ") "
-              << m->mNumVertices << " vertices, " << m->mNumFaces << " faces"
+    std::cout << "\t\t " << m->mName.C_Str() << " ("
+              << scene->mMaterials[m->mMaterialIndex]->GetName().C_Str() << ") " << m->mNumVertices
+              << " vertices, " << m->mNumFaces << " faces"
               << " \n";
     size_t vertex_offset = out.start_vertex_gather(m->mNumVertices);
     for(size_t i = 0; i < m->mNumVertices; ++i) {
@@ -40,7 +41,8 @@ void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index
         .material_index = m->mMaterialIndex + mat_index_offset});
 }
 
-// only support two levels: groups and objects? makes scene graphs simpler but ECS probably won't be a scene graph itself????
+// only support two levels: groups and objects? makes scene graphs simpler but ECS probably won't be
+// a scene graph itself????
 void importer::load_graph(const aiNode* node) {
     for(size_t i = 0; i < node->mNumChildren; ++i) {
         auto* c = node->mChildren[i];
@@ -66,7 +68,8 @@ void importer::load_group(const aiNode* node) {
 }
 
 object_id importer::load_object(const aiNode* node) {
-    std::cout << "\t\t\t\t object: " << node->mName.C_Str() << " " << node->mNumMeshes << " meshes \n";
+    std::cout << "\t\t\t\t object: " << node->mName.C_Str() << " " << node->mNumMeshes
+              << " meshes \n";
     // if(!node->mTransformation.IsIdentity()) std::cout << "\t\t\t\t\t transform != identity\n";
     std::vector<uint32_t> meshes;
     meshes.reserve(node->mNumMeshes);
@@ -78,9 +81,12 @@ object_id importer::load_object(const aiNode* node) {
 
 void importer::load_model(const path& ip) {
     std::cout << "\t" << ip << "\n";
-    // TODO: why does aiProcessPreset_TargetRealtime_MaxQuality seg fault because it doesn't generate tangents??
-    const aiScene* scene = aimp.ReadFile(ip, aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs);
-    std::cout << "\t\t" << scene->mNumMeshes << " meshes, " << scene->mNumMaterials << " materials\n";
+    // TODO: why does aiProcessPreset_TargetRealtime_MaxQuality seg fault because it doesn't
+    // generate tangents??
+    const aiScene* scene
+        = aimp.ReadFile(ip, aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs);
+    std::cout << "\t\t" << scene->mNumMeshes << " meshes, " << scene->mNumMaterials
+              << " materials\n";
 
     load_graph(scene->mRootNode);
 
@@ -91,7 +97,11 @@ void importer::load_model(const path& ip) {
     for(size_t i = 0; i < scene->mNumMaterials; ++i) {
         const auto*   mat = scene->mMaterials[i];
         material_info info{out.add_string(mat->GetName().C_Str())};
-        for(auto tt : {aiTextureType_DIFFUSE, aiTextureType_NORMALS, aiTextureType_METALNESS, aiTextureType_SHININESS}) {
+        for(auto tt :
+            {aiTextureType_DIFFUSE,
+             aiTextureType_NORMALS,
+             aiTextureType_METALNESS,
+             aiTextureType_SHININESS}) {
             aiString tpath;
             if(mat->GetTexture(tt, 0, &tpath) == aiReturn_SUCCESS) {
                 std::string tp{tpath.C_Str()};

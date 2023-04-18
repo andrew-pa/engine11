@@ -36,8 +36,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     return VK_FALSE;
 }
 
-const vk::ApplicationInfo APP_INFO
-    = vk::ApplicationInfo{"egg", VK_MAKE_VERSION(0, 0, 0), "egg", VK_MAKE_VERSION(0, 0, 0), VK_API_VERSION_1_3};
+const vk::ApplicationInfo APP_INFO = vk::ApplicationInfo{
+    "egg", VK_MAKE_VERSION(0, 0, 0), "egg", VK_MAKE_VERSION(0, 0, 0), VK_API_VERSION_1_3};
 
 vk::Extent2D get_window_extent(GLFWwindow* window) {
     vk::Extent2D e;
@@ -45,7 +45,9 @@ vk::Extent2D get_window_extent(GLFWwindow* window) {
     return e;
 }
 
-renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline) {
+renderer::renderer(
+    GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline
+) {
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
     auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
@@ -60,21 +62,29 @@ renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<rend
 #ifndef NDEBUG
     auto cbco = vk::DebugReportCallbackCreateInfoEXT{
         vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eDebug
-            | vk::DebugReportFlagBitsEXT::ePerformanceWarning | vk::DebugReportFlagBitsEXT::eWarning,
+            | vk::DebugReportFlagBitsEXT::ePerformanceWarning | vk::DebugReportFlagBitsEXT::eWarning
+            | vk::DebugReportFlagBitsEXT::eInformation,
         debug_callback};
     instance->createDebugReportCallbackEXT(
-        &cbco, nullptr, &debug_report_callback, vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr)
+        &cbco,
+        nullptr,
+        &debug_report_callback,
+        vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr)
     );
 #endif
     // create window surface
     VkSurfaceKHR surface;
 
     auto err = glfwCreateWindowSurface(instance.get(), window, nullptr, &surface);
-    if(err != VK_SUCCESS) throw std::runtime_error("failed to create window surface " + std::to_string(err));
+    if(err != VK_SUCCESS)
+        throw std::runtime_error("failed to create window surface " + std::to_string(err));
 
     window_surface = vk::UniqueSurfaceKHR(surface);
 
     init_device(instance.get());
+
+    command_pool = dev->createCommandPoolUnique(vk::CommandPoolCreateInfo{
+        vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphics_queue_family_index});
 
     // read surface capabilities, which should be stable throughout execution
     auto surface_caps   = phy_dev.getSurfaceCapabilitiesKHR(window_surface.get());
@@ -83,7 +93,8 @@ renderer::renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<rend
 
     auto fmts = phy_dev.getSurfaceFormatsKHR(window_surface.get());
     for(auto fmt : fmts)
-        std::cout << "available format " << vk::to_string(fmt.format) << " / " << vk::to_string(fmt.colorSpace) << "\n";
+        std::cout << "available format " << vk::to_string(fmt.format) << " / "
+                  << vk::to_string(fmt.colorSpace) << "\n";
     surface_format = fmts[0];
 
     glfwSetWindowUserPointer(window, this);
@@ -111,10 +122,12 @@ void renderer::resize(GLFWwindow* window) {
 }
 
 // TODO: this function is too big and probably in the wrong class
-std::shared_ptr<asset_bundle> renderer::load_bundle_direct_to_gpu(const std::filesystem::path& path) {
+std::shared_ptr<asset_bundle> renderer::load_bundle_direct_to_gpu(const std::filesystem::path& path
+) {
     std::cout << "loading bundle from " << path << "...";
     std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if(!file) throw std::runtime_error(std::string("failed to load bundle file at: ") + path.c_str());
+    if(!file)
+        throw std::runtime_error(std::string("failed to load bundle file at: ") + path.c_str());
     size_t compressed_buffer_size = (size_t)file.tellg();
     byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
     file.seekg(0);
@@ -125,7 +138,7 @@ std::shared_ptr<asset_bundle> renderer::load_bundle_direct_to_gpu(const std::fil
     std::cout << "decompressing bundle... ";
     size_t size        = ZSTD_decompressBound(compressed_buffer, compressed_buffer_size);
     auto*  bundle_data = (byte*)malloc(size);
-    auto   total_size  = ZSTD_decompress(bundle_data, size, compressed_buffer, compressed_buffer_size);
+    auto total_size = ZSTD_decompress(bundle_data, size, compressed_buffer, compressed_buffer_size);
     std::cout << " got " << total_size << " bytes\n";
     free(compressed_buffer);
 
@@ -138,13 +151,14 @@ std::shared_ptr<asset_bundle> renderer::load_bundle_direct_to_gpu(const std::fil
         allocator,
         vk::BufferCreateInfo{{}, data_size, vk::BufferUsageFlagBits::eTransferSrc},
         VmaAllocationCreateInfo{
-                             .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                             .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+                     | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                              .usage = VMA_MEMORY_USAGE_AUTO}
     };
 
     memcpy(staging_buf.cpu_mapped(), bundle_data + h->gpu_data_offset, data_size);
-    // free data we copied to the GPU
-    bundle_data = (byte*)realloc(bundle_data, h->gpu_data_offset);
+    // free data we copied to the GPU; TODO: sus
+    // bundle_data = (byte*)realloc(bundle_data, h->gpu_data_offset);
 
     auto b = std::make_shared<asset_bundle>(bundle_data);
 

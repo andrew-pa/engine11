@@ -11,8 +11,9 @@ using object_id                  = uint32_t;
 
 namespace asset_bundle_format {
 struct header {
-    size_t num_strings, num_textures, num_materials, num_meshes, num_objects, num_groups, num_total_vertices,
-        vertex_start_offset, num_total_indices, index_start_offset, data_offset, gpu_data_offset;
+    size_t num_strings, num_textures, num_materials, num_meshes, num_objects, num_groups,
+        num_total_vertices, vertex_start_offset, num_total_indices, index_start_offset, data_offset,
+        gpu_data_offset;
 };
 
 struct string_header {
@@ -37,8 +38,8 @@ struct material_header {
     texture_id base_color, normals, roughness, metallic;
 
     material_header(string_id name)
-        : name(name), base_color(INVALID_TEXTURE), normals(INVALID_TEXTURE), roughness(INVALID_TEXTURE),
-          metallic(INVALID_TEXTURE) {}
+        : name(name), base_color(INVALID_TEXTURE), normals(INVALID_TEXTURE),
+          roughness(INVALID_TEXTURE), metallic(INVALID_TEXTURE) {}
 };
 
 struct object_header {

@@ -39,7 +39,8 @@ void renderer::init_device(vk::Instance instance) {
     if(!qfixs.complete()) throw std::runtime_error("failed to find sutable physical device");
 
     auto props = phy_dev.getProperties();
-    std::cout << "using physical device " << props.deviceName << " (" << vk::to_string(props.deviceType) << ")\n";
+    std::cout << "using physical device " << props.deviceName << " ("
+              << vk::to_string(props.deviceType) << ")\n";
 
     // create device queue create infos
     std::vector<vk::DeviceQueueCreateInfo> qu_cfo;
@@ -55,7 +56,7 @@ void renderer::init_device(vk::Instance instance) {
 
     const char* layer_names[] = {
 #ifndef NDEBUG
-        "VK_LAYER_LUNARG_standard_validation",
+        "VK_LAYER_KHRONOS_validation",
 #endif
     };
     uint32_t layer_count =
@@ -69,14 +70,22 @@ void renderer::init_device(vk::Instance instance) {
     const char* extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
     dev = phy_dev.createDeviceUnique(vk::DeviceCreateInfo{
-        {}, (uint32_t)qu_cfo.size(), qu_cfo.data(), layer_count, layer_names, 1, extensions, &device_features});
+        {},
+        (uint32_t)qu_cfo.size(),
+        qu_cfo.data(),
+        layer_count,
+        layer_names,
+        1,
+        extensions,
+        &device_features});
 
     VmaAllocatorCreateInfo cfo = {};
     cfo.instance               = instance;
     cfo.physicalDevice         = phy_dev;
     cfo.device                 = dev.get();
     auto err                   = vmaCreateAllocator(&cfo, &allocator);
-    if(err != VK_SUCCESS) throw std::runtime_error("failed to create GPU allocator: " + std::to_string(err));
+    if(err != VK_SUCCESS)
+        throw std::runtime_error("failed to create GPU allocator: " + std::to_string(err));
 
     graphics_queue = dev->getQueue(qfixs.graphics, 0);
     present_queue  = dev->getQueue(qfixs.present, 0);

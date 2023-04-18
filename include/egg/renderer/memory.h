@@ -10,7 +10,11 @@ class gpu_buffer {
     void*         mapping;
 
   public:
-    gpu_buffer(VmaAllocator allocator, const vk::BufferCreateInfo& buffer_cfo, const VmaAllocationCreateInfo& alloc_cfo);
+    gpu_buffer(
+        VmaAllocator                   allocator,
+        const vk::BufferCreateInfo&    buffer_cfo,
+        const VmaAllocationCreateInfo& alloc_cfo
+    );
     ~gpu_buffer();
 
     gpu_buffer(const gpu_buffer&)            = delete;
@@ -19,4 +23,23 @@ class gpu_buffer {
     inline vk::Buffer get() { return buf; }
 
     inline void* cpu_mapped() { return mapping; }
+};
+
+class gpu_image {
+    VmaAllocator  allocator;
+    VkImage       img;
+    VmaAllocation allocation;
+
+  public:
+    gpu_image(
+        VmaAllocator                   allocator,
+        const vk::ImageCreateInfo&     image_cfo,
+        const VmaAllocationCreateInfo& alloc_cfo
+    );
+    ~gpu_image();
+
+    gpu_image(const gpu_image&)            = delete;
+    gpu_image& operator=(const gpu_image&) = delete;
+
+    inline vk::Image get() { return img; }
 };

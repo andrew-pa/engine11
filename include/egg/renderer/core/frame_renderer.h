@@ -19,7 +19,6 @@ class frame_renderer {
     vk::UniqueSemaphore              image_available, render_finished;
     void                             init_swapchain();
 
-    vk::UniqueCommandPool                command_pool;
     std::vector<vk::UniqueCommandBuffer> command_buffers;
 
   public:
@@ -28,7 +27,8 @@ class frame_renderer {
     void                               reset_swapchain(vk::Extent2D new_swapchain_extent);
     std::vector<vk::UniqueFramebuffer> create_framebuffers(
         vk::RenderPass                                                  render_pass,
-        const std::function<void(size_t, std::vector<vk::ImageView>&)>& custom_image_views = [](auto, auto) {}
+        const std::function<void(size_t, std::vector<vk::ImageView>&)>& custom_image_views
+        = [](auto, auto) {}
     );
 
     frame begin_frame();

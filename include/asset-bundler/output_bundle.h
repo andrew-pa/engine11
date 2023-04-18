@@ -35,7 +35,14 @@ class output_bundle {
 
     texture_id reserve_texture_id() { return next_texture_id++; }
 
-    void add_texture(texture_id id, std::string name, uint32_t width, uint32_t height, int nchannels, stbi_uc* data);
+    void add_texture(
+        texture_id  id,
+        std::string name,
+        uint32_t    width,
+        uint32_t    height,
+        int         nchannels,
+        stbi_uc*    data
+    );
 
     // returns the current vertex offset
     size_t start_vertex_gather(size_t num_verts) {

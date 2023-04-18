@@ -10,9 +10,16 @@
  * geometry (static if you load all assets up front)
  */
 
+struct texture {
+    std::unique_ptr<gpu_image> img;
+
+    texture(std::unique_ptr<gpu_image> img) : img(std::move(img)) {}
+};
+
 class scene_renderer {
-    std::shared_ptr<asset_bundle> current_bundle;
-    std::unique_ptr<gpu_buffer>   vertex_buffer, index_buffer;
+    std::shared_ptr<asset_bundle>           current_bundle;
+    std::unique_ptr<gpu_buffer>             vertex_buffer, index_buffer;
+    std::unordered_map<texture_id, texture> textures;
 
   public:
     scene_renderer(flecs::world& world, std::unique_ptr<render_pipeline> pipeline);

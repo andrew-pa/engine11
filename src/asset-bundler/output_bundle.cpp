@@ -14,7 +14,11 @@ void output_bundle::add_texture(
     }
     // TODO: we should probably also compute mipmaps
     // TODO: possibly we could also apply compression with stb_dxt and save more VRAM
-    textures.emplace(id, texture_info{ns, width, height, format_from_channels(nchannels), data, width * height * nchannels});
+    textures.emplace(
+        id,
+        texture_info{
+            ns, width, height, format_from_channels(nchannels), data, width * height * nchannels}
+    );
 }
 
 std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
@@ -82,8 +86,9 @@ void output_bundle::write() {
     std::cout << "compressing bundle...\n";
     size_t compressed_buffer_size = ZSTD_compressBound(total_size);
     byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
-    size_t actual_compressed_size
-        = ZSTD_compress(compressed_buffer, compressed_buffer_size, buffer, total_size, ZSTD_defaultCLevel());
+    size_t actual_compressed_size = ZSTD_compress(
+        compressed_buffer, compressed_buffer_size, buffer, total_size, ZSTD_defaultCLevel()
+    );
     free(buffer);
     auto* f = fopen(output_path.c_str(), "wb");
     std::cout << "writing output (" << actual_compressed_size << " bytes)...\n";
@@ -97,8 +102,8 @@ void output_bundle::write() {
 
 void output_bundle::copy_strings(byte*& header_ptr, byte*& data_ptr, byte* top) const {
     for(const auto& s : strings) {
-        *((asset_bundle_format::string_header*)header_ptr)
-            = asset_bundle_format::string_header{.id = s.first, .offset = (size_t)(data_ptr - top), .len = s.second.size()};
+        *((asset_bundle_format::string_header*)header_ptr) = asset_bundle_format::string_header{
+            .id = s.first, .offset = (size_t)(data_ptr - top), .len = s.second.size()};
         header_ptr += sizeof(asset_bundle_format::string_header);
         memcpy(data_ptr, s.second.data(), s.second.size());
         data_ptr += s.second.size();

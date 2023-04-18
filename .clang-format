@@ -39,7 +39,7 @@ BraceWrapping:
   BeforeElse:      false
   BeforeLambdaBody: false
   BeforeWhile:     false
-  IndentBraces:    false
+  IndentBraces:    true
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
@@ -52,7 +52,7 @@ BreakConstructorInitializers: BeforeColon
 BreakAfterJavaFieldAnnotations: false
 BreakInheritanceList: AfterComma
 BreakStringLiterals: true
-ColumnLimit:     128
+ColumnLimit:     100
 CompactNamespaces: false
 QualifierAlignment: Leave
 ConstructorInitializerIndentWidth: 4
