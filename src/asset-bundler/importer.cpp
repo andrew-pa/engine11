@@ -79,6 +79,13 @@ object_id importer::load_object(const aiNode* node) {
     return out.add_object({out.add_string(node->mName.C_Str()), meshes, node->mTransformation});
 }
 
+path path_from_assimp(const aiString& tpath) {
+    std::string tp{tpath.C_Str()};
+    for(char& i : tp)
+        if(i == '\\') i = '/';
+    return tp;
+}
+
 void importer::load_model(const path& ip) {
     std::cout << "\t" << ip << "\n";
     // TODO: why does aiProcessPreset_TargetRealtime_MaxQuality seg fault because it doesn't
@@ -97,33 +104,102 @@ void importer::load_model(const path& ip) {
     for(size_t i = 0; i < scene->mNumMaterials; ++i) {
         const auto*   mat = scene->mMaterials[i];
         material_info info{out.add_string(mat->GetName().C_Str())};
-        for(auto tt :
-            {aiTextureType_DIFFUSE,
-             aiTextureType_NORMALS,
-             aiTextureType_METALNESS,
-             aiTextureType_SHININESS}) {
-            aiString tpath;
-            if(mat->GetTexture(tt, 0, &tpath) == aiReturn_SUCCESS) {
-                std::string tp{tpath.C_Str()};
-                for(char& i : tp)
-                    if(i == '\\') i = '/';
-                info.set_texture(tt, add_texture_path(ip.parent_path() / tp));
+        // TODO: read opacity map if present
+        // TODO: convert all RGB8 textures to RGBA8 textures, using opacity map if possible
+        aiString tpath;
+        if(mat->GetTexture(aiTextureType_DIFFUSE, 0, &tpath) == aiReturn_SUCCESS) {
+            auto diffuse_path = path_from_assimp(tpath);
+            auto tid          = add_texture_path(ip.parent_path() / diffuse_path);
+            info.set_texture(aiTextureType_DIFFUSE, tid);
+            if(mat->GetTexture(aiTextureType_OPACITY, 0, &tpath) == aiReturn_SUCCESS) {
+                std::cout << "texture has opacity @ " << tpath.C_Str() << "\n";
+                auto opacity_path = path_from_assimp(tpath);
+                // Blender seems to write the DIFFUSE texture in to this slot if it has an alpha
+                // channel, which is redundant
+                if(diffuse_path != opacity_path)
+                    std::get<1>(textures[tid]) = ip.parent_path() / opacity_path;
             }
         }
+        for(auto tt : {aiTextureType_NORMALS, aiTextureType_METALNESS, aiTextureType_SHININESS})
+            if(mat->GetTexture(tt, 0, &tpath) == aiReturn_SUCCESS)
+                info.set_texture(tt, add_texture_path(ip.parent_path() / path_from_assimp(tpath)));
         out.add_material(std::move(info));
     }
 }
 
-void importer::load_texture(texture_id id, const path& ip) {
-    std::cout << "\t" << ip << " (" << id << ") \n";
-    int   x, y, channels;
-    auto* data = stbi_load(ip.c_str(), &x, &y, &channels, STBI_default);
+bool texture_is_single_value(int w, int h, int channels, const stbi_uc* data) {
+    assert(channels <= 4);
+    for(int y = 0; y < h; ++y) {
+        for(int x = 0; x < w; ++x) {
+            for(int c = 0; c < channels; ++c)
+                if(data[c] != data[c + x * channels + y * w * channels]) return false;
+        }
+    }
+    return true;
+}
+
+stbi_uc* insert_alpha_channel_into_rgb8(int width, int height, stbi_uc* data, stbi_uc* alpha) {
+    stbi_uc* new_data = (stbi_uc*)malloc(width * height * 4);
+    for(int y = 0; y < height; ++y) {
+        for(int x = 0; x < width; ++x) {
+            for(int c = 0; c < 3; ++c)
+                new_data[c + x * 4 + y * width * 4] = data[c + x * 3 + y * width * 3];
+            new_data[3 + x * 4 + y * width * 4] = alpha == nullptr ? 0xff : alpha[x + y * width];
+        }
+    }
+    return new_data;
+}
+
+void importer::load_texture(texture_id id, const std::tuple<path, std::optional<path>>& ip) {
+    const auto& [main_texture_path, opacity_texture_path] = ip;
+    std::cout << "\t" << main_texture_path << " (" << id << ") \n";
+    int   width, height, channels;
+    auto* data = stbi_load(main_texture_path.c_str(), &width, &height, &channels, STBI_default);
     if(data == nullptr) {
-        std::cout << "\t\tfailed to load texture " << ip << ": " << stbi_failure_reason() << "\n";
+        std::cout << "\t\tfailed to load texture " << main_texture_path << ": "
+                  << stbi_failure_reason() << "\n";
         return;
     }
-    std::cout << "\t\tloaded texture " << x << "x" << y << " c=" << channels << "\n";
-    out.add_texture(id, ip.filename(), x, y, channels, data);
+    stbi_uc* opacity_data = nullptr;
+    if(opacity_texture_path.has_value()) {
+        if(channels != 3) {
+            std::cout << "warning: loading opacity map (" << opacity_texture_path.value()
+                      << ") for texture with " << channels << " channels, which is unsupported\n";
+        }
+        int ax, ay;
+        opacity_data
+            = stbi_load(opacity_texture_path.value().c_str(), &ax, &ay, nullptr, STBI_grey);
+        if(opacity_data == nullptr) {
+            std::cout << "\t\tfailed to load texture " << opacity_texture_path.value() << ": "
+                      << stbi_failure_reason() << "\n";
+            return;
+        }
+        if(ax != width || ay != height) {
+            std::cout << "warning: expected opacity map (" << opacity_texture_path.value()
+                      << ") to be the same size as base texture" << ax << "x" << ay << " vs "
+                      << width << "x" << height << "\n";
+            free(opacity_data);
+            opacity_data = nullptr;
+        }
+    }
+    std::cout << "\t\tloaded texture " << width << "x" << height << " c=" << channels << "\n";
+    // check if the texture is silly and we can store it as a single texel
+    // the output stage will truncate the data when it copies it into the file
+    if(texture_is_single_value(width, height, channels, data)
+       && (opacity_data == nullptr || texture_is_single_value(width, height, 1, opacity_data))) {
+        width  = 1;
+        height = 1;
+    }
+    if(channels == 3) {
+        auto* new_data = insert_alpha_channel_into_rgb8(width, height, data, opacity_data);
+        free(data);
+        free(opacity_data);
+        data     = new_data;
+        channels = 4;
+    }
+    // TODO: we should probably also compute mipmaps
+    // TODO: possibly we could also apply compression with stb_dxt and save more VRAM
+    out.add_texture(id, main_texture_path.filename(), width, height, channels, data);
 }
 
 void importer::load() {

@@ -54,11 +54,26 @@ void scene_renderer::load_bundle(
         vk::BufferCopy{bh.index_start_offset - bh.gpu_data_offset, 0, index_size}
     );
 
+    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+    std::vector<vk::ImageMemoryBarrier> undef_to_transfer_barriers,
+        transfer_to_shader_read_barriers;
     for(texture_id i = 0; i < bundle->bundle_header().num_textures; ++i) {
         const auto& th = bundle->texture_by_index(i);
         std::cout << "texture " << bundle->string(th.name) << " " << th.id << "|" << th.name << "|"
                   << th.offset << " " << th.width << "x" << th.height << " "
                   << vk::to_string(vk::Format(th.format)) << "\n";
+        /*auto props = r->phy_dev.getImageFormatProperties(
+            vk::Format(th.format),
+            vk::ImageType::e2D,
+            vk::ImageTiling::eOptimal,
+            vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+            {}
+        );
+        std::cout << vk::to_string(vk::Format(th.format)) << " " << props.maxExtent.width << "x"
+                  << props.maxExtent.height << " " << props.maxMipLevels << " max mips"
+                  << " " << props.maxArrayLayers << " max layers"
+                  << " " << props.maxResourceSize << " max size"
+                  << " " << vk::to_string(props.sampleCounts) << " sample counts\n";*/
         auto img = std::make_unique<gpu_image>(
             r->allocator,
             vk::ImageCreateInfo{
@@ -74,10 +89,43 @@ void scene_renderer::load_bundle(
         },
             VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
         );
+        undef_to_transfer_barriers.emplace_back(
+            vk::AccessFlags(),
+            vk::AccessFlagBits::eTransferWrite,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eTransferDstOptimal,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            img->get(),
+            subres_range
+        );
+        transfer_to_shader_read_barriers.emplace_back(
+            vk::AccessFlagBits::eTransferWrite,
+            vk::AccessFlagBits::eShaderRead,
+            vk::ImageLayout::eTransferDstOptimal,
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            img->get(),
+            subres_range
+        );
+        textures.emplace(th.id, texture{std::move(img)});
+    }
+
+    upload_cmds->pipelineBarrier(
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eTransfer,
+        {},
+        {},
+        {},
+        undef_to_transfer_barriers
+    );
+    for(texture_id i = 0; i < bundle->bundle_header().num_textures; ++i) {
+        const auto& th = bundle->texture_by_index(i);
         upload_cmds->copyBufferToImage(
             staged_data.get(),
-            img->get(),
-            vk::ImageLayout::eShaderReadOnlyOptimal,
+            textures.at(th.id).img->get(),
+            vk::ImageLayout::eTransferDstOptimal,
             vk::BufferImageCopy{
                 th.offset - bh.gpu_data_offset,
                 0,
@@ -87,8 +135,15 @@ void scene_renderer::load_bundle(
                 vk::Extent3D{th.width, th.height, 1},
         }
         );
-        textures.emplace(th.id, texture{std::move(img)});
     }
+    upload_cmds->pipelineBarrier(
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        {},
+        {},
+        {},
+        transfer_to_shader_read_barriers
+    );
 
     upload_cmds->end();
     r->graphics_queue.submit(vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cmds.get()}, nullptr);

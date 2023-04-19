@@ -3,18 +3,19 @@
 #include "asset-bundler/output_bundle.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
+#include <optional>
 #include <stb_image.h>
 
 class importer {
-    Assimp::Importer           aimp;
-    std::vector<path>          models;
-    std::map<texture_id, path> textures;
+    Assimp::Importer                                            aimp;
+    std::vector<path>                                           models;
+    std::map<texture_id, std::tuple<path, std::optional<path>>> textures;
 
     output_bundle& out;
 
     inline texture_id add_texture_path(std::filesystem::path p) {
         auto id = out.reserve_texture_id();
-        textures.emplace(id, p);
+        textures.emplace(id, std::tuple<path, std::optional<path>>{p, {}});
         return id;
     }
 
@@ -26,7 +27,7 @@ class importer {
 
     void load_model(const path& ip);
 
-    void load_texture(texture_id id, const path& ip);
+    void load_texture(texture_id id, const std::tuple<path, std::optional<path>>& ip);
 
   public:
     importer(output_bundle& out, int argc, char* argv[]);

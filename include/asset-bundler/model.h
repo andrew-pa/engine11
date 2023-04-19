@@ -45,8 +45,6 @@ inline vk::Format format_from_channels(int nchannels) {
     }
 }
 
-bool texture_is_single_value(int w, int h, int channels, const stbi_uc* data);
-
 struct vertex {
     aiVector3D position, normal, tangent;
     aiVector2D tex_coord;
