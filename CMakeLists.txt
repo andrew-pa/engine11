@@ -6,6 +6,12 @@ project(egg
     LANGUAGES CXX)
 
 FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm
+    GIT_PROGRESS TRUE)
+FetchContent_MakeAvailable(glm)
+
+FetchContent_Declare(
     flecs
     GIT_REPOSITORY https://github.com/SanderMertens/flecs
     GIT_TAG v3.2.0
@@ -89,7 +95,13 @@ add_executable(egg
     src/egg/renderer/memory.cpp
     src/egg/bundle.cpp)
 target_compile_features(egg PUBLIC cxx_std_17)
-target_link_libraries(egg flecs::flecs_static glfw Vulkan::Vulkan VulkanMemoryAllocator imguilib libzstd_static)
+target_link_libraries(egg
+    flecs::flecs_static
+    glm
+    glfw
+    Vulkan::Vulkan VulkanMemoryAllocator
+    imguilib
+    libzstd_static)
 
 add_executable(asset-bundler src/asset-bundler/main.cpp src/asset-bundler/output_bundle.cpp src/asset-bundler/importer.cpp)
 target_compile_features(asset-bundler PUBLIC cxx_std_17)

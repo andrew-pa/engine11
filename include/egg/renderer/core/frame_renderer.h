@@ -11,7 +11,9 @@ struct frame {
 };
 
 class frame_renderer {
-    renderer*                        r;
+    renderer* r;
+    // TODO: we should probably explicitly deconstruct these because they are possibly getting freed
+    // out of order? (cause of segfault on clean exit maybe? maybe we just need to waitIdle?)
     vk::UniqueSwapchainKHR           swapchain;
     std::vector<vk::Image>           swapchain_images;
     std::vector<vk::UniqueImageView> swapchain_image_views;

@@ -20,12 +20,17 @@ struct texture {
 };
 
 class scene_renderer {
-    std::shared_ptr<asset_bundle>           current_bundle;
+    std::shared_ptr<asset_bundle> current_bundle;
+
+    // TODO: could move static resources into a seperate component to reduce complexity of the
+    // scene_renderer itself
     std::unique_ptr<gpu_buffer>             vertex_buffer, index_buffer, staging_buffer;
     std::unordered_map<texture_id, texture> textures;
-
     void load_geometry_from_bundle(VmaAllocator allocator, vk::CommandBuffer upload_cmds);
-    void load_textures_from_bundle(renderer* r, vk::CommandBuffer upload_cmds);
+    void create_textures_from_bundle(renderer* r);
+    void generate_upload_commands_for_textures(vk::CommandBuffer upload_cmds);
+
+    void texture_window_gui(bool* open);
 
   public:
     scene_renderer(renderer* r, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
