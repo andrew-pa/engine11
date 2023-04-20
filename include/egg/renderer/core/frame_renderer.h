@@ -20,6 +20,7 @@ class frame_renderer {
     void                             init_swapchain();
 
     std::vector<vk::UniqueCommandBuffer> command_buffers;
+    std::vector<vk::UniqueFence>         command_buffer_ready_fences;
 
   public:
     frame_renderer(renderer* r, vk::Extent2D swapchain_extent);

@@ -54,5 +54,10 @@ void frame_renderer::init_swapchain() {
             r->command_pool.get(),
             vk::CommandBufferLevel::ePrimary,
             (uint32_t)swapchain_images.size()});
+        command_buffer_ready_fences.clear();
+        // command buffers always start ready
+        vk::FenceCreateInfo fence_cfo{vk::FenceCreateFlagBits::eSignaled};
+        for(size_t i = 0; i < command_buffers.size(); ++i)
+            command_buffer_ready_fences.emplace_back(r->dev->createFenceUnique(fence_cfo));
     }
 }

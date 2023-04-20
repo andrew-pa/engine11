@@ -187,7 +187,7 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
     // the output stage will truncate the data when it copies it into the file
     if(texture_is_single_value(width, height, channels, data)
        && (opacity_data == nullptr || texture_is_single_value(width, height, 1, opacity_data))) {
-        width  = 1;
+        width  = 4 / channels;
         height = 1;
     }
     if(channels == 3) {

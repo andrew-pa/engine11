@@ -16,6 +16,9 @@ void scene_renderer::load_bundle(
         = std::move(r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
             r->command_pool.get(), vk::CommandBufferLevel::ePrimary, 1})[0]);
 
+    std::cout << "cmd buffer id = " << std::hex << upload_cmds.get() << std::dec << "\n"
+              << "staging buffer id = " << staged_data.get() << "\n";
+
     upload_cmds->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     const auto& bh = bundle->bundle_header();
@@ -146,9 +149,14 @@ void scene_renderer::load_bundle(
     );
 
     upload_cmds->end();
-    r->graphics_queue.submit(vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cmds.get()}, nullptr);
-    r->graphics_queue.waitIdle(
-    );  // TODO: find somewhere else for this to go, that is more efficient
+    auto fence = r->dev->createFenceUnique(vk::FenceCreateInfo{});
+    // TODO: find somewhere else for this to go, that is more efficient
+    r->graphics_queue.submit(
+        vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cmds.get()}, fence.get()
+    );
+    std::cout << "waiting for upload...\n";
+    auto err = r->dev->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
+    std::cout << "upload complete!\n";
 }
 
 void scene_renderer::render_frame(frame& frame) {

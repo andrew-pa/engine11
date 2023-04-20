@@ -58,6 +58,13 @@ frame frame_renderer::begin_frame() {
             );
     }
     frame f{.frame_index = frame_index, .frame_cmd_buf = command_buffers[frame_index].get()};
+    // wait for command buffer to become ready
+    err = r->dev->waitForFences(
+        command_buffer_ready_fences[frame_index].get(), VK_TRUE, UINT64_MAX
+    );
+    if(err != vk::Result::eSuccess)
+        throw std::runtime_error("command buffer failed to become ready: " + vk::to_string(err));
+    r->dev->resetFences(command_buffer_ready_fences[frame_index].get());
     f.frame_cmd_buf.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit}
     );
     return f;
@@ -66,14 +73,17 @@ frame frame_renderer::begin_frame() {
 void frame_renderer::end_frame(frame&& frame) {
     frame.frame_cmd_buf.end();
     vk::PipelineStageFlags wait_stages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
-    r->graphics_queue.submit(vk::SubmitInfo{
-        1,
-        &image_available.get(),
-        wait_stages,
-        1,
-        &command_buffers[frame.frame_index].get(),
-        1,
-        &render_finished.get()});
+    r->graphics_queue.submit(
+        vk::SubmitInfo{
+            1,
+            &image_available.get(),
+            wait_stages,
+            1,
+            &command_buffers[frame.frame_index].get(),
+            1,
+            &render_finished.get()},
+        command_buffer_ready_fences[frame.frame_index].get()
+    );
     r->present_queue.presentKHR(vk::PresentInfoKHR{
         1, &render_finished.get(), 1, &swapchain.get(), &frame.frame_index});
 }

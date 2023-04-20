@@ -111,6 +111,8 @@ renderer::renderer(
 }
 
 renderer::~renderer() {
+    graphics_queue.waitIdle();
+    present_queue.waitIdle();
     delete sr;
     delete ir;
     delete fr;
