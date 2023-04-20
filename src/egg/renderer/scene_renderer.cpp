@@ -1,4 +1,5 @@
 #include "egg/renderer/scene_renderer.h"
+#include <egg/renderer/imgui_renderer.h>
 #include <iostream>
 
 struct vertex {
@@ -7,7 +8,35 @@ struct vertex {
 
 using index_type = uint32_t;
 
-scene_renderer::scene_renderer(flecs::world& world, std::unique_ptr<render_pipeline> pipeline) {}
+scene_renderer::scene_renderer(
+    renderer* r, flecs::world& world, std::unique_ptr<render_pipeline> pipeline
+) {
+    r->ir->add_window("Textures", [&](bool* open) {
+        ImGui::Begin("Textures", open);
+        if(ImGui::BeginTable("#TextureTable", 4, ImGuiTableFlags_Resizable)) {
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableSetupColumn("Format");
+            ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("Preview");
+            ImGui::TableHeadersRow();
+            for(auto& [id, tx] : textures) {
+                const auto& th = current_bundle->texture(id);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                auto name = std::string(current_bundle->string(th.name));
+                ImGui::Text("%s", name.c_str());
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", vk::to_string(vk::Format(th.format)).c_str());
+                ImGui::TableNextColumn();
+                ImGui::Text("%u x %u", th.width, th.height);
+                ImGui::TableNextColumn();
+                ImGui::Image((ImTextureID)tx.imgui_id, ImVec2(256, 256));
+            }
+            ImGui::EndTable();
+        }
+        ImGui::End();
+    });
+}
 
 void scene_renderer::start_resource_upload(
     renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
@@ -26,7 +55,7 @@ void scene_renderer::start_resource_upload(
     bundle->take_gpu_data((byte*)staging_buffer->cpu_mapped());
 
     load_geometry_from_bundle(r->allocator, upload_cmds);
-    load_textures_from_bundle(r->allocator, upload_cmds);
+    load_textures_from_bundle(r, upload_cmds);
 }
 
 void scene_renderer::load_geometry_from_bundle(
@@ -68,9 +97,7 @@ void scene_renderer::load_geometry_from_bundle(
     );
 }
 
-void scene_renderer::load_textures_from_bundle(
-    VmaAllocator allocator, vk::CommandBuffer upload_cmds
-) {
+void scene_renderer::load_textures_from_bundle(renderer* r, vk::CommandBuffer upload_cmds) {
     const auto& bh = current_bundle->bundle_header();
 
     auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
@@ -94,7 +121,7 @@ void scene_renderer::load_textures_from_bundle(
                   << " " << props.maxResourceSize << " max size"
                   << " " << vk::to_string(props.sampleCounts) << " sample counts\n";*/
         auto img = std::make_unique<gpu_image>(
-            allocator,
+            r->allocator,
             vk::ImageCreateInfo{
                 {},
                 vk::ImageType::e2D,
@@ -108,6 +135,15 @@ void scene_renderer::load_textures_from_bundle(
         },
             VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
         );
+
+        auto img_view = r->dev->createImageViewUnique(vk::ImageViewCreateInfo{
+            {},
+            img->get(),
+            vk::ImageViewType::e2D,
+            vk::Format(th.format),
+            vk::ComponentMapping{},
+            subres_range});
+
         undef_to_transfer_barriers.emplace_back(
             vk::AccessFlags(),
             vk::AccessFlagBits::eTransferWrite,
@@ -128,7 +164,10 @@ void scene_renderer::load_textures_from_bundle(
             img->get(),
             subres_range
         );
-        textures.emplace(th.id, texture{std::move(img)});
+
+        auto imgui_id = r->ir->add_texture(img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        textures.emplace(th.id, texture{std::move(img), std::move(img_view), imgui_id});
     }
 
     upload_cmds.pipelineBarrier(

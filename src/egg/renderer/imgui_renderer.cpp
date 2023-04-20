@@ -15,6 +15,18 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
     desc_pool = r->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{
         vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1024, 1, pool_sizes});
 
+    image_sampler = r->dev->createSamplerUnique(vk::SamplerCreateInfo{
+        {},
+        vk::Filter::eNearest,
+        vk::Filter::eNearest,
+        vk::SamplerMipmapMode::eNearest,
+        vk::SamplerAddressMode::eClampToEdge,
+        vk::SamplerAddressMode::eClampToEdge,
+        vk::SamplerAddressMode::eClampToEdge,
+        0.f,
+        VK_FALSE,
+        16.f});
+
     // create swapchain independent create info for render pass
     vk::AttachmentDescription attachments[]{
         {vk::AttachmentDescriptionFlags(), // swapchain color
@@ -117,4 +129,9 @@ void imgui_renderer::render_frame(frame& frame) {
 
 void imgui_renderer::add_window(const std::string& name, const std::function<void(bool*)>& draw) {
     windows[name] = {draw, false};
+}
+
+uint64_t imgui_renderer::add_texture(vk::ImageView image_view, vk::ImageLayout image_layout) {
+    return (uint64_t
+    )ImGui_ImplVulkan_AddTexture(image_sampler.get(), image_view, (VkImageLayout)image_layout);
 }

@@ -12,8 +12,11 @@
 
 struct texture {
     std::unique_ptr<gpu_image> img;
+    vk::UniqueImageView        img_view;
+    uint64_t                   imgui_id;
 
-    texture(std::unique_ptr<gpu_image> img) : img(std::move(img)) {}
+    texture(std::unique_ptr<gpu_image> img, vk::UniqueImageView&& iv, uint64_t id)
+        : img(std::move(img)), img_view(std::move(iv)), imgui_id(id) {}
 };
 
 class scene_renderer {
@@ -22,10 +25,10 @@ class scene_renderer {
     std::unordered_map<texture_id, texture> textures;
 
     void load_geometry_from_bundle(VmaAllocator allocator, vk::CommandBuffer upload_cmds);
-    void load_textures_from_bundle(VmaAllocator allocator, vk::CommandBuffer upload_cmds);
+    void load_textures_from_bundle(renderer* r, vk::CommandBuffer upload_cmds);
 
   public:
-    scene_renderer(flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
+    scene_renderer(renderer* r, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
     void start_resource_upload(
         renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
     );

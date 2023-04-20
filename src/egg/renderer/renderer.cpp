@@ -104,7 +104,7 @@ renderer::renderer(
     fr = new frame_renderer(this, get_window_extent(window));
     ir = new imgui_renderer(this, window);
     ir->create_swapchain_depd(fr);
-    sr = new scene_renderer(world, std::move(pipeline));
+    sr = new scene_renderer(this, world, std::move(pipeline));
 }
 
 renderer::~renderer() {
