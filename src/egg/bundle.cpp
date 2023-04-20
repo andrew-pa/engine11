@@ -1,6 +1,10 @@
 #include "egg/bundle.h"
 #include <cassert>
+#include <cstring>
+#include <fstream>
 #include <iostream>
+#define ZSTD_STATIC_LINKING_ONLY
+#include <zstd.h>
 
 using asset_bundle_format::group_header;
 using asset_bundle_format::header;
@@ -10,7 +14,27 @@ using asset_bundle_format::object_header;
 using asset_bundle_format::string_header;
 using asset_bundle_format::texture_header;
 
-asset_bundle::asset_bundle(byte* bundle_data) : bundle_data(bundle_data) {
+asset_bundle::asset_bundle(const std::filesystem::path& location) {
+    std::cout << "loading bundle from " << location << "...";
+    std::cout.flush();
+    std::ifstream file(location, std::ios::ate | std::ios::binary);
+    if(!file)
+        throw std::runtime_error(std::string("failed to load bundle file at: ") + location.c_str());
+    size_t compressed_buffer_size = (size_t)file.tellg();
+    byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
+    file.seekg(0);
+    file.read((char*)compressed_buffer, compressed_buffer_size);
+    file.close();
+    std::cout << " read " << compressed_buffer_size << " bytes\n";
+
+    std::cout << "decompressing bundle... ";
+    std::cout.flush();
+    size_t size = ZSTD_decompressBound(compressed_buffer, compressed_buffer_size);
+    bundle_data = (byte*)malloc(size);
+    total_size  = ZSTD_decompress(bundle_data, size, compressed_buffer, compressed_buffer_size);
+    std::cout << " got " << total_size << " bytes\n";
+    free(compressed_buffer);
+
     header           = (struct header*)bundle_data;
     byte* header_ptr = bundle_data + sizeof(asset_bundle_format::header);
 
@@ -29,6 +53,9 @@ asset_bundle::asset_bundle(byte* bundle_data) : bundle_data(bundle_data) {
     header_ptr += sizeof(texture_header) * header->num_textures;
     assert(header_ptr == bundle_data + header->data_offset);
 
+    std::cout << "bundle CPU data " << header->gpu_data_offset << " bytes, "
+              << " GPU data " << gpu_data_size() << " bytes\n";
+
     /*for(size_t i = 0; i < header->num_strings; ++i) {
         std::cout << "string " << i
             << "/" << strings[i].id
@@ -46,6 +73,13 @@ asset_bundle::asset_bundle(byte* bundle_data) : bundle_data(bundle_data) {
 }
 
 asset_bundle::~asset_bundle() { free(bundle_data); }
+
+void asset_bundle::take_gpu_data(byte* dest) {
+    assert(!gpu_data_taken);
+    memcpy(dest, bundle_data + header->gpu_data_offset, gpu_data_size());
+    bundle_data    = (byte*)realloc(bundle_data, header->gpu_data_offset);
+    gpu_data_taken = true;
+}
 
 std::string_view asset_bundle::string(string_id id) const {
     auto* sh = strings + (id - 1);

@@ -1,5 +1,6 @@
 #pragma once
 #include "asset-bundler/format.h"
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -11,7 +12,9 @@ class asset_bundle {
     // std::vector<asset_bundle_format::material_header> materials;
     // std::vector<asset_bundle_format::object_header> objects;
     // std::vector<asset_bundle_format::group_header> groups;
-    byte* bundle_data;
+    byte*  bundle_data    = nullptr;
+    size_t total_size     = 0;
+    bool   gpu_data_taken = false;
 
     asset_bundle_format::header*          header;
     asset_bundle_format::string_header*   strings;
@@ -22,11 +25,15 @@ class asset_bundle {
     asset_bundle_format::group_header*    groups;
 
   public:
-    // takes ownership of bundle_data
-    asset_bundle(byte* bundle_data);
+    asset_bundle(const std::filesystem::path& location);
     ~asset_bundle();
 
     inline const asset_bundle_format::header& bundle_header() const { return *header; }
+
+    // dest must be big enough to store all GPU data
+    void take_gpu_data(byte* dest);
+
+    inline size_t gpu_data_size() const { return total_size - bundle_header().gpu_data_offset; }
 
     std::string_view                           string(string_id id) const;
     const asset_bundle_format::texture_header& texture(texture_id id) const;

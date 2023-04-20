@@ -9,7 +9,6 @@ class imgui_renderer {
     vk::UniqueRenderPass                                                         render_pass;
     vk::RenderPassBeginInfo                                                      start_render_pass;
     std::vector<vk::UniqueFramebuffer>                                           framebuffers;
-    char                                                                         font_upload_state;
     std::unordered_map<std::string, std::pair<std::function<void(bool*)>, bool>> windows;
 
   public:
@@ -19,6 +18,9 @@ class imgui_renderer {
     void create_swapchain_depd(frame_renderer* fr);
 
     void add_window(const std::string& name, const std::function<void(bool*)>& draw);
+
+    void start_resource_upload(vk::CommandBuffer upload_cmds);
+    void resource_upload_cleanup();
 
     void render_frame(frame& frame);
 };

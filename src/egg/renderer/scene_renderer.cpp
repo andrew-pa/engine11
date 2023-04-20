@@ -9,40 +9,50 @@ using index_type = uint32_t;
 
 scene_renderer::scene_renderer(flecs::world& world, std::unique_ptr<render_pipeline> pipeline) {}
 
-void scene_renderer::load_bundle(
-    renderer* r, std::shared_ptr<asset_bundle> bundle, gpu_buffer&& staged_data
+void scene_renderer::start_resource_upload(
+    renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
 ) {
-    vk::UniqueCommandBuffer upload_cmds
-        = std::move(r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
-            r->command_pool.get(), vk::CommandBufferLevel::ePrimary, 1})[0]);
+    current_bundle = bundle;
 
-    std::cout << "cmd buffer id = " << std::hex << upload_cmds.get() << std::dec << "\n"
-              << "staging buffer id = " << staged_data.get() << "\n";
-
-    upload_cmds->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-
-    const auto& bh = bundle->bundle_header();
-
-    auto vertex_size = bh.num_total_vertices * sizeof(vertex);
-    vertex_buffer    = std::make_unique<gpu_buffer>(
+    staging_buffer = std::make_unique<gpu_buffer>(
         r->allocator,
+        vk::BufferCreateInfo{{}, bundle->gpu_data_size(), vk::BufferUsageFlagBits::eTransferSrc},
+        VmaAllocationCreateInfo{
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+                     | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = VMA_MEMORY_USAGE_AUTO}
+    );
+
+    bundle->take_gpu_data((byte*)staging_buffer->cpu_mapped());
+
+    load_geometry_from_bundle(r->allocator, upload_cmds);
+    load_textures_from_bundle(r->allocator, upload_cmds);
+}
+
+void scene_renderer::load_geometry_from_bundle(
+    VmaAllocator allocator, vk::CommandBuffer upload_cmds
+) {
+    const auto& bh          = current_bundle->bundle_header();
+    auto        vertex_size = bh.num_total_vertices * sizeof(vertex);
+    vertex_buffer           = std::make_unique<gpu_buffer>(
+        allocator,
         vk::BufferCreateInfo{
-               {},
+                      {},
             vertex_size,
             vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst},
         VmaAllocationCreateInfo{
-               .usage = VMA_MEMORY_USAGE_AUTO,
+                      .usage = VMA_MEMORY_USAGE_AUTO,
         }
     );
-    upload_cmds->copyBuffer(
-        staged_data.get(),
+    upload_cmds.copyBuffer(
+        staging_buffer->get(),
         vertex_buffer->get(),
         vk::BufferCopy{bh.vertex_start_offset - bh.gpu_data_offset, 0, vertex_size}
     );
 
     auto index_size = bh.num_total_indices * sizeof(index_type);
     index_buffer    = std::make_unique<gpu_buffer>(
-        r->allocator,
+        allocator,
         vk::BufferCreateInfo{
                {},
             index_size,
@@ -51,19 +61,25 @@ void scene_renderer::load_bundle(
                .usage = VMA_MEMORY_USAGE_AUTO,
         }
     );
-    upload_cmds->copyBuffer(
-        staged_data.get(),
+    upload_cmds.copyBuffer(
+        staging_buffer->get(),
         index_buffer->get(),
         vk::BufferCopy{bh.index_start_offset - bh.gpu_data_offset, 0, index_size}
     );
+}
+
+void scene_renderer::load_textures_from_bundle(
+    VmaAllocator allocator, vk::CommandBuffer upload_cmds
+) {
+    const auto& bh = current_bundle->bundle_header();
 
     auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
     std::vector<vk::ImageMemoryBarrier> undef_to_transfer_barriers,
         transfer_to_shader_read_barriers;
-    for(texture_id i = 0; i < bundle->bundle_header().num_textures; ++i) {
-        const auto& th = bundle->texture_by_index(i);
-        std::cout << "texture " << bundle->string(th.name) << " " << th.id << "|" << th.name << "|"
-                  << th.offset << " " << th.width << "x" << th.height << " "
+    for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
+        const auto& th = current_bundle->texture_by_index(i);
+        std::cout << "texture " << current_bundle->string(th.name) << " " << th.id << "|" << th.name
+                  << "|" << th.offset << " " << th.width << "x" << th.height << " "
                   << vk::to_string(vk::Format(th.format)) << "\n";
         /*auto props = r->phy_dev.getImageFormatProperties(
             vk::Format(th.format),
@@ -78,7 +94,7 @@ void scene_renderer::load_bundle(
                   << " " << props.maxResourceSize << " max size"
                   << " " << vk::to_string(props.sampleCounts) << " sample counts\n";*/
         auto img = std::make_unique<gpu_image>(
-            r->allocator,
+            allocator,
             vk::ImageCreateInfo{
                 {},
                 vk::ImageType::e2D,
@@ -115,7 +131,7 @@ void scene_renderer::load_bundle(
         textures.emplace(th.id, texture{std::move(img)});
     }
 
-    upload_cmds->pipelineBarrier(
+    upload_cmds.pipelineBarrier(
         vk::PipelineStageFlagBits::eTransfer,
         vk::PipelineStageFlagBits::eTransfer,
         {},
@@ -123,10 +139,10 @@ void scene_renderer::load_bundle(
         {},
         undef_to_transfer_barriers
     );
-    for(texture_id i = 0; i < bundle->bundle_header().num_textures; ++i) {
-        const auto& th = bundle->texture_by_index(i);
-        upload_cmds->copyBufferToImage(
-            staged_data.get(),
+    for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
+        const auto& th = current_bundle->texture_by_index(i);
+        upload_cmds.copyBufferToImage(
+            staging_buffer->get(),
             textures.at(th.id).img->get(),
             vk::ImageLayout::eTransferDstOptimal,
             vk::BufferImageCopy{
@@ -139,7 +155,7 @@ void scene_renderer::load_bundle(
         }
         );
     }
-    upload_cmds->pipelineBarrier(
+    upload_cmds.pipelineBarrier(
         vk::PipelineStageFlagBits::eTransfer,
         vk::PipelineStageFlagBits::eFragmentShader,
         {},
@@ -147,17 +163,9 @@ void scene_renderer::load_bundle(
         {},
         transfer_to_shader_read_barriers
     );
-
-    upload_cmds->end();
-    auto fence = r->dev->createFenceUnique(vk::FenceCreateInfo{});
-    // TODO: find somewhere else for this to go, that is more efficient
-    r->graphics_queue.submit(
-        vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cmds.get()}, fence.get()
-    );
-    std::cout << "waiting for upload...\n";
-    auto err = r->dev->waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
-    std::cout << "upload complete!\n";
 }
+
+void scene_renderer::resource_upload_cleanup() { staging_buffer.reset(); }
 
 void scene_renderer::render_frame(frame& frame) {
     // frame.frame_cmd_buf.beginRenderPass({}, vk::SubpassContents::eSecondaryCommandBuffers);

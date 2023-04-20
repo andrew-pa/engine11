@@ -4,10 +4,7 @@
 #include "egg/renderer/imgui_renderer.h"
 #include "egg/renderer/memory.h"
 #include "egg/renderer/scene_renderer.h"
-#include <fstream>
 #include <iostream>
-#define ZSTD_STATIC_LINKING_ONLY
-#include <zstd.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugReportFlagsEXT      flags,
@@ -118,55 +115,37 @@ renderer::~renderer() {
     delete fr;
 }
 
+void renderer::start_resource_upload(const std::shared_ptr<asset_bundle>& assets) {
+    upload_cmds  = std::move(dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
+        command_pool.get(), vk::CommandBufferLevel::ePrimary, 1})[0]);
+    upload_fence = dev->createFenceUnique(vk::FenceCreateInfo{});
+
+    upload_cmds->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    sr->start_resource_upload(this, assets, upload_cmds.get());
+    ir->start_resource_upload(upload_cmds.get());
+
+    upload_cmds->end();
+    graphics_queue.submit(
+        vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cmds.get()}, upload_fence.get()
+    );
+}
+
+void renderer::wait_for_resource_upload_to_finish() {
+    auto err = dev->waitForFences(upload_fence.get(), VK_TRUE, UINT64_MAX);
+    if(err != vk::Result::eSuccess) {
+        throw std::runtime_error(
+            "failed to wait for resource upload: " + vk::to_string(vk::Result(err))
+        );
+    }
+    sr->resource_upload_cleanup();
+    ir->resource_upload_cleanup();
+    upload_cmds.reset();
+}
+
 void renderer::resize(GLFWwindow* window) {
     fr->reset_swapchain(get_window_extent(window));
     ir->create_swapchain_depd(fr);
-}
-
-// TODO: this function is too big and probably in the wrong class
-std::shared_ptr<asset_bundle> renderer::load_bundle_direct_to_gpu(const std::filesystem::path& path
-) {
-    std::cout << "loading bundle from " << path << "...";
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if(!file)
-        throw std::runtime_error(std::string("failed to load bundle file at: ") + path.c_str());
-    size_t compressed_buffer_size = (size_t)file.tellg();
-    byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
-    file.seekg(0);
-    file.read((char*)compressed_buffer, compressed_buffer_size);
-    file.close();
-    std::cout << " read " << compressed_buffer_size << " bytes\n";
-
-    std::cout << "decompressing bundle... ";
-    size_t size        = ZSTD_decompressBound(compressed_buffer, compressed_buffer_size);
-    auto*  bundle_data = (byte*)malloc(size);
-    auto total_size = ZSTD_decompress(bundle_data, size, compressed_buffer, compressed_buffer_size);
-    std::cout << " got " << total_size << " bytes\n";
-    free(compressed_buffer);
-
-    auto* h         = (asset_bundle_format::header*)bundle_data;
-    auto  data_size = total_size - h->gpu_data_offset;
-    std::cout << "CPU data " << h->gpu_data_offset << " bytes"
-              << " GPU data " << data_size << " bytes\n";
-
-    gpu_buffer staging_buf{
-        allocator,
-        vk::BufferCreateInfo{{}, data_size, vk::BufferUsageFlagBits::eTransferSrc},
-        VmaAllocationCreateInfo{
-                             .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
-                     | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                             .usage = VMA_MEMORY_USAGE_AUTO}
-    };
-
-    memcpy(staging_buf.cpu_mapped(), bundle_data + h->gpu_data_offset, data_size);
-    // free data we copied to the GPU; TODO: sus
-    // bundle_data = (byte*)realloc(bundle_data, h->gpu_data_offset);
-
-    auto b = std::make_shared<asset_bundle>(bundle_data);
-
-    sr->load_bundle(this, b, std::move(staging_buf));
-
-    return b;
 }
 
 void renderer::render_frame() {

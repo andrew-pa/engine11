@@ -21,13 +21,17 @@ int main(int argc, char* argv[]) {
 
     renderer rndr{window, world, nullptr};
 
-    auto bndl = rndr.load_bundle_direct_to_gpu(argv[1]);
+    auto bndl = std::make_shared<asset_bundle>(argv[1]);
+    rndr.start_resource_upload(bndl);
 
+    world.progress();
+
+    rndr.wait_for_resource_upload_to_finish();
     while(glfwWindowShouldClose(window) == 0) {
-        world.progress();
         rndr.render_frame();
         glfwSwapBuffers(window);
         glfwPollEvents();
+        world.progress();
     }
 
     glfwTerminate();

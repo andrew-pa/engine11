@@ -47,6 +47,9 @@ class renderer {
 
     vk::UniqueCommandPool command_pool;
 
+    vk::UniqueCommandBuffer upload_cmds;
+    vk::UniqueFence         upload_fence;
+
     frame_renderer* fr;
     imgui_renderer* ir;
     scene_renderer* sr;
@@ -54,9 +57,10 @@ class renderer {
   public:
     renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
 
-    void resize(GLFWwindow* window);
+    void start_resource_upload(const std::shared_ptr<asset_bundle>& assets);
+    void wait_for_resource_upload_to_finish();
 
-    std::shared_ptr<asset_bundle> load_bundle_direct_to_gpu(const std::filesystem::path& p);
+    void resize(GLFWwindow* window);
 
     void render_frame();
 

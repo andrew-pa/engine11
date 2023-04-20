@@ -2,7 +2,7 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 
-imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r), font_upload_state(0) {
+imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     float xsc, ysc;
@@ -85,14 +85,13 @@ void imgui_renderer::create_swapchain_depd(frame_renderer* fr) {
     start_render_pass.setRenderArea(vk::Rect2D(vk::Offset2D(), fr->extent()));
 }
 
+void imgui_renderer::start_resource_upload(vk::CommandBuffer upload_cmds) {
+    ImGui_ImplVulkan_CreateFontsTexture(upload_cmds);
+}
+
+void imgui_renderer::resource_upload_cleanup() { ImGui_ImplVulkan_DestroyFontUploadObjects(); }
+
 void imgui_renderer::render_frame(frame& frame) {
-    if(font_upload_state == 0) {
-        font_upload_state = 1;
-        ImGui_ImplVulkan_CreateFontsTexture(frame.frame_cmd_buf);
-    } else if(font_upload_state == 1) {
-        font_upload_state = 2;
-        ImGui_ImplVulkan_DestroyFontUploadObjects();
-    }
     start_render_pass.setFramebuffer(framebuffers[frame.frame_index].get());
     frame.frame_cmd_buf.beginRenderPass(start_render_pass, vk::SubpassContents::eInline);
     ImGui_ImplVulkan_NewFrame();
