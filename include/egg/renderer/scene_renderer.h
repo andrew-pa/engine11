@@ -25,7 +25,9 @@ class scene_renderer {
 
     // TODO: could move static resources into a seperate component to reduce complexity of the
     // scene_renderer itself
-    std::unique_ptr<gpu_buffer>             vertex_buffer, index_buffer, staging_buffer;
+    std::unique_ptr<gpu_buffer> vertex_buffer, index_buffer, staging_buffer;
+    // TODO: these texture maps are dubious, maybe we should make the linear ordering of texture ids
+    // explicit so things are faster
     std::unordered_map<texture_id, texture> textures;
     void load_geometry_from_bundle(VmaAllocator allocator, vk::CommandBuffer upload_cmds);
     void create_textures_from_bundle(renderer* r);
@@ -35,11 +37,19 @@ class scene_renderer {
 
     gpu_shared_value_heap<glm::mat4> transforms;
 
+    vk::UniqueSampler             texture_sampler;
+    vk::UniqueDescriptorSetLayout scene_data_desc_set_layout;
+    vk::UniqueDescriptorPool      scene_data_desc_set_pool;
+    vk::DescriptorSet             scene_data_desc_set;  // lifetime is tied to pool
+
   public:
-    scene_renderer(renderer* r, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
+    scene_renderer(renderer* r, flecs::world& world, std::unique_ptr<rendering_algorithm> algo);
+
     void start_resource_upload(
         renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
     );
+    void setup_scene_post_upload(renderer* r);
     void resource_upload_cleanup();
+
     void render_frame(frame& frame);
 };

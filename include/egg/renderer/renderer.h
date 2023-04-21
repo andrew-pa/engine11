@@ -8,19 +8,35 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
-/// an actual rendering algorithm ie shaders, pipelines and building command
-/// buffers
-class render_pipeline {
-  public:
-    virtual ~render_pipeline() = default;
-};
-
 /// creates & manages swap chains, framebuffers, per-frame command buffer
 class frame_renderer;
 /// initializes and renders ImGUI layer
 class imgui_renderer;
 /// synchronizes scene data to GPU and manages actual rendering of the scene via a render pipeline
 class scene_renderer;
+
+/// an actual rendering algorithm ie shaders, pipelines and building command
+/// buffers
+class rendering_algorithm {
+  public:
+    // create render pass, descriptor pools etc
+    virtual void create_static_objects(
+        vk::Device device, vk::AttachmentDescription present_surface_attachment
+    ) = delete;
+    // create pipeline layout and any algorithm specific descriptor sets/set layouts
+    virtual void create_pipeline_layouts(
+        vk::Device              device,
+        vk::DescriptorSetLayout scene_data_desc_set_layout,
+        vk::PushConstantRange   per_object_push_constants_range
+    ) = delete;
+    // load shaders and create pipelines
+    virtual void create_pipelines(vk::Device device) = delete;
+    // create framebuffers
+    virtual void create_framebuffers(frame_renderer* fr) = delete;
+    // generate command buffers
+    virtual void generate_command_buffer(vk::CommandBuffer cb, uint32_t frame_index) = delete;
+    virtual ~rendering_algorithm()                                                   = default;
+};
 
 /*
  * responsibilities:
@@ -55,7 +71,9 @@ class renderer {
     scene_renderer* sr;
 
   public:
-    renderer(GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
+    renderer(
+        GLFWwindow* window, flecs::world& world, std::unique_ptr<rendering_algorithm> pipeline
+    );
 
     void start_resource_upload(const std::shared_ptr<asset_bundle>& assets);
     void wait_for_resource_upload_to_finish();

@@ -5,7 +5,7 @@
 
 /* TODO:
  * transforms uniform buffer & allocator +
- * descriptor sets
+ * descriptor sets (layouts, sets) +
  * render pipeline
  * handle scene updates
  * ****/
@@ -21,7 +21,7 @@ struct vertex {
 using index_type = uint32_t;
 
 scene_renderer::scene_renderer(
-    renderer* r, flecs::world& world, std::unique_ptr<render_pipeline> pipeline
+    renderer* r, flecs::world& world, std::unique_ptr<rendering_algorithm> algo
 )
     : transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
@@ -197,6 +197,78 @@ void scene_renderer::generate_upload_commands_for_textures(vk::CommandBuffer upl
         {},
         transfer_to_shader_read_barriers
     );
+}
+
+void scene_renderer::setup_scene_post_upload(renderer* r) {
+    texture_sampler = r->dev->createSamplerUnique(vk::SamplerCreateInfo{
+        {},
+        vk::Filter::eLinear,
+        vk::Filter::eLinear,
+        vk::SamplerMipmapMode::eLinear,
+        vk::SamplerAddressMode::eRepeat,
+        vk::SamplerAddressMode::eRepeat,
+        vk::SamplerAddressMode::eRepeat,
+        0.f,
+        VK_FALSE,
+        16.f});
+
+    vk::DescriptorSetLayoutBinding bindings[] = {
+  // transforms storage buffer
+        {0, vk::DescriptorType::eStorageBuffer,     1,           vk::ShaderStageFlagBits::eAll},
+ // scene textures
+        {1,
+         vk::DescriptorType::eCombinedImageSampler,
+         (uint32_t)current_bundle->bundle_header().num_textures,
+         vk::ShaderStageFlagBits::eAll                                                        }
+    };
+
+    scene_data_desc_set_layout
+        = r->dev->createDescriptorSetLayoutUnique(vk::DescriptorSetLayoutCreateInfo{
+            {}, sizeof(bindings) / sizeof(bindings[0]), bindings});
+
+    vk::DescriptorPoolSize pool_sizes[] = {
+        {vk::DescriptorType::eStorageBuffer,        1          },
+        {vk::DescriptorType::eCombinedImageSampler,
+         (uint32_t)current_bundle->bundle_header().num_textures},
+    };
+    scene_data_desc_set_pool = r->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{
+        {}, 1, sizeof(pool_sizes) / sizeof(pool_sizes[0]), pool_sizes});
+
+    scene_data_desc_set = r->dev->allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
+        scene_data_desc_set_pool.get(), scene_data_desc_set_layout.get()})[0];
+
+    std::vector<vk::WriteDescriptorSet> writes;
+
+    vk::DescriptorBufferInfo transforms_buffer_info{transforms.get(), 0, VK_WHOLE_SIZE};
+    writes.emplace_back(
+        scene_data_desc_set,
+        0,
+        0,
+        1,
+        vk::DescriptorType::eStorageBuffer,
+        nullptr,
+        &transforms_buffer_info
+    );
+
+    std::vector<vk::DescriptorImageInfo> texture_infos;
+    texture_infos.reserve(current_bundle->bundle_header().num_textures);
+    for(size_t i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
+        // TODO: again the assumption is that texture IDs are contiguous from 1
+        const auto& tx = textures.at(i + 1);
+        writes.emplace_back(
+            scene_data_desc_set,
+            1,
+            i,
+            1,
+            vk::DescriptorType::eCombinedImageSampler,
+            texture_infos.data() + i
+        );
+        texture_infos.emplace_back(
+            texture_sampler.get(), tx.img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal
+        );
+    }
+
+    r->dev->updateDescriptorSets(writes.size(), writes.data(), 0, nullptr);
 }
 
 void scene_renderer::resource_upload_cleanup() { staging_buffer.reset(); }

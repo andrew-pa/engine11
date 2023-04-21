@@ -43,7 +43,7 @@ vk::Extent2D get_window_extent(GLFWwindow* window) {
 }
 
 renderer::renderer(
-    GLFWwindow* window, flecs::world& world, std::unique_ptr<render_pipeline> pipeline
+    GLFWwindow* window, flecs::world& world, std::unique_ptr<rendering_algorithm> pipeline
 ) {
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
@@ -132,12 +132,16 @@ void renderer::start_resource_upload(const std::shared_ptr<asset_bundle>& assets
 }
 
 void renderer::wait_for_resource_upload_to_finish() {
+    // do setup that doesn't depend on the command buffer while we wait for the upload to finish
+    sr->setup_scene_post_upload(this);
+
     auto err = dev->waitForFences(upload_fence.get(), VK_TRUE, UINT64_MAX);
     if(err != vk::Result::eSuccess) {
         throw std::runtime_error(
             "failed to wait for resource upload: " + vk::to_string(vk::Result(err))
         );
     }
+
     sr->resource_upload_cleanup();
     ir->resource_upload_cleanup();
     upload_cmds.reset();
