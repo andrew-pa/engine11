@@ -23,8 +23,22 @@ using index_type = uint32_t;
 scene_renderer::scene_renderer(
     renderer* r, flecs::world& world, std::unique_ptr<rendering_algorithm> algo
 )
-    : transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer) {
+    : transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
+      algo(std::move(algo)) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
+    algo->create_static_objects(
+        r->dev.get(),
+        vk::AttachmentDescription{
+            vk::AttachmentDescriptionFlags(),
+            r->surface_format.format,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eLoad,
+            vk::AttachmentStoreOp::eStore,
+            vk::AttachmentLoadOp::eDontCare,
+            vk::AttachmentStoreOp::eDontCare,
+            vk::ImageLayout::ePresentSrcKHR,
+            vk::ImageLayout::ePresentSrcKHR}
+    );
 }
 
 void scene_renderer::start_resource_upload(
@@ -269,13 +283,52 @@ void scene_renderer::setup_scene_post_upload(renderer* r) {
     }
 
     r->dev->updateDescriptorSets(writes.size(), writes.data(), 0, nullptr);
+
+    // TODO: could probably run create_static_objects here too
+
+    algo->create_pipeline_layouts(
+        r->dev.get(),
+        scene_data_desc_set_layout.get(),
+        vk::PushConstantRange{vk::ShaderStageFlagBits::eAll, 0, sizeof(per_object_push_constants)}
+    );
+
+    algo->create_pipelines(r->dev.get());
 }
 
 void scene_renderer::resource_upload_cleanup() { staging_buffer.reset(); }
 
+void scene_renderer::create_swapchain_depd(renderer* r, frame_renderer* fr) {
+    algo->create_framebuffers(fr);
+    cmd_buffers               = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
+        r->command_pool.get(), vk::CommandBufferLevel::eSecondary, r->surface_image_count});
+    cmd_buffers_to_regenerate = r->surface_image_count;
+}
+
+void scene_renderer::generate_scene_setup_commands(vk::CommandBuffer cb) {
+    cb.begin(vk::CommandBufferBeginInfo{
+        vk::CommandBufferUsageFlagBits::eSimultaneousUse
+        | vk::CommandBufferUsageFlagBits::eRenderPassContinue});
+
+    cb.bindVertexBuffers(0, vertex_buffer->get(), {0});
+    cb.bindIndexBuffer(index_buffer->get(), 0, vk::IndexType::eUint32);
+}
+
 void scene_renderer::render_frame(frame& frame) {
-    // frame.frame_cmd_buf.beginRenderPass({}, vk::SubpassContents::eSecondaryCommandBuffers);
-    // frame.frame_cmd_buf.endRenderPass();
+    // update scene data ie transforms, possibly mark command buffers for invalidation
+    // if command buffers should be invalidated, reset and regenerate it, otherwise just submit it
+    if(cmd_buffers_to_regenerate > 0) {
+        cmd_buffers_to_regenerate -= 1;
+        auto cb = cmd_buffers[frame.frame_index].get();
+        generate_scene_setup_commands(cb);
+        algo->generate_command_buffer(cb, frame.frame_index, scene_data_desc_set);
+        cb.end();
+    }
+
+    frame.frame_cmd_buf.beginRenderPass(
+        algo->get_render_pass_begin_info(), vk::SubpassContents::eSecondaryCommandBuffers
+    );
+    frame.frame_cmd_buf.executeCommands(cmd_buffers[frame.frame_index].get());
+    frame.frame_cmd_buf.endRenderPass();
 }
 
 void scene_renderer::texture_window_gui(bool* open) {

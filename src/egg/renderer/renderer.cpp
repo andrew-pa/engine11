@@ -105,6 +105,7 @@ renderer::renderer(
     ir = new imgui_renderer(this, window);
     ir->create_swapchain_depd(fr);
     sr = new scene_renderer(this, world, std::move(pipeline));
+    sr->create_swapchain_depd(this, fr);
 }
 
 renderer::~renderer() {
@@ -150,6 +151,7 @@ void renderer::wait_for_resource_upload_to_finish() {
 void renderer::resize(GLFWwindow* window) {
     fr->reset_swapchain(get_window_extent(window));
     ir->create_swapchain_depd(fr);
+    sr->create_swapchain_depd(this, fr);
 }
 
 void renderer::render_frame() {

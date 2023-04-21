@@ -20,6 +20,11 @@ struct texture {
         : img(std::move(img)), img_view(std::move(iv)), imgui_id(id) {}
 };
 
+struct per_object_push_constants {
+    uint32_t   transform_index;
+    texture_id base_color, normals, roughness, metallic;
+};
+
 class scene_renderer {
     std::shared_ptr<asset_bundle> current_bundle;
 
@@ -42,6 +47,13 @@ class scene_renderer {
     vk::UniqueDescriptorPool      scene_data_desc_set_pool;
     vk::DescriptorSet             scene_data_desc_set;  // lifetime is tied to pool
 
+    std::unique_ptr<rendering_algorithm> algo;
+
+    std::vector<vk::UniqueCommandBuffer> cmd_buffers;
+    uint32_t                             cmd_buffers_to_regenerate;
+
+    void generate_scene_setup_commands(vk::CommandBuffer cb);
+
   public:
     scene_renderer(renderer* r, flecs::world& world, std::unique_ptr<rendering_algorithm> algo);
 
@@ -50,6 +62,8 @@ class scene_renderer {
     );
     void setup_scene_post_upload(renderer* r);
     void resource_upload_cleanup();
+
+    void create_swapchain_depd(renderer* r, frame_renderer* fr);
 
     void render_frame(frame& frame);
 };

@@ -22,20 +22,24 @@ class rendering_algorithm {
     // create render pass, descriptor pools etc
     virtual void create_static_objects(
         vk::Device device, vk::AttachmentDescription present_surface_attachment
-    ) = delete;
+    )                                                             = 0;
+    virtual vk::RenderPassBeginInfo* get_render_pass_begin_info() = 0;
+    // TODO: start_resource_upload/resource_upload_cleanup?
     // create pipeline layout and any algorithm specific descriptor sets/set layouts
     virtual void create_pipeline_layouts(
         vk::Device              device,
         vk::DescriptorSetLayout scene_data_desc_set_layout,
         vk::PushConstantRange   per_object_push_constants_range
-    ) = delete;
+    ) = 0;
     // load shaders and create pipelines
-    virtual void create_pipelines(vk::Device device) = delete;
+    virtual void create_pipelines(vk::Device device) = 0;
     // create framebuffers
-    virtual void create_framebuffers(frame_renderer* fr) = delete;
+    virtual void create_framebuffers(frame_renderer* fr) = 0;
     // generate command buffers
-    virtual void generate_command_buffer(vk::CommandBuffer cb, uint32_t frame_index) = delete;
-    virtual ~rendering_algorithm()                                                   = default;
+    virtual void generate_command_buffer(
+        vk::CommandBuffer cb, uint32_t frame_index, vk::DescriptorSet scene_data_desc_set
+    )                              = 0;
+    virtual ~rendering_algorithm() = default;
 };
 
 /*
