@@ -4,7 +4,7 @@
 #include <iostream>
 
 /* TODO:
- * transforms uniform buffer & allocator
+ * transforms uniform buffer & allocator +
  * descriptor sets
  * render pipeline
  * handle scene updates
@@ -22,7 +22,8 @@ using index_type = uint32_t;
 
 scene_renderer::scene_renderer(
     renderer* r, flecs::world& world, std::unique_ptr<render_pipeline> pipeline
-) {
+)
+    : transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
 }
 

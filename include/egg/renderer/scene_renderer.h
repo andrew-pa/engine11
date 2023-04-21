@@ -2,6 +2,7 @@
 #include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/memory.h"
 #include "renderer.h"
+#include <glm/glm.hpp>
 
 /*
  * transforms (can change once per frame)
@@ -31,6 +32,8 @@ class scene_renderer {
     void generate_upload_commands_for_textures(vk::CommandBuffer upload_cmds);
 
     void texture_window_gui(bool* open);
+
+    gpu_shared_value_heap<glm::mat4> transforms;
 
   public:
     scene_renderer(renderer* r, flecs::world& world, std::unique_ptr<render_pipeline> pipeline);
