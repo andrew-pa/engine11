@@ -26,6 +26,8 @@ struct per_object_push_constants {
 };
 
 class scene_renderer {
+    renderer*                     r;
+    std::shared_ptr<flecs::world> world;
     std::shared_ptr<asset_bundle> current_bundle;
 
     // TODO: could move static resources into a seperate component to reduce complexity of the
@@ -35,7 +37,7 @@ class scene_renderer {
     // explicit so things are faster
     std::unordered_map<texture_id, texture> textures;
     void load_geometry_from_bundle(VmaAllocator allocator, vk::CommandBuffer upload_cmds);
-    void create_textures_from_bundle(renderer* r);
+    void create_textures_from_bundle();
     void generate_upload_commands_for_textures(vk::CommandBuffer upload_cmds);
 
     void texture_window_gui(bool* open);
@@ -49,21 +51,22 @@ class scene_renderer {
 
     std::unique_ptr<rendering_algorithm> algo;
 
-    std::vector<vk::UniqueCommandBuffer> cmd_buffers;
-    uint32_t                             cmd_buffers_to_regenerate;
+    vk::UniqueCommandBuffer scene_render_cmd_buffer;
+    bool                    should_regenerate_command_buffer;
 
     void generate_scene_setup_commands(vk::CommandBuffer cb);
+    void generate_scene_draw_commands(vk::CommandBuffer cb, vk::PipelineLayout pl);
 
   public:
-    scene_renderer(renderer* r, flecs::world& world, std::unique_ptr<rendering_algorithm> algo);
-
-    void start_resource_upload(
-        renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
+    scene_renderer(
+        renderer* r, std::shared_ptr<flecs::world> world, std::unique_ptr<rendering_algorithm> algo
     );
-    void setup_scene_post_upload(renderer* r);
+
+    void start_resource_upload(std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds);
+    void setup_scene_post_upload();
     void resource_upload_cleanup();
 
-    void create_swapchain_depd(renderer* r, frame_renderer* fr);
+    void create_swapchain_depd(frame_renderer* fr);
 
     void render_frame(frame& frame);
 };

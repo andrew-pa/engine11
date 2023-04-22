@@ -1,6 +1,7 @@
 #pragma once
 #include "asset-bundler/format.h"
 #include <filesystem>
+#include <glm/glm.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -38,4 +39,32 @@ class asset_bundle {
     std::string_view                           string(string_id id) const;
     const asset_bundle_format::texture_header& texture(texture_id id) const;
     const asset_bundle_format::texture_header& texture_by_index(size_t i) const;
+
+    const glm::mat4&                            object_transform(object_id id) const;
+    class object_mesh_iterator                  object_meshes(object_id id) const;
+    const asset_bundle_format::material_header& material(size_t index) const;
+};
+
+class object_mesh_iterator {
+    asset_bundle_format::mesh_header* meshes;
+    uint32_t*                         indices;
+    size_t                            count;
+
+    object_mesh_iterator(asset_bundle_format::mesh_header* meshes, uint32_t* indices, size_t count)
+        : meshes(meshes), indices(indices), count(count) {}
+
+  public:
+    const asset_bundle_format::mesh_header& operator*() { return meshes[*indices]; }
+
+    const asset_bundle_format::mesh_header* operator->() { return &meshes[*indices]; }
+
+    void operator++() {
+        assert(count > 0);
+        indices++;
+        count--;
+    }
+
+    bool has_more() const { return count > 0; }
+
+    friend class asset_bundle;
 };

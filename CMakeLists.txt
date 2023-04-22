@@ -93,6 +93,7 @@ add_executable(egg
     src/egg/renderer/imgui_renderer.cpp
     src/egg/renderer/scene_renderer.cpp
     src/egg/renderer/memory.cpp
+    src/egg/components.cpp
     src/egg/bundle.cpp)
 target_compile_features(egg PUBLIC cxx_std_17)
 target_link_libraries(egg

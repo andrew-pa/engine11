@@ -1,5 +1,6 @@
 #pragma once
 #include <filesystem>
+#include <functional>
 #define GLFW_INCLUDE_VULKAN
 #include "egg/bundle.h"
 #include <GLFW/glfw3.h>
@@ -22,8 +23,8 @@ class rendering_algorithm {
     // create render pass, descriptor pools etc
     virtual void create_static_objects(
         vk::Device device, vk::AttachmentDescription present_surface_attachment
-    )                                                             = 0;
-    virtual vk::RenderPassBeginInfo* get_render_pass_begin_info() = 0;
+    )                                                                                 = 0;
+    virtual vk::RenderPassBeginInfo* get_render_pass_begin_info(uint32_t frame_index) = 0;
     // TODO: start_resource_upload/resource_upload_cleanup?
     // create pipeline layout and any algorithm specific descriptor sets/set layouts
     virtual void create_pipeline_layouts(
@@ -36,8 +37,10 @@ class rendering_algorithm {
     // create framebuffers
     virtual void create_framebuffers(frame_renderer* fr) = 0;
     // generate command buffers
-    virtual void generate_command_buffer(
-        vk::CommandBuffer cb, uint32_t frame_index, vk::DescriptorSet scene_data_desc_set
+    virtual void generate_commands(
+        vk::CommandBuffer                                          cb,
+        vk::DescriptorSet                                          scene_data_desc_set,
+        std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
     )                              = 0;
     virtual ~rendering_algorithm() = default;
 };
@@ -76,7 +79,9 @@ class renderer {
 
   public:
     renderer(
-        GLFWwindow* window, flecs::world& world, std::unique_ptr<rendering_algorithm> pipeline
+        GLFWwindow*                          window,
+        std::shared_ptr<flecs::world>        world,
+        std::unique_ptr<rendering_algorithm> pipeline
     );
 
     void start_resource_upload(const std::shared_ptr<asset_bundle>& assets);

@@ -49,6 +49,8 @@ class gpu_image {
 template<typename T>
 class gpu_shared_value_heap : public gpu_buffer {
     struct free_block {
+        free_block(size_t offset, size_t size) : offset(offset), size(size) {}
+
         size_t offset;
         size_t size;
     };
@@ -72,7 +74,7 @@ class gpu_shared_value_heap : public gpu_buffer {
                 = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
                 .usage = VMA_MEMORY_USAGE_AUTO}
         ),
-          free_blocks{free_block{.offset = 0, .size = initial_max_size}} {}
+          free_blocks{free_block{0, initial_max_size}} {}
 
     std::pair<T*, size_t> alloc() {
         if(free_blocks.empty()) {
@@ -84,7 +86,7 @@ class gpu_shared_value_heap : public gpu_buffer {
         block.size--;
         size_t index = block.offset + block.size;
         if(block.size == 0) free_blocks.pop_front();
-        return {((T*)cpu_mapped())[index], index};
+        return std::pair<T*, size_t>{((T*)cpu_mapped()) + index, index};
     }
 
     void free(size_t index) {
@@ -99,10 +101,10 @@ class gpu_shared_value_heap : public gpu_buffer {
                 return;
             }
             if(i->offset > index) {
-                free_blocks.emplace(i, {index, 1});
+                free_blocks.insert(i, {index, 1});
                 return;
             }
         }
-        free_blocks.emplace_back({index, 1});
+        free_blocks.emplace_back(index, 1);
     }
 };

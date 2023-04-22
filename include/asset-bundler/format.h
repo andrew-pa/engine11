@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 
 using std::byte;
@@ -46,7 +47,7 @@ struct object_header {
     string_id name;
     uint32_t  num_meshes;
     size_t    offset;
-    float     transform_matrix[16];
+    glm::mat4 transform_matrix;
 };
 
 struct group_header {

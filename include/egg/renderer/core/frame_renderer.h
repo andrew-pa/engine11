@@ -37,5 +37,9 @@ class frame_renderer {
     frame begin_frame();
     void  end_frame(frame&& frame);
 
-    inline vk::Extent2D extent() { return swapchain_extent; }
+    inline vk::Extent2D extent() const { return swapchain_extent; }
+
+    inline float aspect_ratio() const {
+        return (float)swapchain_extent.width / (float)swapchain_extent.height;
+    }
 };

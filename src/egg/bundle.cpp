@@ -99,3 +99,16 @@ const texture_header& asset_bundle::texture(texture_id id) const {
 }
 
 const texture_header& asset_bundle::texture_by_index(size_t i) const { return *(textures + i); }
+
+const glm::mat4& asset_bundle::object_transform(object_id id) const {
+    return objects[id].transform_matrix;
+}
+
+object_mesh_iterator asset_bundle::object_meshes(object_id id) const {
+    return object_mesh_iterator{
+        meshes, (uint32_t*)(bundle_data + objects[id].offset), objects[id].num_meshes};
+}
+
+const asset_bundle_format::material_header& asset_bundle::material(size_t index) const {
+    return materials[index];
+}

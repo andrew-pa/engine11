@@ -1,14 +1,33 @@
 #include "egg/renderer/scene_renderer.h"
+#include "egg/components.h"
 #include "egg/renderer/imgui_renderer.h"
 #include <glm/glm.hpp>
 #include <iostream>
+#include <utility>
 
 /* TODO:
  * transforms uniform buffer & allocator +
  * descriptor sets (layouts, sets) +
  * render pipeline
+ *   lifecycle +
+ *   actual draw calls
+ *   implementation
  * handle scene updates
+ *   cameras
+ *   objects
+ * hot loading
+ *   shaders
+ *   render algorithms
+ * ImGui remove/reregister window
+ * performance metrics/graphs
+ *   load times
+ *   cpu/gpu frame times per subsystem (render, etc)
  * ****/
+
+// future cool things:
+// use compute shaders for mesh skinning, marching cubes for metaballs -> mercury!
+//  could find a compute queue that is preferentially on a different GPU for parallel compute,
+//  downside is GPU-to-GPU copy
 
 using glm::vec2;
 using glm::vec3;
@@ -21,10 +40,11 @@ struct vertex {
 using index_type = uint32_t;
 
 scene_renderer::scene_renderer(
-    renderer* r, flecs::world& world, std::unique_ptr<rendering_algorithm> algo
+    renderer* r, std::shared_ptr<flecs::world> _world, std::unique_ptr<rendering_algorithm> _algo
 )
-    : transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
-      algo(std::move(algo)) {
+    : r(r), world(std::move(_world)),
+      transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
+      algo(std::move(_algo)), should_regenerate_command_buffer(true) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
     algo->create_static_objects(
         r->dev.get(),
@@ -39,10 +59,65 @@ scene_renderer::scene_renderer(
             vk::ImageLayout::ePresentSrcKHR,
             vk::ImageLayout::ePresentSrcKHR}
     );
+
+    scene_render_cmd_buffer
+        = std::move(r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
+            r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 1})[0]);
+
+    world->observer<comp::position, comp::rotation>()
+        .event(flecs::OnAdd)
+        .event(flecs::OnRemove)
+        .each([&](flecs::iter& it, size_t i, const comp::position& p, const comp::rotation& r) {
+            if(it.event() == flecs::OnAdd) {
+                auto [t, bi] = transforms.alloc();
+                comp::gpu_transform gt{.transform = t, .gpu_index = bi};
+                std::optional<mat4> s;
+                const auto*         obj = it.entity(i).get<comp::renderable>();
+                if(obj != nullptr) s = current_bundle->object_transform(obj->object);
+                gt.update(p, r, s);
+                it.entity(i).set<comp::gpu_transform>(gt);
+            } else if(it.event() == flecs::OnRemove) {
+                transforms.free(it.entity(i).get<comp::gpu_transform>()->gpu_index);
+                it.entity(i).remove<comp::gpu_transform>();
+            }
+        });
+    world->observer<comp::position, comp::rotation, comp::gpu_transform>()
+        .event(flecs::OnSet)
+        .each([&](flecs::iter&          it,
+                  size_t                i,
+                  const comp::position& p,
+                  const comp::rotation& r,
+                  comp::gpu_transform&  t) {
+            std::optional<mat4> s;
+            const auto*         obj = it.entity(i).get<comp::renderable>();
+            if(obj != nullptr) s = current_bundle->object_transform(obj->object);
+            t.update(p, r);
+        });
+    world->observer<comp::camera>()
+        .event(flecs::OnAdd)
+        .event(flecs::OnSet)
+        .event(flecs::OnRemove)
+        .each([&](flecs::iter& it, size_t i, comp::camera& cam) {
+            if(it.event() == flecs::OnAdd) {
+                cam.proj_transform = transforms.alloc();
+                cam.update(r->fr->aspect_ratio());
+            } else if(it.event() == flecs::OnSet) {
+                cam.update(r->fr->aspect_ratio());
+            } else if(it.event() == flecs::OnRemove) {
+                transforms.free(cam.proj_transform.second);
+            }
+        });
+    world->observer<comp::gpu_transform, comp::renderable>()
+        .event(flecs::OnAdd)
+        .event(flecs::OnSet)
+        .event(flecs::OnRemove)
+        .iter([&](flecs::iter&, comp::gpu_transform*, comp::renderable*) {
+            should_regenerate_command_buffer = true;
+        });
 }
 
 void scene_renderer::start_resource_upload(
-    renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
+    std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
 ) {
     current_bundle = bundle;
 
@@ -58,7 +133,7 @@ void scene_renderer::start_resource_upload(
     bundle->take_gpu_data((byte*)staging_buffer->cpu_mapped());
 
     load_geometry_from_bundle(r->allocator, upload_cmds);
-    create_textures_from_bundle(r);
+    create_textures_from_bundle();
     generate_upload_commands_for_textures(upload_cmds);
 }
 
@@ -101,7 +176,7 @@ void scene_renderer::load_geometry_from_bundle(
     );
 }
 
-void scene_renderer::create_textures_from_bundle(renderer* r) {
+void scene_renderer::create_textures_from_bundle() {
     auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
@@ -213,7 +288,7 @@ void scene_renderer::generate_upload_commands_for_textures(vk::CommandBuffer upl
     );
 }
 
-void scene_renderer::setup_scene_post_upload(renderer* r) {
+void scene_renderer::setup_scene_post_upload() {
     texture_sampler = r->dev->createSamplerUnique(vk::SamplerCreateInfo{
         {},
         vk::Filter::eLinear,
@@ -297,11 +372,14 @@ void scene_renderer::setup_scene_post_upload(renderer* r) {
 
 void scene_renderer::resource_upload_cleanup() { staging_buffer.reset(); }
 
-void scene_renderer::create_swapchain_depd(renderer* r, frame_renderer* fr) {
+void scene_renderer::create_swapchain_depd(frame_renderer* fr) {
     algo->create_framebuffers(fr);
-    cmd_buffers               = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
-        r->command_pool.get(), vk::CommandBufferLevel::eSecondary, r->surface_image_count});
-    cmd_buffers_to_regenerate = r->surface_image_count;
+    // update active camera's perspective matrix
+    world->query<tag::active_camera, comp::camera>().each(
+        [&](flecs::iter& it, size_t i, tag::active_camera, comp::camera& cam) {
+            cam.update(fr->aspect_ratio());
+        }
+    );
 }
 
 void scene_renderer::generate_scene_setup_commands(vk::CommandBuffer cb) {
@@ -313,21 +391,47 @@ void scene_renderer::generate_scene_setup_commands(vk::CommandBuffer cb) {
     cb.bindIndexBuffer(index_buffer->get(), 0, vk::IndexType::eUint32);
 }
 
+void scene_renderer::generate_scene_draw_commands(vk::CommandBuffer cb, vk::PipelineLayout pl) {
+    world->query<comp::gpu_transform, comp::renderable>().each(
+        [&](flecs::iter&, size_t i, const comp::gpu_transform& t, const comp::renderable& r) {
+            for(auto mi = current_bundle->object_meshes(r.object); mi.has_more(); ++mi) {
+                const auto& mat = current_bundle->material(mi->material_index);
+                cb.pushConstants<per_object_push_constants>(
+                    pl,
+                    vk::ShaderStageFlagBits::eAll,
+                    0,
+                    {
+                        {.transform_index = (uint32_t)t.gpu_index,
+                         .base_color      = mat.base_color,
+                         .normals         = mat.normals,
+                         .roughness       = mat.roughness,
+                         .metallic        = mat.metallic}
+                }
+                );
+                cb.drawIndexed(mi->index_count, 1, mi->index_offset, mi->vertex_offset, 0);
+            }
+        }
+    );
+}
+
 void scene_renderer::render_frame(frame& frame) {
     // update scene data ie transforms, possibly mark command buffers for invalidation
     // if command buffers should be invalidated, reset and regenerate it, otherwise just submit it
-    if(cmd_buffers_to_regenerate > 0) {
-        cmd_buffers_to_regenerate -= 1;
-        auto cb = cmd_buffers[frame.frame_index].get();
+    if(should_regenerate_command_buffer) {
+        should_regenerate_command_buffer = false;
+        auto cb                          = scene_render_cmd_buffer.get();
         generate_scene_setup_commands(cb);
-        algo->generate_command_buffer(cb, frame.frame_index, scene_data_desc_set);
+        algo->generate_commands(cb, scene_data_desc_set, [&](auto cb, auto pl) {
+            this->generate_scene_draw_commands(cb, pl);
+        });
         cb.end();
     }
 
     frame.frame_cmd_buf.beginRenderPass(
-        algo->get_render_pass_begin_info(), vk::SubpassContents::eSecondaryCommandBuffers
+        algo->get_render_pass_begin_info(frame.frame_index),
+        vk::SubpassContents::eSecondaryCommandBuffers
     );
-    frame.frame_cmd_buf.executeCommands(cmd_buffers[frame.frame_index].get());
+    frame.frame_cmd_buf.executeCommands(scene_render_cmd_buffer.get());
     frame.frame_cmd_buf.endRenderPass();
 }
 

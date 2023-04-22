@@ -43,7 +43,9 @@ vk::Extent2D get_window_extent(GLFWwindow* window) {
 }
 
 renderer::renderer(
-    GLFWwindow* window, flecs::world& world, std::unique_ptr<rendering_algorithm> pipeline
+    GLFWwindow*                          window,
+    std::shared_ptr<flecs::world>        world,
+    std::unique_ptr<rendering_algorithm> pipeline
 ) {
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
@@ -104,8 +106,8 @@ renderer::renderer(
     fr = new frame_renderer(this, get_window_extent(window));
     ir = new imgui_renderer(this, window);
     ir->create_swapchain_depd(fr);
-    sr = new scene_renderer(this, world, std::move(pipeline));
-    sr->create_swapchain_depd(this, fr);
+    sr = new scene_renderer(this, std::move(world), std::move(pipeline));
+    sr->create_swapchain_depd(fr);
 }
 
 renderer::~renderer() {
@@ -123,7 +125,7 @@ void renderer::start_resource_upload(const std::shared_ptr<asset_bundle>& assets
 
     upload_cmds->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-    sr->start_resource_upload(this, assets, upload_cmds.get());
+    sr->start_resource_upload(assets, upload_cmds.get());
     ir->start_resource_upload(upload_cmds.get());
 
     upload_cmds->end();
@@ -134,7 +136,7 @@ void renderer::start_resource_upload(const std::shared_ptr<asset_bundle>& assets
 
 void renderer::wait_for_resource_upload_to_finish() {
     // do setup that doesn't depend on the command buffer while we wait for the upload to finish
-    sr->setup_scene_post_upload(this);
+    sr->setup_scene_post_upload();
 
     auto err = dev->waitForFences(upload_fence.get(), VK_TRUE, UINT64_MAX);
     if(err != vk::Result::eSuccess) {
@@ -151,7 +153,7 @@ void renderer::wait_for_resource_upload_to_finish() {
 void renderer::resize(GLFWwindow* window) {
     fr->reset_swapchain(get_window_extent(window));
     ir->create_swapchain_depd(fr);
-    sr->create_swapchain_depd(this, fr);
+    sr->create_swapchain_depd(fr);
 }
 
 void renderer::render_frame() {
