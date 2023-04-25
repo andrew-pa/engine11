@@ -2,13 +2,27 @@
 #include <cstddef>
 #include <cstdint>
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 using std::byte;
 using texture_id                 = uint16_t;
 const texture_id INVALID_TEXTURE = 0;
 using string_id                  = uint32_t;
 using object_id                  = uint32_t;
+
+struct vertex {
+    glm::vec3 position, normal, tangent;
+    glm::vec2 tex_coord;
+};
+
+constexpr static vk::VertexInputAttributeDescription vertex_attribute_description[]{
+    {0, 0, vk::Format::eR32G32B32Sfloat, offsetof(vertex, position) },
+    {1, 0, vk::Format::eR32G32B32Sfloat, offsetof(vertex, normal)   },
+    {2, 0, vk::Format::eR32G32B32Sfloat, offsetof(vertex, tangent)  },
+    {3, 0, vk::Format::eR32G32Sfloat,    offsetof(vertex, tex_coord)},
+};
+
+using index_type = uint32_t;
 
 namespace asset_bundle_format {
 struct header {

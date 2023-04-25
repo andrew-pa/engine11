@@ -1,4 +1,5 @@
 #pragma once
+#include "egg/components.h"
 #include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/memory.h"
 #include "renderer.h"
@@ -26,9 +27,10 @@ struct per_object_push_constants {
 };
 
 class scene_renderer {
-    renderer*                     r;
-    std::shared_ptr<flecs::world> world;
-    std::shared_ptr<asset_bundle> current_bundle;
+    renderer*                            r;
+    std::shared_ptr<flecs::world>        world;
+    std::shared_ptr<asset_bundle>        current_bundle;
+    std::unique_ptr<rendering_algorithm> algo;
 
     // TODO: could move static resources into a seperate component to reduce complexity of the
     // scene_renderer itself
@@ -49,13 +51,13 @@ class scene_renderer {
     vk::UniqueDescriptorPool      scene_data_desc_set_pool;
     vk::DescriptorSet             scene_data_desc_set;  // lifetime is tied to pool
 
-    std::unique_ptr<rendering_algorithm> algo;
-
-    vk::UniqueCommandBuffer scene_render_cmd_buffer;
+    vk::UniqueCommandBuffer scene_render_cmd_buffer, set_viewport_cmd_buffer;
     bool                    should_regenerate_command_buffer;
 
-    void generate_scene_setup_commands(vk::CommandBuffer cb);
     void generate_scene_draw_commands(vk::CommandBuffer cb, vk::PipelineLayout pl);
+
+    flecs::query<tag::active_camera, comp::gpu_transform, comp::camera> active_camera_q;
+    flecs::query<comp::gpu_transform, comp::renderable>                 renderable_q;
 
   public:
     scene_renderer(

@@ -1,5 +1,6 @@
 #pragma once
 #include "asset-bundler/format.h"
+#include "glm/ext/scalar_constants.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -27,10 +28,8 @@ struct gpu_transform {
 };
 
 struct camera {
-    float                    fov;
+    float                    fov = glm::pi<float>() / 4.f;
     std::pair<mat4*, size_t> proj_transform;
-
-    camera(float fov) : fov(fov), proj_transform(nullptr, -1) {}
 
     void update(float aspect_ratio) const;
 };

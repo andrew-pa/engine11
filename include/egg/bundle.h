@@ -42,7 +42,10 @@ class asset_bundle {
 
     const glm::mat4&                            object_transform(object_id id) const;
     class object_mesh_iterator                  object_meshes(object_id id) const;
+    string_id                                   object_name(object_id id) const;
     const asset_bundle_format::material_header& material(size_t index) const;
+
+    class group_object_iterator group_objects(size_t group_index) const;
 };
 
 class object_mesh_iterator {
@@ -57,6 +60,28 @@ class object_mesh_iterator {
     const asset_bundle_format::mesh_header& operator*() { return meshes[*indices]; }
 
     const asset_bundle_format::mesh_header* operator->() { return &meshes[*indices]; }
+
+    void operator++() {
+        assert(count > 0);
+        indices++;
+        count--;
+    }
+
+    bool has_more() const { return count > 0; }
+
+    friend class asset_bundle;
+};
+
+class group_object_iterator {
+    object_id* indices;
+    size_t     count;
+
+    group_object_iterator(object_id* indices, size_t count) : indices(indices), count(count) {}
+
+  public:
+    object_id operator*() { return *indices; }
+
+    object_id* operator->() { return indices; }
 
     void operator++() {
         assert(count > 0);

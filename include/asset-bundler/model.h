@@ -45,12 +45,10 @@ inline vk::Format format_from_channels(int nchannels) {
     }
 }
 
-struct vertex {
-    aiVector3D position, normal, tangent;
-    aiVector2D tex_coord;
-};
-
-using index_type = uint32_t;
+// struct vertex {
+//     aiVector3D position, normal, tangent;
+//     aiVector2D tex_coord;
+// };
 
 // TODO these are duplicate of mesh_header and material_header
 struct mesh_info {

@@ -1,8 +1,12 @@
 #pragma once
+#include <iostream>
 #include <list>
 #include <memory>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+
+// TODO: there is some way to make these exactly like std::unique_ptr, which would make them a lot
+// more ergonomic while remaining safe
 
 class gpu_buffer {
     VmaAllocator  allocator;
@@ -86,6 +90,7 @@ class gpu_shared_value_heap : public gpu_buffer {
         block.size--;
         size_t index = block.offset + block.size;
         if(block.size == 0) free_blocks.pop_front();
+        std::cout << "alloc " << index << "\n";
         return std::pair<T*, size_t>{((T*)cpu_mapped()) + index, index};
     }
 

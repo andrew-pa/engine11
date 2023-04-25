@@ -75,8 +75,13 @@ renderer::renderer(
     VkSurfaceKHR surface;
 
     auto err = glfwCreateWindowSurface(instance.get(), window, nullptr, &surface);
-    if(err != VK_SUCCESS)
-        throw std::runtime_error("failed to create window surface " + std::to_string(err));
+    if(err != VK_SUCCESS) {
+        for(const auto* ext : extensions)
+            std::cout << "requested extension: " << ext << "\n";
+        throw std::runtime_error(
+            "failed to create window surface " + vk::to_string(vk::Result(err))
+        );
+    }
 
     window_surface = vk::UniqueSurfaceKHR(surface);
 
@@ -158,7 +163,7 @@ void renderer::resize(GLFWwindow* window) {
 
 void renderer::render_frame() {
     auto frame = fr->begin_frame();
-    ir->render_frame(frame);
     sr->render_frame(frame);
+    ir->render_frame(frame);
     fr->end_frame(std::move(frame));
 }

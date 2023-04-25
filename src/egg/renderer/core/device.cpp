@@ -52,7 +52,14 @@ void renderer::init_device(vk::Instance instance) {
         qu_cfo.emplace_back(vk::DeviceQueueCreateFlags{}, (uint32_t)qfi, 1, &fp);
 
     // create device create info
-    vk::PhysicalDeviceFeatures device_features;
+    VkPhysicalDeviceVulkan12Features v12_features{
+        .sType                  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .runtimeDescriptorArray = VK_TRUE};
+    VkPhysicalDeviceVulkan11Features v11_features{
+        .sType                 = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+        .pNext                 = &v12_features,
+        .storagePushConstant16 = VK_TRUE};
+    vk::PhysicalDeviceFeatures2 device_features{{}, &v11_features};
 
     const char* layer_names[] = {
 #ifndef NDEBUG
@@ -77,6 +84,7 @@ void renderer::init_device(vk::Instance instance) {
         layer_names,
         1,
         extensions,
+        nullptr,
         &device_features});
 
     VmaAllocatorCreateInfo cfo = {};

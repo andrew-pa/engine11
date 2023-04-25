@@ -14,6 +14,8 @@ importer::importer(output_bundle& out, int argc, char* argv[]) : out(out) {
     }
 }
 
+glm::vec3 from_a(const aiVector3D& a) { return {a.x, a.y, a.z}; }
+
 void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset) {
     std::cout << "\t\t " << m->mName.C_Str() << " ("
               << scene->mMaterials[m->mMaterialIndex]->GetName().C_Str() << ") " << m->mNumVertices
@@ -22,10 +24,10 @@ void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index
     size_t vertex_offset = out.start_vertex_gather(m->mNumVertices);
     for(size_t i = 0; i < m->mNumVertices; ++i) {
         out.add_vertex(vertex{
-            .position  = m->mVertices[i],
-            .normal    = m->mNormals[i],
-            .tangent   = m->mTangents[i],
-            .tex_coord = aiVector2D(m->mTextureCoords[0][i].x, m->mTextureCoords[0][i].y)});
+            .position  = from_a(m->mVertices[i]),
+            .normal    = from_a(m->mNormals[i]),
+            .tangent   = from_a(m->mTangents[i]),
+            .tex_coord = glm::vec2(m->mTextureCoords[0][i].x, m->mTextureCoords[0][i].y)});
     }
     auto   index_count  = m->mNumFaces * 3;
     size_t index_offset = out.start_index_gather(index_count);

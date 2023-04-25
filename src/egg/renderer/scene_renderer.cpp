@@ -10,11 +10,11 @@
  * descriptor sets (layouts, sets) +
  * render pipeline
  *   lifecycle +
- *   actual draw calls
+ *   actual draw calls +
  *   implementation
- * handle scene updates
- *   cameras
- *   objects
+ * handle scene updates +
+ *   cameras +
+ *   objects +
  * hot loading
  *   shaders
  *   render algorithms
@@ -22,6 +22,9 @@
  * performance metrics/graphs
  *   load times
  *   cpu/gpu frame times per subsystem (render, etc)
+ * do we need the renderer/core directory? should memory.h be in there?
+ * move swap_chain.cpp -> frame_renderer.cpp
+ * move device.cpp -> renderer.cpp
  * ****/
 
 // future cool things:
@@ -32,49 +35,33 @@
 using glm::vec2;
 using glm::vec3;
 
-struct vertex {
-    vec3 position, normal, tangent;
-    vec2 tex_coords;
-};
-
-using index_type = uint32_t;
-
 scene_renderer::scene_renderer(
     renderer* r, std::shared_ptr<flecs::world> _world, std::unique_ptr<rendering_algorithm> _algo
 )
-    : r(r), world(std::move(_world)),
+    : r(r), world(std::move(_world)), algo(std::move(_algo)),
       transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
-      algo(std::move(_algo)), should_regenerate_command_buffer(true) {
+      should_regenerate_command_buffer(true) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
-    algo->create_static_objects(
-        r->dev.get(),
-        vk::AttachmentDescription{
-            vk::AttachmentDescriptionFlags(),
-            r->surface_format.format,
-            vk::SampleCountFlagBits::e1,
-            vk::AttachmentLoadOp::eLoad,
-            vk::AttachmentStoreOp::eStore,
-            vk::AttachmentLoadOp::eDontCare,
-            vk::AttachmentStoreOp::eDontCare,
-            vk::ImageLayout::ePresentSrcKHR,
-            vk::ImageLayout::ePresentSrcKHR}
-    );
+    algo->init_with_device(r->dev.get(), r->allocator);
 
-    scene_render_cmd_buffer
-        = std::move(r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
-            r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 1})[0]);
+    auto buffers            = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
+        r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 2});
+    scene_render_cmd_buffer = std::move(buffers[0]);
+    set_viewport_cmd_buffer = std::move(buffers[1]);
 
     world->observer<comp::position, comp::rotation>()
         .event(flecs::OnAdd)
         .event(flecs::OnRemove)
         .each([&](flecs::iter& it, size_t i, const comp::position& p, const comp::rotation& r) {
             if(it.event() == flecs::OnAdd) {
+                std::cout << "add transform\n";
                 auto [t, bi] = transforms.alloc();
                 comp::gpu_transform gt{.transform = t, .gpu_index = bi};
                 std::optional<mat4> s;
                 const auto*         obj = it.entity(i).get<comp::renderable>();
                 if(obj != nullptr) s = current_bundle->object_transform(obj->object);
                 gt.update(p, r, s);
+                if(it.entity(i).has<tag::active_camera>()) *gt.transform = inverse(*gt.transform);
                 it.entity(i).set<comp::gpu_transform>(gt);
             } else if(it.event() == flecs::OnRemove) {
                 transforms.free(it.entity(i).get<comp::gpu_transform>()->gpu_index);
@@ -91,6 +78,7 @@ scene_renderer::scene_renderer(
             std::optional<mat4> s;
             const auto*         obj = it.entity(i).get<comp::renderable>();
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
+            if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
             t.update(p, r);
         });
     world->observer<comp::camera>()
@@ -99,9 +87,11 @@ scene_renderer::scene_renderer(
         .event(flecs::OnRemove)
         .each([&](flecs::iter& it, size_t i, comp::camera& cam) {
             if(it.event() == flecs::OnAdd) {
+                std::cout << "add camera\n";
                 cam.proj_transform = transforms.alloc();
                 cam.update(r->fr->aspect_ratio());
             } else if(it.event() == flecs::OnSet) {
+                std::cout << "set camera\n";
                 cam.update(r->fr->aspect_ratio());
             } else if(it.event() == flecs::OnRemove) {
                 transforms.free(cam.proj_transform.second);
@@ -114,6 +104,19 @@ scene_renderer::scene_renderer(
         .iter([&](flecs::iter&, comp::gpu_transform*, comp::renderable*) {
             should_regenerate_command_buffer = true;
         });
+    active_camera_q = world->query<tag::active_camera, comp::gpu_transform, comp::camera>();
+    renderable_q    = world->query<comp::gpu_transform, comp::renderable>();
+
+    algo->create_static_objects(vk::AttachmentDescription{
+        vk::AttachmentDescriptionFlags(),
+        r->surface_format.format,
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eDontCare,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::ePresentSrcKHR});
 }
 
 void scene_renderer::start_resource_upload(
@@ -180,9 +183,10 @@ void scene_renderer::create_textures_from_bundle() {
     auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
-        std::cout << "texture " << current_bundle->string(th.name) << " " << th.id << "|" << th.name
-                  << "|" << th.offset << " " << th.width << "x" << th.height << " "
-                  << vk::to_string(vk::Format(th.format)) << "\n";
+        // std::cout << "texture " << current_bundle->string(th.name) << " " << th.id << "|" <<
+        // th.name
+        //           << "|" << th.offset << " " << th.width << "x" << th.height << " "
+        //           << vk::to_string(vk::Format(th.format)) << "\n";
         /*auto props = r->phy_dev.getImageFormatProperties(
             vk::Format(th.format),
             vk::ImageType::e2D,
@@ -359,53 +363,75 @@ void scene_renderer::setup_scene_post_upload() {
 
     r->dev->updateDescriptorSets(writes.size(), writes.data(), 0, nullptr);
 
-    // TODO: could probably run create_static_objects here too
-
     algo->create_pipeline_layouts(
-        r->dev.get(),
         scene_data_desc_set_layout.get(),
-        vk::PushConstantRange{vk::ShaderStageFlagBits::eAll, 0, sizeof(per_object_push_constants)}
+        vk::PushConstantRange{
+            vk::ShaderStageFlagBits::eAll,
+            0,
+            sizeof(uint32_t) * 2 + sizeof(per_object_push_constants)}
     );
 
-    algo->create_pipelines(r->dev.get());
+    algo->create_pipelines();
 }
 
 void scene_renderer::resource_upload_cleanup() { staging_buffer.reset(); }
 
 void scene_renderer::create_swapchain_depd(frame_renderer* fr) {
     algo->create_framebuffers(fr);
+
     // update active camera's perspective matrix
-    world->query<tag::active_camera, comp::camera>().each(
-        [&](flecs::iter& it, size_t i, tag::active_camera, comp::camera& cam) {
-            cam.update(fr->aspect_ratio());
-        }
-    );
-}
+    active_camera_q.each([&](flecs::iter& it,
+                             size_t       i,
+                             tag::active_camera,
+                             comp::gpu_transform& view_tf,
+                             comp::camera&        cam) { cam.update(fr->aspect_ratio()); });
 
-void scene_renderer::generate_scene_setup_commands(vk::CommandBuffer cb) {
-    cb.begin(vk::CommandBufferBeginInfo{
+    // update viewport commands
+    // TODO: what happens when we want to render on non-full-screen intermediate buffers???
+    // TODO: what happens if we need to set the viewport in more than one subpass???
+    // this seems like it might not be the best way to do this, it might be easier to just rebuild
+    // the scene command buffer each time create_swapchain_depd() gets called
+    vk::CommandBufferInheritanceInfo inherit_info{algo->get_render_pass(), 0};
+    set_viewport_cmd_buffer->begin(vk::CommandBufferBeginInfo{
         vk::CommandBufferUsageFlagBits::eSimultaneousUse
-        | vk::CommandBufferUsageFlagBits::eRenderPassContinue});
-
-    cb.bindVertexBuffers(0, vertex_buffer->get(), {0});
-    cb.bindIndexBuffer(index_buffer->get(), 0, vk::IndexType::eUint32);
+            | vk::CommandBufferUsageFlagBits::eRenderPassContinue,
+        &inherit_info});
+    set_viewport_cmd_buffer->setViewport(
+        0, vk::Viewport{0, 0, (float)fr->extent().width, (float)fr->extent().height, 0.f, 1.f}
+    );
+    set_viewport_cmd_buffer->setScissor(0, vk::Rect2D{vk::Offset2D{}, fr->extent()});
+    set_viewport_cmd_buffer->end();
 }
 
 void scene_renderer::generate_scene_draw_commands(vk::CommandBuffer cb, vk::PipelineLayout pl) {
-    world->query<comp::gpu_transform, comp::renderable>().each(
+    cb.bindVertexBuffers(0, vertex_buffer->get(), {0});
+    cb.bindIndexBuffer(index_buffer->get(), 0, vk::IndexType::eUint32);
+    active_camera_q.each([&](flecs::iter&,
+                             size_t,
+                             tag::active_camera,
+                             const comp::gpu_transform& view_tf,
+                             const comp::camera&        cam) {
+        cb.pushConstants<uint32_t>(
+            pl,
+            vk::ShaderStageFlagBits::eAll,
+            0,
+            {(uint32_t)view_tf.gpu_index, (uint32_t)cam.proj_transform.second}
+        );
+    });
+    renderable_q.each(
         [&](flecs::iter&, size_t i, const comp::gpu_transform& t, const comp::renderable& r) {
             for(auto mi = current_bundle->object_meshes(r.object); mi.has_more(); ++mi) {
                 const auto& mat = current_bundle->material(mi->material_index);
                 cb.pushConstants<per_object_push_constants>(
                     pl,
                     vk::ShaderStageFlagBits::eAll,
-                    0,
+                    2 * sizeof(uint32_t),
                     {
                         {.transform_index = (uint32_t)t.gpu_index,
-                         .base_color      = mat.base_color,
-                         .normals         = mat.normals,
-                         .roughness       = mat.roughness,
-                         .metallic        = mat.metallic}
+                         .base_color      = static_cast<texture_id>(mat.base_color - 1),
+                         .normals         = static_cast<texture_id>(mat.normals - 1),
+                         .roughness       = static_cast<texture_id>(mat.roughness - 1),
+                         .metallic        = static_cast<texture_id>(mat.metallic - 1)}
                 }
                 );
                 cb.drawIndexed(mi->index_count, 1, mi->index_offset, mi->vertex_offset, 0);
@@ -419,19 +445,24 @@ void scene_renderer::render_frame(frame& frame) {
     // if command buffers should be invalidated, reset and regenerate it, otherwise just submit it
     if(should_regenerate_command_buffer) {
         should_regenerate_command_buffer = false;
-        auto cb                          = scene_render_cmd_buffer.get();
-        generate_scene_setup_commands(cb);
-        algo->generate_commands(cb, scene_data_desc_set, [&](auto cb, auto pl) {
-            this->generate_scene_draw_commands(cb, pl);
-        });
-        cb.end();
+
+        auto cb = scene_render_cmd_buffer.get();
+        algo->generate_commands(
+            cb,
+            vk::CommandBufferUsageFlagBits::eSimultaneousUse
+                | vk::CommandBufferUsageFlagBits::eRenderPassContinue,
+            scene_data_desc_set,
+            [&](auto cb, auto pl) { this->generate_scene_draw_commands(cb, pl); }
+        );
     }
 
     frame.frame_cmd_buf.beginRenderPass(
         algo->get_render_pass_begin_info(frame.frame_index),
         vk::SubpassContents::eSecondaryCommandBuffers
     );
-    frame.frame_cmd_buf.executeCommands(scene_render_cmd_buffer.get());
+    frame.frame_cmd_buf.executeCommands(
+        {set_viewport_cmd_buffer.get(), scene_render_cmd_buffer.get()}
+    );
     frame.frame_cmd_buf.endRenderPass();
 }
 

@@ -109,6 +109,13 @@ object_mesh_iterator asset_bundle::object_meshes(object_id id) const {
         meshes, (uint32_t*)(bundle_data + objects[id].offset), objects[id].num_meshes};
 }
 
+string_id asset_bundle::object_name(object_id id) const { return objects[id].name; }
+
 const asset_bundle_format::material_header& asset_bundle::material(size_t index) const {
     return materials[index];
+}
+
+group_object_iterator asset_bundle::group_objects(size_t group_index) const {
+    return group_object_iterator{
+        (uint32_t*)(bundle_data + groups[group_index].offset), groups[group_index].num_objects};
 }

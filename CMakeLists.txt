@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
-include(FetchContent)
-
 project(egg
     VERSION 0.1
     LANGUAGES CXX)
+
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+include(FetchContent)
+include(CompileShader)
 
 FetchContent_Declare(
     glm
@@ -93,8 +95,16 @@ add_executable(egg
     src/egg/renderer/imgui_renderer.cpp
     src/egg/renderer/scene_renderer.cpp
     src/egg/renderer/memory.cpp
+    src/egg/renderer/algorithms/forward/forward.cpp
     src/egg/components.cpp
     src/egg/bundle.cpp)
+add_shaders(egg
+    ENV vulkan1.3
+    FORMAT bin
+    SOURCES
+        src/egg/renderer/algorithms/forward/forward.vert
+        src/egg/renderer/algorithms/forward/forward.frag
+)
 target_compile_features(egg PUBLIC cxx_std_17)
 target_link_libraries(egg
     flecs::flecs_static

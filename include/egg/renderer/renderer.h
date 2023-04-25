@@ -20,25 +20,25 @@ class scene_renderer;
 /// buffers
 class rendering_algorithm {
   public:
+    virtual void init_with_device(vk::Device device, VmaAllocator allocator) = 0;
     // create render pass, descriptor pools etc
-    virtual void create_static_objects(
-        vk::Device device, vk::AttachmentDescription present_surface_attachment
-    )                                                                                 = 0;
-    virtual vk::RenderPassBeginInfo* get_render_pass_begin_info(uint32_t frame_index) = 0;
+    virtual void create_static_objects(vk::AttachmentDescription present_surface_attachment) = 0;
+    virtual vk::RenderPass           get_render_pass()                                       = 0;
+    virtual vk::RenderPassBeginInfo* get_render_pass_begin_info(uint32_t frame_index)        = 0;
     // TODO: start_resource_upload/resource_upload_cleanup?
     // create pipeline layout and any algorithm specific descriptor sets/set layouts
     virtual void create_pipeline_layouts(
-        vk::Device              device,
         vk::DescriptorSetLayout scene_data_desc_set_layout,
         vk::PushConstantRange   per_object_push_constants_range
     ) = 0;
     // load shaders and create pipelines
-    virtual void create_pipelines(vk::Device device) = 0;
+    virtual void create_pipelines() = 0;
     // create framebuffers
     virtual void create_framebuffers(frame_renderer* fr) = 0;
     // generate command buffers
     virtual void generate_commands(
         vk::CommandBuffer                                          cb,
+        vk::CommandBufferUsageFlags                                cb_usage_flags,
         vk::DescriptorSet                                          scene_data_desc_set,
         std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
     )                              = 0;
