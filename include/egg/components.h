@@ -1,14 +1,7 @@
 #pragma once
 #include "asset-bundler/format.h"
-#include "glm/ext/scalar_constants.hpp"
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
 #include <optional>
-
-using glm::mat4;
-using glm::quat;
-using glm::vec3;
+#include "glm.h"
 
 namespace comp {
 

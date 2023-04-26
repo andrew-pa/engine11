@@ -167,3 +167,7 @@ void renderer::render_frame() {
     ir->render_frame(frame);
     fr->end_frame(std::move(frame));
 }
+
+void renderer::add_gui_window(const std::string& name, const std::function<void(bool*)>& draw) {
+    ir->add_window(name, draw);
+}

@@ -1,7 +1,7 @@
 #pragma once
 #include "asset-bundler/format.h"
 #include <filesystem>
-#include <glm/glm.hpp>
+#include "glm.h"
 #include <string>
 #include <unordered_map>
 #include <vector>

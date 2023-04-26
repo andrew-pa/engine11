@@ -1,7 +1,6 @@
 #include "egg/renderer/scene_renderer.h"
 #include "egg/components.h"
 #include "egg/renderer/imgui_renderer.h"
-#include <glm/glm.hpp>
 #include <iostream>
 #include <utility>
 
@@ -61,7 +60,7 @@ scene_renderer::scene_renderer(
                 const auto*         obj = it.entity(i).get<comp::renderable>();
                 if(obj != nullptr) s = current_bundle->object_transform(obj->object);
                 gt.update(p, r, s);
-                if(it.entity(i).has<tag::active_camera>()) *gt.transform = inverse(*gt.transform);
+                // if(it.entity(i).has<tag::active_camera>()) *gt.transform = inverse(*gt.transform);
                 it.entity(i).set<comp::gpu_transform>(gt);
             } else if(it.event() == flecs::OnRemove) {
                 transforms.free(it.entity(i).get<comp::gpu_transform>()->gpu_index);
@@ -78,7 +77,7 @@ scene_renderer::scene_renderer(
             std::optional<mat4> s;
             const auto*         obj = it.entity(i).get<comp::renderable>();
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
-            if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
+            // if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
             t.update(p, r);
         });
     world->observer<comp::camera>()

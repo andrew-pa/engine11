@@ -1,9 +1,9 @@
 #pragma once
+#include "glm.h"
 #include "egg/components.h"
-#include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/memory.h"
-#include "renderer.h"
-#include <glm/glm.hpp>
+#include "egg/renderer/renderer.h"
+#include "egg/renderer/core/frame_renderer.h"
 
 /*
  * transforms (can change once per frame)

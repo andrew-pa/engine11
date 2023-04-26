@@ -93,6 +93,8 @@ class renderer {
 
     ~renderer();
 
+    void add_gui_window(const std::string& name, const std::function<void(bool*)>& draw);
+
     friend class frame_renderer;
     friend class imgui_renderer;
     friend class scene_renderer;

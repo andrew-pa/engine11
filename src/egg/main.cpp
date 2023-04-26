@@ -1,7 +1,7 @@
 #include "egg/components.h"
 #include "egg/renderer/algorithms/forward.h"
 #include "egg/renderer/renderer.h"
-#include "glm/ext/scalar_constants.hpp"
+#include "imgui.h"
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <iostream>
@@ -38,11 +38,22 @@ int main(int argc, char* argv[]) {
 
     // create the camera
     std::cout << "camera\n";
-    auto e = world->entity();
-    e.set<comp::position>({vec3(0.f, 0.f, 0.f)});
-    e.set<comp::rotation>({});
-    e.add<tag::active_camera>();
-    e.add<comp::camera>();
+    auto cam = world->entity();
+    cam.set<comp::position>({vec3(0.f, 0.f, 0.f)});
+    cam.set<comp::rotation>({});
+    cam.add<tag::active_camera>();
+    cam.add<comp::camera>();
+
+    rndr.add_gui_window("Camera", [&](bool* open) {
+        ImGui::Begin("Camera", open);
+        vec3 pos = cam.get<comp::position>()->pos;
+        if(ImGui::DragFloat3("Position", &pos[0], 0.05f, -1000.f, 1000.f))
+            cam.set<comp::position>({pos});
+        quat rot = cam.get<comp::rotation>()->rot;
+        if(ImGui::DragFloat4("Rotation", &rot[0], 0.05f, -1.f, 1.f))
+            cam.set<comp::rotation>({glm::normalize(rot)});
+        ImGui::End();
+    });
 
     world->progress();
 
@@ -51,6 +62,8 @@ int main(int argc, char* argv[]) {
         rndr.render_frame();
         glfwSwapBuffers(window);
         glfwPollEvents();
+        // auto t = world->time();
+        // cam.set<comp::position>({vec3(0.f, 0.f, 0.f)});
         world->progress();
     }
 

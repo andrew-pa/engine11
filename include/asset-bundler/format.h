@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
-#include <glm/glm.hpp>
+#include "glm.h"
 #include <vulkan/vulkan.hpp>
 
 using std::byte;
@@ -11,8 +11,8 @@ using string_id                  = uint32_t;
 using object_id                  = uint32_t;
 
 struct vertex {
-    glm::vec3 position, normal, tangent;
-    glm::vec2 tex_coord;
+    vec3 position, normal, tangent;
+    vec2 tex_coord;
 };
 
 constexpr static vk::VertexInputAttributeDescription vertex_attribute_description[]{

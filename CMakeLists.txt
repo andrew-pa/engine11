@@ -34,7 +34,7 @@ FetchContent_MakeAvailable(glfw)
 FetchContent_Declare(
     vma
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-    GIT_TAG v3.0.1
+    GIT_TAG master
     GIT_PROGRESS TRUE)
 FetchContent_MakeAvailable(vma)
 
@@ -71,8 +71,10 @@ FetchContent_MakeAvailable(zstd)
 FetchContent_Declare(
     assimp
     GIT_REPOSITORY https://github.com/assimp/assimp
-    GIT_TAG v5.2.5
+    GIT_TAG master
     GIT_PROGRESS TRUE)
+# TODO: Assimp build currently fails with -Werror on GCC13
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(assimp)
 
 FetchContent_Declare(
