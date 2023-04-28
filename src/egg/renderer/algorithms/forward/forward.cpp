@@ -44,15 +44,12 @@ void forward_rendering_algorithm::create_static_objects(
 
     // !!! Helpful:
     // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)
-    vk::SubpassDependency depds[]{
+    vk::SubpassDependency depds[] {
         {VK_SUBPASS_EXTERNAL,
-         0, vk::PipelineStageFlagBits::eColorAttachmentOutput
-             | vk::PipelineStageFlagBits::eEarlyFragmentTests,
-         vk::PipelineStageFlagBits::eColorAttachmentOutput
-             | vk::PipelineStageFlagBits::eEarlyFragmentTests,
+         0, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+         vk::PipelineStageFlagBits::eColorAttachmentOutput,
          {},
-         vk::AccessFlagBits::eColorAttachmentWrite
-             | vk::AccessFlagBits::eDepthStencilAttachmentWrite},
+         vk::AccessFlagBits::eColorAttachmentWrite             },
         {VK_SUBPASS_EXTERNAL,
          0, vk::PipelineStageFlagBits::eLateFragmentTests,
          vk::PipelineStageFlagBits::eEarlyFragmentTests,
@@ -223,17 +220,13 @@ vk::RenderPassBeginInfo* forward_rendering_algorithm::get_render_pass_begin_info
 
 void forward_rendering_algorithm::generate_commands(
     vk::CommandBuffer                                          cb,
-    vk::CommandBufferUsageFlags                                cb_usage_flags,
     vk::DescriptorSet                                          scene_data_desc_set,
     std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
 ) {
-    cb.begin(vk::CommandBufferBeginInfo{cb_usage_flags, &cmd_buf_inherit_info});
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, pipeline_layout.get(), 0, scene_data_desc_set, {}
     );
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
     generate_draw_cmds(cb, pipeline_layout.get());
-
-    cb.end();
 }

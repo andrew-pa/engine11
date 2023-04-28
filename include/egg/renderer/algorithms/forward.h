@@ -45,9 +45,12 @@ class forward_rendering_algorithm : public rendering_algorithm {
 
     void create_framebuffers(frame_renderer* fr) override;
 
+    vk::CommandBufferInheritanceInfo* get_command_buffer_inheritance_info() override {
+        return &cmd_buf_inherit_info;
+    }
+
     void generate_commands(
         vk::CommandBuffer                                          cb,
-        vk::CommandBufferUsageFlags                                cb_usage_flags,
         vk::DescriptorSet                                          scene_data_desc_set,
         std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
     ) override;

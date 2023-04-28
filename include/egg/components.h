@@ -1,7 +1,7 @@
 #pragma once
 #include "asset-bundler/format.h"
-#include <optional>
 #include "glm.h"
+#include <optional>
 
 namespace comp {
 

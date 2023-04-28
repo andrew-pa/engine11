@@ -36,12 +36,12 @@ class rendering_algorithm {
     // create framebuffers
     virtual void create_framebuffers(frame_renderer* fr) = 0;
     // generate command buffers
-    virtual void generate_commands(
-        vk::CommandBuffer                                          cb,
-        vk::CommandBufferUsageFlags                                cb_usage_flags,
-        vk::DescriptorSet                                          scene_data_desc_set,
-        std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
-    )                              = 0;
+    virtual vk::CommandBufferInheritanceInfo* get_command_buffer_inheritance_info() = 0;
+    virtual void                              generate_commands(
+                                     vk::CommandBuffer                                          cb,
+                                     vk::DescriptorSet                                          scene_data_desc_set,
+                                     std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
+                                 ) = 0;
     virtual ~rendering_algorithm() = default;
 };
 

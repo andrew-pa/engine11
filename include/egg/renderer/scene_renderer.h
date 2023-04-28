@@ -1,9 +1,9 @@
 #pragma once
-#include "glm.h"
 #include "egg/components.h"
+#include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/memory.h"
 #include "egg/renderer/renderer.h"
-#include "egg/renderer/core/frame_renderer.h"
+#include "glm.h"
 
 /*
  * transforms (can change once per frame)
@@ -51,7 +51,7 @@ class scene_renderer {
     vk::UniqueDescriptorPool      scene_data_desc_set_pool;
     vk::DescriptorSet             scene_data_desc_set;  // lifetime is tied to pool
 
-    vk::UniqueCommandBuffer scene_render_cmd_buffer, set_viewport_cmd_buffer;
+    vk::UniqueCommandBuffer scene_render_cmd_buffer;
     bool                    should_regenerate_command_buffer;
 
     void generate_scene_draw_commands(vk::CommandBuffer cb, vk::PipelineLayout pl);

@@ -1,7 +1,7 @@
 #pragma once
+#include "glm.h"
 #include <cstddef>
 #include <cstdint>
-#include "glm.h"
 #include <vulkan/vulkan.hpp>
 
 using std::byte;

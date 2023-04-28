@@ -1,6 +1,6 @@
 #include "egg/components.h"
-#include <iostream>
 #include <glm/gtx/io.hpp>
+#include <iostream>
 
 void comp::gpu_transform::update(const position& p, const rotation& r, const std::optional<mat4>& s)
     const {

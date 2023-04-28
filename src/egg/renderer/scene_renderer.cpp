@@ -10,7 +10,7 @@
  * render pipeline
  *   lifecycle +
  *   actual draw calls +
- *   implementation
+ *   implementation +
  * handle scene updates +
  *   cameras +
  *   objects +
@@ -24,6 +24,8 @@
  * do we need the renderer/core directory? should memory.h be in there?
  * move swap_chain.cpp -> frame_renderer.cpp
  * move device.cpp -> renderer.cpp
+ * move static resources into seperate class
+ * move ECS setup into seperate scene_renderer function
  * ****/
 
 // future cool things:
@@ -44,9 +46,8 @@ scene_renderer::scene_renderer(
     algo->init_with_device(r->dev.get(), r->allocator);
 
     auto buffers            = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
-        r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 2});
+        r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 1});
     scene_render_cmd_buffer = std::move(buffers[0]);
-    set_viewport_cmd_buffer = std::move(buffers[1]);
 
     world->observer<comp::position, comp::rotation>()
         .event(flecs::OnAdd)
@@ -60,7 +61,7 @@ scene_renderer::scene_renderer(
                 const auto*         obj = it.entity(i).get<comp::renderable>();
                 if(obj != nullptr) s = current_bundle->object_transform(obj->object);
                 gt.update(p, r, s);
-                // if(it.entity(i).has<tag::active_camera>()) *gt.transform = inverse(*gt.transform);
+                if(it.entity(i).has<tag::active_camera>()) *gt.transform = inverse(*gt.transform);
                 it.entity(i).set<comp::gpu_transform>(gt);
             } else if(it.event() == flecs::OnRemove) {
                 transforms.free(it.entity(i).get<comp::gpu_transform>()->gpu_index);
@@ -77,7 +78,7 @@ scene_renderer::scene_renderer(
             std::optional<mat4> s;
             const auto*         obj = it.entity(i).get<comp::renderable>();
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
-            // if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
+            if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
             t.update(p, r);
         });
     world->observer<comp::camera>()
@@ -385,21 +386,7 @@ void scene_renderer::create_swapchain_depd(frame_renderer* fr) {
                              comp::gpu_transform& view_tf,
                              comp::camera&        cam) { cam.update(fr->aspect_ratio()); });
 
-    // update viewport commands
-    // TODO: what happens when we want to render on non-full-screen intermediate buffers???
-    // TODO: what happens if we need to set the viewport in more than one subpass???
-    // this seems like it might not be the best way to do this, it might be easier to just rebuild
-    // the scene command buffer each time create_swapchain_depd() gets called
-    vk::CommandBufferInheritanceInfo inherit_info{algo->get_render_pass(), 0};
-    set_viewport_cmd_buffer->begin(vk::CommandBufferBeginInfo{
-        vk::CommandBufferUsageFlagBits::eSimultaneousUse
-            | vk::CommandBufferUsageFlagBits::eRenderPassContinue,
-        &inherit_info});
-    set_viewport_cmd_buffer->setViewport(
-        0, vk::Viewport{0, 0, (float)fr->extent().width, (float)fr->extent().height, 0.f, 1.f}
-    );
-    set_viewport_cmd_buffer->setScissor(0, vk::Rect2D{vk::Offset2D{}, fr->extent()});
-    set_viewport_cmd_buffer->end();
+    should_regenerate_command_buffer = true;
 }
 
 void scene_renderer::generate_scene_draw_commands(vk::CommandBuffer cb, vk::PipelineLayout pl) {
@@ -446,22 +433,31 @@ void scene_renderer::render_frame(frame& frame) {
         should_regenerate_command_buffer = false;
 
         auto cb = scene_render_cmd_buffer.get();
-        algo->generate_commands(
-            cb,
+        cb.begin(vk::CommandBufferBeginInfo{
             vk::CommandBufferUsageFlagBits::eSimultaneousUse
                 | vk::CommandBufferUsageFlagBits::eRenderPassContinue,
-            scene_data_desc_set,
-            [&](auto cb, auto pl) { this->generate_scene_draw_commands(cb, pl); }
+            algo->get_command_buffer_inheritance_info()});
+
+        // TODO: nicer interface than r->fr->extent()? could we put the extent in the frame struct?
+        cb.setViewport(
+            0,
+            vk::Viewport{
+                0, 0, (float)r->fr->extent().width, (float)r->fr->extent().height, 0.f, 1.f}
         );
+        cb.setScissor(0, vk::Rect2D{vk::Offset2D{}, r->fr->extent()});
+
+        algo->generate_commands(cb, scene_data_desc_set, [&](auto cb, auto pl) {
+            this->generate_scene_draw_commands(cb, pl);
+        });
+
+        cb.end();
     }
 
     frame.frame_cmd_buf.beginRenderPass(
         algo->get_render_pass_begin_info(frame.frame_index),
         vk::SubpassContents::eSecondaryCommandBuffers
     );
-    frame.frame_cmd_buf.executeCommands(
-        {set_viewport_cmd_buffer.get(), scene_render_cmd_buffer.get()}
-    );
+    frame.frame_cmd_buf.executeCommands(scene_render_cmd_buffer.get());
     frame.frame_cmd_buf.endRenderPass();
 }
 
