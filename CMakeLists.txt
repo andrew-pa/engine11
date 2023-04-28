@@ -56,6 +56,8 @@ add_library(imguilib
     ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
 )
 target_link_libraries(imguilib glfw Vulkan::Vulkan)
+target_compile_features(imguilib PRIVATE cxx_std_17)
+
 include_directories(include/ ${imgui_SOURCE_DIR})
 
 find_package(Vulkan REQUIRED)
@@ -67,6 +69,8 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
     SOURCE_SUBDIR build/cmake)
 FetchContent_MakeAvailable(zstd)
+# TODO: this shouldn't be necessary??
+include_directories(${zstd_SOURCE_DIR}/lib)
 
 FetchContent_Declare(
     assimp
@@ -83,8 +87,7 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE)
 FetchContent_MakeAvailable(stb)
 include_directories(include/ ${stb_SOURCE_DIR})
-add_library(stblib
-    src/stb.cpp)
+add_library(stblib src/stb.cpp)
 
 #####
 
@@ -93,7 +96,6 @@ add_executable(egg
     src/egg/renderer/renderer.cpp
     src/egg/renderer/core/frame_renderer.cpp
     src/egg/renderer/core/device.cpp
-    src/egg/renderer/core/swap_chain.cpp
     src/egg/renderer/imgui_renderer.cpp
     src/egg/renderer/scene_renderer.cpp
     src/egg/renderer/memory.cpp
@@ -118,5 +120,5 @@ target_link_libraries(egg
 
 add_executable(asset-bundler src/asset-bundler/main.cpp src/asset-bundler/output_bundle.cpp src/asset-bundler/importer.cpp)
 target_compile_features(asset-bundler PUBLIC cxx_std_17)
-target_link_libraries(asset-bundler libzstd_static assimp stblib Vulkan::Vulkan)
+target_link_libraries(asset-bundler glm libzstd_static assimp stblib Vulkan::Vulkan)
 
