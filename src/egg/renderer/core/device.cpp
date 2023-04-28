@@ -22,6 +22,17 @@ struct queue_family_indices {
     }
 
     bool complete() const { return graphics >= 0 && present >= 0; }
+
+    std::vector<vk::DeviceQueueCreateInfo> generate_create_infos() {
+        std::vector<vk::DeviceQueueCreateInfo> qu_cfo;
+
+        auto unique_queue_families = std::unordered_set<int>{graphics, present};
+        qu_cfo.reserve(unique_queue_families.size());
+        float fp = 1.f;
+        for(auto qfi : unique_queue_families)
+            qu_cfo.emplace_back(vk::DeviceQueueCreateFlags{}, (uint32_t)qfi, 1, &fp);
+        return qu_cfo;
+    }
 };
 
 void renderer::init_device(vk::Instance instance) {
@@ -41,15 +52,6 @@ void renderer::init_device(vk::Instance instance) {
     auto props = phy_dev.getProperties();
     std::cout << "using physical device " << props.deviceName << " ("
               << vk::to_string(props.deviceType) << ")\n";
-
-    // create device queue create infos
-    std::vector<vk::DeviceQueueCreateInfo> qu_cfo;
-
-    auto unique_queue_families = std::unordered_set<int>{qfixs.graphics, qfixs.present};
-    qu_cfo.reserve(unique_queue_families.size());
-    float fp = 1.f;
-    for(auto qfi : unique_queue_families)
-        qu_cfo.emplace_back(vk::DeviceQueueCreateFlags{}, (uint32_t)qfi, 1, &fp);
 
     // create device create info
     VkPhysicalDeviceVulkan12Features v12_features{
@@ -76,6 +78,9 @@ void renderer::init_device(vk::Instance instance) {
 
     const char* extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
+    // create device queue create infos
+    std::vector<vk::DeviceQueueCreateInfo> qu_cfo = qfixs.generate_create_infos();
+
     dev = phy_dev.createDeviceUnique(vk::DeviceCreateInfo{
         {},
         (uint32_t)qu_cfo.size(),
@@ -93,7 +98,7 @@ void renderer::init_device(vk::Instance instance) {
     cfo.device                 = dev.get();
     auto err                   = vmaCreateAllocator(&cfo, &allocator);
     if(err != VK_SUCCESS)
-        throw std::runtime_error("failed to create GPU allocator: " + std::to_string(err));
+        throw std::runtime_error("failed to create GPU allocator: " + vk::to_string(vk::Result(err)));
 
     graphics_queue = dev->getQueue(qfixs.graphics, 0);
     present_queue  = dev->getQueue(qfixs.present, 0);

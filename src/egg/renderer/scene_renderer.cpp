@@ -23,8 +23,8 @@
  *   load times
  *   cpu/gpu frame times per subsystem (render, etc)
  * do we need the renderer/core directory? should memory.h be in there?
- * move swap_chain.cpp -> frame_renderer.cpp
- * move device.cpp -> renderer.cpp
+ * move swap_chain.cpp -> frame_renderer.cpp +
+ * move device.cpp -> renderer.cpp ~
  * move static resources into seperate class
  * move ECS setup into seperate scene_renderer function
  * ****/
