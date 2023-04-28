@@ -2,6 +2,7 @@
 #include "egg/components.h"
 #include "egg/renderer/imgui_renderer.h"
 #include <iostream>
+#include <unordered_set>
 #include <utility>
 
 /* TODO:
@@ -43,7 +44,20 @@ scene_renderer::scene_renderer(
       transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
       should_regenerate_command_buffer(true) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
-    algo->init_with_device(r->dev.get(), r->allocator);
+
+    std::unordered_set<vk::Format> supported_depth_formats {
+        vk::Format::eD16Unorm, vk::Format::eD16UnormS8Uint, vk::Format::eD24UnormS8Uint, vk::Format::eX8D24UnormPack32, vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint
+    };
+    for(auto i = supported_depth_formats.begin(); i != supported_depth_formats.end();) {
+        auto props = r->phy_dev.getFormatProperties(*i);
+        if((props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) != vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+            i = supported_depth_formats.erase(i);
+        } else {
+            i++;
+        }
+    }
+
+    algo->init_with_device(r->dev.get(), r->allocator, supported_depth_formats);
 
     auto buffers            = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
         r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 1});

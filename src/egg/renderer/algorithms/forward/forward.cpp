@@ -3,12 +3,39 @@
 #include "egg/renderer/memory.h"
 #include <fstream>
 #include <iostream>
+#include <vulkan/vulkan_format_traits.hpp>
 
-const vk::Format DEPTH_BUFFER_FORMAT = vk::Format::eD24UnormS8Uint;
-
-void forward_rendering_algorithm::init_with_device(vk::Device device, VmaAllocator allocator) {
+void forward_rendering_algorithm::init_with_device(vk::Device device, VmaAllocator allocator, const std::unordered_set<vk::Format>& supported_depth_formats) {
     this->device    = device;
     this->allocator = allocator;
+
+    depth_buffer_create_info = vk::ImageCreateInfo{
+        {},
+        vk::ImageType::e2D,
+        vk::Format::eUndefined,
+        {},
+        1,
+        1,
+        vk::SampleCountFlagBits::e1, //TODO: surely we'll never enable MSAA?
+        vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        vk::SharingMode::eExclusive,
+        {},
+        {},
+        vk::ImageLayout::eUndefined};
+
+    for(auto fmt : supported_depth_formats) {
+        // select any 24bit format or any 32bit format w/o stencil
+        // TODO is this true? we don't actually need stencil, but 24bit formats can be faster, apparently?
+        if(vk::componentBits(fmt, 0) == 24 ||
+                (vk::componentBits(fmt, 0) == 32 && vk::componentCount(fmt) == 1)) 
+        {
+            depth_buffer_create_info.format = fmt;
+            break;
+        }
+    }
+
+    std::cout << "using depth buffer format: " << vk::to_string(depth_buffer_create_info.format) << "\n";
 }
 
 void forward_rendering_algorithm::create_static_objects(
@@ -18,7 +45,7 @@ void forward_rendering_algorithm::create_static_objects(
         present_surface_attachment,
         vk::AttachmentDescription{
                                   {},
-                                  DEPTH_BUFFER_FORMAT, present_surface_attachment.samples,
+                                  depth_buffer_create_info.format, depth_buffer_create_info.samples,
                                   vk::AttachmentLoadOp::eClear,
                                   vk::AttachmentStoreOp::eDontCare,
                                   vk::AttachmentLoadOp::eDontCare,
@@ -62,27 +89,12 @@ void forward_rendering_algorithm::create_static_objects(
         {}, 2, attachments, 1, subpasses, 2, depds});
 
     clear_values = {
-        vk::ClearColorValue{0.f, 0.6f, 0.9f, 1.f},
+        vk::ClearColorValue{std::array<float, 4>{ 0.f, 0.6f, 0.9f, 1.f }},
         vk::ClearDepthStencilValue{1.f, 0}
     };
 
     render_pass_begin_info = vk::RenderPassBeginInfo{
         render_pass.get(), VK_NULL_HANDLE, {}, (uint32_t)clear_values.size(), clear_values.data()};
-
-    depth_buffer_create_info = vk::ImageCreateInfo{
-        {},
-        vk::ImageType::e2D,
-        DEPTH_BUFFER_FORMAT,
-        {},
-        1,
-        1,
-        present_surface_attachment.samples,
-        vk::ImageTiling::eOptimal,
-        vk::ImageUsageFlagBits::eDepthStencilAttachment,
-        vk::SharingMode::eExclusive,
-        {},
-        {},
-        vk::ImageLayout::eUndefined};
 
     cmd_buf_inherit_info = vk::CommandBufferInheritanceInfo{render_pass.get(), 0, VK_NULL_HANDLE};
 }
@@ -194,7 +206,7 @@ void forward_rendering_algorithm::create_framebuffers(frame_renderer* fr) {
         {},
         depth_buffer->get(),
         vk::ImageViewType::e2D,
-        DEPTH_BUFFER_FORMAT,
+        depth_buffer_create_info.format,
         vk::ComponentMapping{},
         vk::ImageSubresourceRange{
          vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil, 0, 1, 0, 1}

@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <functional>
+#include <unordered_set>
 #define GLFW_INCLUDE_VULKAN
 #include "egg/bundle.h"
 #include <GLFW/glfw3.h>
@@ -20,7 +21,7 @@ class scene_renderer;
 /// buffers
 class rendering_algorithm {
   public:
-    virtual void init_with_device(vk::Device device, VmaAllocator allocator) = 0;
+    virtual void init_with_device(vk::Device device, VmaAllocator allocator, const std::unordered_set<vk::Format>& supported_depth_formats) = 0;
     // create render pass, descriptor pools etc
     virtual void create_static_objects(vk::AttachmentDescription present_surface_attachment) = 0;
     virtual vk::RenderPass           get_render_pass()                                       = 0;

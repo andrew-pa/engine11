@@ -51,11 +51,12 @@ renderer::renderer(
     uint32_t                 glfw_ext_count = 0;
     auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
     std::vector<const char*> extensions{glfw_req_exts, glfw_req_exts + glfw_ext_count};
+    extensions.push_back("VK_KHR_portability_enumeration");
 #ifndef NDEBUG
     extensions.emplace_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #endif
     instance = vk::createInstanceUnique(vk::InstanceCreateInfo{
-        {}, &APP_INFO, 0, {}, (uint32_t)extensions.size(), extensions.data()});
+            vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR, &APP_INFO, 0, {}, (uint32_t)extensions.size(), extensions.data()});
 
     // set up vulkan debugging reports
 #ifndef NDEBUG
