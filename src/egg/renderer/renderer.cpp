@@ -4,6 +4,7 @@
 #include "egg/renderer/imgui_renderer.h"
 #include "egg/renderer/memory.h"
 #include "egg/renderer/scene_renderer.h"
+#include "error.h"
 #include <iostream>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
@@ -56,7 +57,12 @@ renderer::renderer(
     extensions.emplace_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #endif
     instance = vk::createInstanceUnique(vk::InstanceCreateInfo{
-            vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR, &APP_INFO, 0, {}, (uint32_t)extensions.size(), extensions.data()});
+        vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR,
+        &APP_INFO,
+        0,
+        {},
+        (uint32_t)extensions.size(),
+        extensions.data()});
 
     // set up vulkan debugging reports
 #ifndef NDEBUG
@@ -65,12 +71,16 @@ renderer::renderer(
             | vk::DebugReportFlagBitsEXT::ePerformanceWarning | vk::DebugReportFlagBitsEXT::eWarning
             | vk::DebugReportFlagBitsEXT::eInformation,
         debug_callback};
-    instance->createDebugReportCallbackEXT(
+    auto err1 = instance->createDebugReportCallbackEXT(
         &cbco,
         nullptr,
         &debug_report_callback,
         vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr)
     );
+    if(err1 != vk::Result::eSuccess) {
+        std::cout << "WARNING: failed to create debug report callback: " << vk::to_string(err1)
+                  << "\n";
+    }
 #endif
     // create window surface
     VkSurfaceKHR surface;
@@ -79,9 +89,7 @@ renderer::renderer(
     if(err != VK_SUCCESS) {
         for(const auto* ext : extensions)
             std::cout << "requested extension: " << ext << "\n";
-        throw std::runtime_error(
-            "failed to create window surface " + vk::to_string(vk::Result(err))
-        );
+        throw vulkan_runtime_error("failed to create window surface", err);
     }
 
     window_surface = vk::UniqueSurfaceKHR(surface);
@@ -145,11 +153,8 @@ void renderer::wait_for_resource_upload_to_finish() {
     sr->setup_scene_post_upload();
 
     auto err = dev->waitForFences(upload_fence.get(), VK_TRUE, UINT64_MAX);
-    if(err != vk::Result::eSuccess) {
-        throw std::runtime_error(
-            "failed to wait for resource upload: " + vk::to_string(vk::Result(err))
-        );
-    }
+    if(err != vk::Result::eSuccess)
+        throw vulkan_runtime_error("failed to wait for resource upload", err);
 
     sr->resource_upload_cleanup();
     ir->resource_upload_cleanup();

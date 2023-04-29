@@ -1,4 +1,5 @@
 #include "egg/renderer/core/frame_renderer.h"
+#include "error.h"
 #include <iostream>
 
 frame_renderer::frame_renderer(renderer* r, vk::Extent2D swapchain_extent)
@@ -114,9 +115,7 @@ frame frame_renderer::begin_frame() {
         if(err == vk::Result::eSuboptimalKHR || err == vk::Result::eErrorOutOfDateKHR)
             reset_swapchain(swapchain_extent);
         else
-            throw std::runtime_error(
-                "failed to acquire next image: " + std::to_string((size_t)err)
-            );
+            throw vulkan_runtime_error("failed to acquire next image", err);
     }
     frame f{.frame_index = frame_index, .frame_cmd_buf = command_buffers[frame_index].get()};
     // wait for command buffer to become ready
@@ -124,7 +123,7 @@ frame frame_renderer::begin_frame() {
         command_buffer_ready_fences[frame_index].get(), VK_TRUE, UINT64_MAX
     );
     if(err != vk::Result::eSuccess)
-        throw std::runtime_error("command buffer failed to become ready: " + vk::to_string(err));
+        throw vulkan_runtime_error("command buffer failed to become ready", err);
     r->dev->resetFences(command_buffer_ready_fences[frame_index].get());
     f.frame_cmd_buf.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit}
     );
@@ -145,6 +144,7 @@ void frame_renderer::end_frame(frame&& frame) {
             &render_finished.get()},
         command_buffer_ready_fences[frame.frame_index].get()
     );
-    r->present_queue.presentKHR(vk::PresentInfoKHR{
+    auto err = r->present_queue.presentKHR(vk::PresentInfoKHR{
         1, &render_finished.get(), 1, &swapchain.get(), &frame.frame_index});
+    if(err != vk::Result::eSuccess) throw vulkan_runtime_error("failed to present frame", err);
 }

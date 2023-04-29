@@ -28,7 +28,11 @@ class forward_rendering_algorithm : public rendering_algorithm {
     forward_rendering_algorithm(std::filesystem::path shader_path)
         : shader_path(std::move(shader_path)) {}
 
-    void init_with_device(vk::Device device, VmaAllocator allocator, const std::unordered_set<vk::Format>& supported_depth_formats) override;
+    void init_with_device(
+        vk::Device                            device,
+        VmaAllocator                          allocator,
+        const std::unordered_set<vk::Format>& supported_depth_formats
+    ) override;
 
     void create_static_objects(vk::AttachmentDescription present_surface_attachment) override;
 

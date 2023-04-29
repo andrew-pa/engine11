@@ -1,5 +1,6 @@
 #include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/renderer.h"
+#include "error.h"
 #include <iostream>
 #include <unordered_set>
 
@@ -97,8 +98,7 @@ void renderer::init_device(vk::Instance instance) {
     cfo.physicalDevice         = phy_dev;
     cfo.device                 = dev.get();
     auto err                   = vmaCreateAllocator(&cfo, &allocator);
-    if(err != VK_SUCCESS)
-        throw std::runtime_error("failed to create GPU allocator: " + vk::to_string(vk::Result(err)));
+    if(err != VK_SUCCESS) throw vulkan_runtime_error("failed to create GPU allocator", err);
 
     graphics_queue = dev->getQueue(qfixs.graphics, 0);
     present_queue  = dev->getQueue(qfixs.present, 0);

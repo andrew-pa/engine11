@@ -40,7 +40,9 @@ int main(int argc, char* argv[]) {
     std::cout << "camera\n";
     auto cam = world->entity();
     cam.set<comp::position>({vec3(0.f, 0.f, 40.f)});
-    cam.set<comp::rotation>({quat{0.f, 0.f, 0.897f, -0.443f}});
+    cam.set<comp::rotation>({
+        quat{0.f, 0.f, 0.897f, -0.443f}
+    });
     cam.add<tag::active_camera>();
     cam.add<comp::camera>();
 

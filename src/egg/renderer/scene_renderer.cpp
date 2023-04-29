@@ -45,14 +45,20 @@ scene_renderer::scene_renderer(
       should_regenerate_command_buffer(true) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
 
-    std::unordered_set<vk::Format> supported_depth_formats {
-        vk::Format::eD16Unorm, vk::Format::eD16UnormS8Uint, vk::Format::eD24UnormS8Uint, vk::Format::eX8D24UnormPack32, vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint
-    };
+    std::unordered_set<vk::Format> supported_depth_formats{
+        vk::Format::eD16Unorm,
+        vk::Format::eD16UnormS8Uint,
+        vk::Format::eD24UnormS8Uint,
+        vk::Format::eX8D24UnormPack32,
+        vk::Format::eD32Sfloat,
+        vk::Format::eD32SfloatS8Uint};
     for(auto i = supported_depth_formats.begin(); i != supported_depth_formats.end();) {
         auto props = r->phy_dev.getFormatProperties(*i);
-        if((props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) != vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+        if((props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment)
+           != vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
             i = supported_depth_formats.erase(i);
         } else {
+            std::cout << "supported depth format: " << vk::to_string(*i) << "\n";
             i++;
         }
     }

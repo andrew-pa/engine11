@@ -1,11 +1,16 @@
 #include "egg/renderer/algorithms/forward.h"
 #include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/memory.h"
+#include "error.h"
 #include <fstream>
 #include <iostream>
 #include <vulkan/vulkan_format_traits.hpp>
 
-void forward_rendering_algorithm::init_with_device(vk::Device device, VmaAllocator allocator, const std::unordered_set<vk::Format>& supported_depth_formats) {
+void forward_rendering_algorithm::init_with_device(
+    vk::Device                            device,
+    VmaAllocator                          allocator,
+    const std::unordered_set<vk::Format>& supported_depth_formats
+) {
     this->device    = device;
     this->allocator = allocator;
 
@@ -16,7 +21,7 @@ void forward_rendering_algorithm::init_with_device(vk::Device device, VmaAllocat
         {},
         1,
         1,
-        vk::SampleCountFlagBits::e1, //TODO: surely we'll never enable MSAA?
+        vk::SampleCountFlagBits::e1,  // TODO: surely we'll never enable MSAA?
         vk::ImageTiling::eOptimal,
         vk::ImageUsageFlagBits::eDepthStencilAttachment,
         vk::SharingMode::eExclusive,
@@ -26,16 +31,17 @@ void forward_rendering_algorithm::init_with_device(vk::Device device, VmaAllocat
 
     for(auto fmt : supported_depth_formats) {
         // select any 24bit format or any 32bit format w/o stencil
-        // TODO is this true? we don't actually need stencil, but 24bit formats can be faster, apparently?
-        if(vk::componentBits(fmt, 0) == 24 ||
-                (vk::componentBits(fmt, 0) == 32 && vk::componentCount(fmt) == 1)) 
-        {
+        // TODO is this true? we don't actually need stencil, but 24bit formats can be faster,
+        // apparently?
+        if(vk::componentBits(fmt, 0) == 24
+           || (vk::componentBits(fmt, 0) == 32 && vk::componentCount(fmt) == 1)) {
             depth_buffer_create_info.format = fmt;
             break;
         }
     }
 
-    std::cout << "using depth buffer format: " << vk::to_string(depth_buffer_create_info.format) << "\n";
+    std::cout << "using depth buffer format: " << vk::to_string(depth_buffer_create_info.format)
+              << "\n";
 }
 
 void forward_rendering_algorithm::create_static_objects(
@@ -45,7 +51,8 @@ void forward_rendering_algorithm::create_static_objects(
         present_surface_attachment,
         vk::AttachmentDescription{
                                   {},
-                                  depth_buffer_create_info.format, depth_buffer_create_info.samples,
+                                  depth_buffer_create_info.format,
+                                  depth_buffer_create_info.samples,
                                   vk::AttachmentLoadOp::eClear,
                                   vk::AttachmentStoreOp::eDontCare,
                                   vk::AttachmentLoadOp::eDontCare,
@@ -71,7 +78,7 @@ void forward_rendering_algorithm::create_static_objects(
 
     // !!! Helpful:
     // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)
-    vk::SubpassDependency depds[] {
+    vk::SubpassDependency depds[]{
         {VK_SUBPASS_EXTERNAL,
          0, vk::PipelineStageFlagBits::eColorAttachmentOutput,
          vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -89,8 +96,8 @@ void forward_rendering_algorithm::create_static_objects(
         {}, 2, attachments, 1, subpasses, 2, depds});
 
     clear_values = {
-        vk::ClearColorValue{std::array<float, 4>{ 0.f, 0.6f, 0.9f, 1.f }},
-        vk::ClearDepthStencilValue{1.f, 0}
+        vk::ClearColorValue{std::array<float, 4>{0.f, 0.6f, 0.9f, 1.f}},
+        vk::ClearDepthStencilValue{1.f,              0                       }
     };
 
     render_pass_begin_info = vk::RenderPassBeginInfo{
@@ -192,7 +199,7 @@ void forward_rendering_algorithm::create_pipelines() {
             0}
     );
     if(res.result != vk::Result::eSuccess)
-        throw std::runtime_error("failed to create pipeline: " + vk::to_string(res.result));
+        throw vulkan_runtime_error("failed to create pipeline", res.result);
     pipeline = std::move(res.value);
 }
 
