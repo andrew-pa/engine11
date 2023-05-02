@@ -26,7 +26,7 @@ class gpu_buffer {
     gpu_buffer& operator=(const gpu_buffer&) = delete;
 
     inline vk::Buffer get() { return buf; }
-
+    
     inline void* cpu_mapped() { return mapping; }
 };
 

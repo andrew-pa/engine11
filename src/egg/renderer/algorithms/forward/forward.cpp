@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <vulkan/vulkan_format_traits.hpp>
+#include <fs-shim.h>
 
 void forward_rendering_algorithm::init_with_device(
     vk::Device                            device,
@@ -109,7 +110,7 @@ void forward_rendering_algorithm::create_static_objects(
 vk::UniqueShaderModule load_shader(vk::Device device, const std::filesystem::path& bin_path) {
     std::ifstream file(bin_path, std::ios::ate | std::ios::binary);
     if(!file)
-        throw std::runtime_error(std::string("failed to load shader at: ") + bin_path.c_str());
+        throw std::runtime_error(std::string("failed to load shader at: ") + path_to_string(bin_path));
 
     std::vector<char> buffer((size_t)file.tellg());
     file.seekg(0);

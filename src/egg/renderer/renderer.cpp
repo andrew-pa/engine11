@@ -52,7 +52,7 @@ renderer::renderer(
     uint32_t                 glfw_ext_count = 0;
     auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
     std::vector<const char*> extensions{glfw_req_exts, glfw_req_exts + glfw_ext_count};
-    extensions.push_back("VK_KHR_portability_enumeration");
+    //extensions.push_back("VK_KHR_portability_enumeration");
 #ifndef NDEBUG
     extensions.emplace_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #endif

@@ -1,13 +1,14 @@
 #include "asset-bundler/importer.h"
+#include "fs-shim.h"
 
 const std::unordered_set<std::string> texture_exts = {".png", ".jpg", ".bmp"};
 
 importer::importer(output_bundle& out, int argc, char* argv[]) : out(out) {
     for(size_t i = 2; i < argc; ++i) {
         path input = argv[i];
-        if(aimp.IsExtensionSupported(input.extension()))
+        if(aimp.IsExtensionSupported(path_to_string(input.extension()).c_str()))
             models.emplace_back(input);
-        else if(texture_exts.find(input.extension()) != texture_exts.end())
+        else if(texture_exts.find(path_to_string(input.extension())) != texture_exts.end())
             add_texture_path(input);
         else
             std::cout << "unknown file type: " << input.extension() << "\n";
@@ -93,7 +94,7 @@ void importer::load_model(const path& ip) {
     // TODO: why does aiProcessPreset_TargetRealtime_MaxQuality seg fault because it doesn't
     // generate tangents??
     const aiScene* scene
-        = aimp.ReadFile(ip, aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs);
+        = aimp.ReadFile(path_to_string(ip), aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs);
     std::cout << "\t\t" << scene->mNumMeshes << " meshes, " << scene->mNumMaterials
               << " materials\n";
 
@@ -156,7 +157,7 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
     const auto& [main_texture_path, opacity_texture_path] = ip;
     std::cout << "\t" << main_texture_path << " (" << id << ") \n";
     int   width, height, channels;
-    auto* data = stbi_load(main_texture_path.c_str(), &width, &height, &channels, STBI_default);
+    auto* data = stbi_load(path_to_string(main_texture_path).c_str(), &width, &height, &channels, STBI_default);
     if(data == nullptr) {
         std::cout << "\t\tfailed to load texture " << main_texture_path << ": "
                   << stbi_failure_reason() << "\n";
@@ -170,7 +171,7 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
         }
         int ax, ay;
         opacity_data
-            = stbi_load(opacity_texture_path.value().c_str(), &ax, &ay, nullptr, STBI_grey);
+            = stbi_load(path_to_string(opacity_texture_path.value()).c_str(), &ax, &ay, nullptr, STBI_grey);
         if(opacity_data == nullptr) {
             std::cout << "\t\tfailed to load texture " << opacity_texture_path.value() << ": "
                       << stbi_failure_reason() << "\n";
@@ -201,7 +202,7 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
     }
     // TODO: we should probably also compute mipmaps
     // TODO: possibly we could also apply compression with stb_dxt and save more VRAM
-    out.add_texture(id, main_texture_path.filename(), width, height, channels, data);
+    out.add_texture(id, path_to_string(main_texture_path.filename()), width, height, channels, data);
 }
 
 void importer::load() {

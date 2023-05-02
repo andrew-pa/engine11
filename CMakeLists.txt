@@ -56,7 +56,7 @@ add_library(imguilib
     ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
 )
 target_link_libraries(imguilib glfw Vulkan::Vulkan)
-target_compile_features(imguilib PRIVATE cxx_std_17)
+target_compile_features(imguilib PRIVATE cxx_std_20)
 
 include_directories(include/ ${imgui_SOURCE_DIR})
 
@@ -68,6 +68,7 @@ FetchContent_Declare(
     GIT_TAG v1.5.5
     GIT_PROGRESS TRUE
     SOURCE_SUBDIR build/cmake)
+set(ZSTD_MULTITHREAD_SUPPORT ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(zstd)
 # TODO: this shouldn't be necessary??
 include_directories(${zstd_SOURCE_DIR}/lib)
@@ -109,7 +110,7 @@ add_shaders(egg
         src/egg/renderer/algorithms/forward/forward.vert
         src/egg/renderer/algorithms/forward/forward.frag
 )
-target_compile_features(egg PUBLIC cxx_std_17)
+target_compile_features(egg PUBLIC cxx_std_20)
 target_link_libraries(egg
     flecs::flecs_static
     glm
@@ -119,6 +120,6 @@ target_link_libraries(egg
     libzstd_static)
 
 add_executable(asset-bundler src/asset-bundler/main.cpp src/asset-bundler/output_bundle.cpp src/asset-bundler/importer.cpp)
-target_compile_features(asset-bundler PUBLIC cxx_std_17)
+target_compile_features(asset-bundler PUBLIC cxx_std_20)
 target_link_libraries(asset-bundler glm libzstd_static assimp stblib Vulkan::Vulkan)
 

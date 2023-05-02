@@ -5,6 +5,7 @@
 #include <iostream>
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
+#include <fs-shim.h>
 
 using asset_bundle_format::group_header;
 using asset_bundle_format::header;
@@ -19,7 +20,7 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     std::cout.flush();
     std::ifstream file(location, std::ios::ate | std::ios::binary);
     if(!file)
-        throw std::runtime_error(std::string("failed to load bundle file at: ") + location.c_str());
+        throw std::runtime_error(std::string("failed to load bundle file at: ") + path_to_string(location));
     size_t compressed_buffer_size = (size_t)file.tellg();
     byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
     file.seekg(0);
@@ -100,7 +101,9 @@ const texture_header& asset_bundle::texture(texture_id id) const {
 
 const texture_header& asset_bundle::texture_by_index(size_t i) const { return *(textures + i); }
 
+#include <glm/gtx/io.hpp>
 const glm::mat4& asset_bundle::object_transform(object_id id) const {
+    std::cout << "static transform for " << id << ": " << objects[id].transform_matrix << "\n";
     return objects[id].transform_matrix;
 }
 

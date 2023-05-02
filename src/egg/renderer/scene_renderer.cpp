@@ -38,9 +38,9 @@ using glm::vec2;
 using glm::vec3;
 
 scene_renderer::scene_renderer(
-    renderer* r, std::shared_ptr<flecs::world> _world, std::unique_ptr<rendering_algorithm> _algo
+    renderer* _r, std::shared_ptr<flecs::world> _world, std::unique_ptr<rendering_algorithm> _algo
 )
-    : r(r), world(std::move(_world)), algo(std::move(_algo)),
+    : r(_r), world(std::move(_world)), algo(std::move(_algo)),
       transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
       should_regenerate_command_buffer(true) {
     r->ir->add_window("Textures", [&](bool* open) { this->texture_window_gui(open); });
@@ -77,11 +77,12 @@ scene_renderer::scene_renderer(
                 std::cout << "add transform\n";
                 auto [t, bi] = transforms.alloc();
                 comp::gpu_transform gt{.transform = t, .gpu_index = bi};
-                std::optional<mat4> s;
+                /*std::optional<mat4> s;
                 const auto*         obj = it.entity(i).get<comp::renderable>();
-                if(obj != nullptr) s = current_bundle->object_transform(obj->object);
+                if(obj != nullptr)
+                    s = current_bundle->object_transform(obj->object);
                 gt.update(p, r, s);
-                if(it.entity(i).has<tag::active_camera>()) *gt.transform = inverse(*gt.transform);
+                if(it.entity(i).has<tag::active_camera>()) *gt.transform = inverse(*gt.transform);*/
                 it.entity(i).set<comp::gpu_transform>(gt);
             } else if(it.event() == flecs::OnRemove) {
                 transforms.free(it.entity(i).get<comp::gpu_transform>()->gpu_index);
@@ -99,7 +100,7 @@ scene_renderer::scene_renderer(
             const auto*         obj = it.entity(i).get<comp::renderable>();
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
             if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
-            t.update(p, r);
+            t.update(p, r, s);
         });
     world->observer<comp::camera>()
         .event(flecs::OnAdd)

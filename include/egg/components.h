@@ -11,13 +11,14 @@ struct position {
 
 struct rotation {
     quat rot;
+    rotation(quat r = quat(0.f, 0.f, 0.f, 0.f)) : rot(r) {}
 };
 
 struct gpu_transform {
     mat4*  transform;
     size_t gpu_index;
 
-    void update(const position& p, const rotation& r, const std::optional<mat4>& s = {}) const;
+    void update(const position& p, const rotation& r, const std::optional<mat4>& s) const;
 };
 
 struct camera {

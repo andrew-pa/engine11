@@ -31,9 +31,9 @@ int main(int argc, char* argv[]) {
     for(auto oi = bndl->group_objects(0); oi.has_more(); ++oi) {
         std::cout << bndl->string(bndl->object_name(*oi)) << "\n";
         auto e = world->entity();
-        e.set<comp::position>({});
-        e.set<comp::rotation>({});
         e.set<comp::renderable>(comp::renderable{*oi});
+        e.set<comp::position>({});
+        e.set<comp::rotation>({ quat{0.f, 0.f, 0.f, 1.f} });
     }
 
     // create the camera

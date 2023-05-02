@@ -1,5 +1,6 @@
 #include "asset-bundler/output_bundle.h"
 #include "asset-bundler/format.h"
+#include "fs-shim.h"
 #include <zstd.h>
 
 void output_bundle::add_texture(
@@ -82,7 +83,7 @@ void output_bundle::write() {
         compressed_buffer, compressed_buffer_size, buffer, total_size, ZSTD_defaultCLevel()
     );
     free(buffer);
-    auto* f = fopen(output_path.c_str(), "wb");
+    auto* f = fopen(path_to_string(output_path).c_str(), "wb");
     std::cout << "writing output (" << actual_compressed_size << " bytes)...\n";
     auto bytes_written = fwrite(compressed_buffer, 1, actual_compressed_size, f);
     std::cout << "wrote " << bytes_written << " bytes " << ferror(f) << "\n";
@@ -141,6 +142,7 @@ void output_bundle::copy_objects(byte*& header_ptr, byte*& data_ptr, byte* top) 
         };
         // !!! Assumes these have the same shape in memory
         memcpy(&h->transform_matrix, &o.transform, sizeof(float) * 16);
+        h->transform_matrix = glm::transpose(h->transform_matrix);
         header_ptr += sizeof(asset_bundle_format::object_header);
         memcpy(data_ptr, o.mesh_indices.data(), o.mesh_indices.size() * sizeof(uint32_t));
         data_ptr += o.mesh_indices.size() * sizeof(uint32_t);
