@@ -26,7 +26,7 @@
  * move swap_chain.cpp -> frame_renderer.cpp +
  * move device.cpp -> renderer.cpp ~
  * move static resources into seperate class
- * move ECS setup into seperate scene_renderer function
+ * move ECS setup into seperate scene_renderer function +
  * ****/
 
 // future cool things:
@@ -69,7 +69,29 @@ scene_renderer::scene_renderer(
         r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 1});
     scene_render_cmd_buffer = std::move(buffers[0]);
 
-    world->observer<comp::position, comp::rotation>()
+    setup_ecs();
+
+    algo->create_static_objects(vk::AttachmentDescription{
+        vk::AttachmentDescriptionFlags(),
+        r->surface_format.format,
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eDontCare,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::ePresentSrcKHR});
+}
+
+scene_renderer::~scene_renderer() {
+    // unregister observers before the world gets destroyed since they have references to this
+    for (auto ob : observers)
+        ob.destruct();
+    world.reset();
+}
+
+void scene_renderer::setup_ecs() {
+    observers.emplace_back(world->observer<comp::position, comp::rotation>()
         .event(flecs::OnAdd)
         .event(flecs::OnRemove)
         .each([&](flecs::iter& it, size_t i, const comp::position& p, const comp::rotation& r) {
@@ -88,8 +110,8 @@ scene_renderer::scene_renderer(
                 transforms.free(it.entity(i).get<comp::gpu_transform>()->gpu_index);
                 it.entity(i).remove<comp::gpu_transform>();
             }
-        });
-    world->observer<comp::position, comp::rotation, comp::gpu_transform>()
+        }));
+    observers.emplace_back(world->observer<comp::position, comp::rotation, comp::gpu_transform>()
         .event(flecs::OnSet)
         .each([&](flecs::iter&          it,
                   size_t                i,
@@ -101,8 +123,8 @@ scene_renderer::scene_renderer(
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
             //if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
             t.update(p, r, s);
-        });
-    world->observer<comp::camera>()
+        }));
+    observers.emplace_back(world->observer<comp::camera>()
         .event(flecs::OnAdd)
         .event(flecs::OnSet)
         .event(flecs::OnRemove)
@@ -117,27 +139,16 @@ scene_renderer::scene_renderer(
             } else if(it.event() == flecs::OnRemove) {
                 transforms.free(cam.proj_transform.second);
             }
-        });
-    world->observer<comp::gpu_transform, comp::renderable>()
+        }));
+    observers.emplace_back(world->observer<comp::gpu_transform, comp::renderable>()
         .event(flecs::OnAdd)
         .event(flecs::OnSet)
         .event(flecs::OnRemove)
         .iter([&](flecs::iter&, comp::gpu_transform*, comp::renderable*) {
             should_regenerate_command_buffer = true;
-        });
+        }));
     active_camera_q = world->query<tag::active_camera, comp::gpu_transform, comp::camera>();
     renderable_q    = world->query<comp::gpu_transform, comp::renderable>();
-
-    algo->create_static_objects(vk::AttachmentDescription{
-        vk::AttachmentDescriptionFlags(),
-        r->surface_format.format,
-        vk::SampleCountFlagBits::e1,
-        vk::AttachmentLoadOp::eClear,
-        vk::AttachmentStoreOp::eStore,
-        vk::AttachmentLoadOp::eDontCare,
-        vk::AttachmentStoreOp::eDontCare,
-        vk::ImageLayout::eUndefined,
-        vk::ImageLayout::ePresentSrcKHR});
 }
 
 void scene_renderer::start_resource_upload(

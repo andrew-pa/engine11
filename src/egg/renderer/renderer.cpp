@@ -92,7 +92,8 @@ renderer::renderer(
         throw vulkan_runtime_error("failed to create window surface", err);
     }
 
-    window_surface = vk::UniqueSurfaceKHR(surface);
+    window_surface = vk::UniqueSurfaceKHR(surface,
+        {instance.get()});
 
     init_device(instance.get());
 
@@ -130,6 +131,17 @@ renderer::~renderer() {
     delete sr;
     delete ir;
     delete fr;
+    command_pool.reset();
+    upload_cmds.reset();
+    upload_fence.reset();
+
+    vmaDestroyAllocator(allocator);
+    window_surface.reset();
+    dev.reset();
+    instance->destroyDebugReportCallbackEXT(debug_report_callback,
+        nullptr,
+        vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr));
+    instance.reset();
 }
 
 void renderer::start_resource_upload(const std::shared_ptr<asset_bundle>& assets) {

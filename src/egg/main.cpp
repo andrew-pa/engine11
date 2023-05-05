@@ -22,10 +22,10 @@ int main(int argc, char* argv[]) {
 
     auto world = std::make_shared<flecs::world>();
 
-    renderer rndr{window, world, std::make_unique<forward_rendering_algorithm>()};
+    renderer* rndr = new renderer{window, world, std::make_unique<forward_rendering_algorithm>()};
 
     auto bndl = std::make_shared<asset_bundle>(argv[1]);
-    rndr.start_resource_upload(bndl);
+    rndr->start_resource_upload(bndl);
 
     // instantiate a group
     for(auto oi = bndl->group_objects(0); oi.has_more(); ++oi) {
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     cam.add<tag::active_camera>();
     cam.add<comp::camera>();
 
-    rndr.add_gui_window("Camera", [&](bool* open) {
+    rndr->add_gui_window("Camera", [&](bool* open) {
         ImGui::Begin("Camera", open);
         vec3 pos = cam.get<comp::position>()->pos;
         if(ImGui::DragFloat3("Position", &pos[0], 0.05f, -1000.f, 1000.f))
@@ -59,9 +59,9 @@ int main(int argc, char* argv[]) {
 
     world->progress();
 
-    rndr.wait_for_resource_upload_to_finish();
+    rndr->wait_for_resource_upload_to_finish();
     while(glfwWindowShouldClose(window) == 0) {
-        rndr.render_frame();
+        rndr->render_frame();
         glfwSwapBuffers(window);
         glfwPollEvents();
         // auto t = world->time();
@@ -69,6 +69,8 @@ int main(int argc, char* argv[]) {
         world->progress();
     }
 
+    delete rndr;
+    world.reset();
     glfwTerminate();
     return 0;
 }

@@ -56,13 +56,17 @@ class scene_renderer {
 
     void generate_scene_draw_commands(vk::CommandBuffer cb, vk::PipelineLayout pl);
 
+    std::vector<flecs::observer> observers;
     flecs::query<tag::active_camera, comp::gpu_transform, comp::camera> active_camera_q;
     flecs::query<comp::gpu_transform, comp::renderable>                 renderable_q;
+    void setup_ecs();
 
   public:
     scene_renderer(
         renderer* r, std::shared_ptr<flecs::world> world, std::unique_ptr<rendering_algorithm> algo
     );
+
+    ~scene_renderer();
 
     void start_resource_upload(std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds);
     void setup_scene_post_upload();
