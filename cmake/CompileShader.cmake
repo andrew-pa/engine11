@@ -18,9 +18,10 @@ function(add_shaders target)
                 $<$<BOOL:${arg_FORMAT}>:-mfmt=${arg_FORMAT}>
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/include/shaders
                 -g -MD -MF ${source}.d
-                -o ${source}.${arg_FORMAT}
+                -o ${CMAKE_CURRENT_BINARY_DIR}/${source}.${arg_FORMAT}
                 ${CMAKE_CURRENT_SOURCE_DIR}/${source}
         )
         target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${source}.${arg_FORMAT})
     endforeach()
+    target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/)
 endfunction()

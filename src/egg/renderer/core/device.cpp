@@ -68,6 +68,7 @@ void renderer::init_device(vk::Instance instance) {
 #ifndef NDEBUG
         "VK_LAYER_KHRONOS_validation",
 #endif
+        ""
     };
     uint32_t layer_count =
 #ifndef NDEBUG

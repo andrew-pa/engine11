@@ -99,7 +99,7 @@ scene_renderer::scene_renderer(
             std::optional<mat4> s;
             const auto*         obj = it.entity(i).get<comp::renderable>();
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
-            if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
+            //if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
             t.update(p, r, s);
         });
     world->observer<comp::camera>()

@@ -21,13 +21,7 @@ class forward_rendering_algorithm : public rendering_algorithm {
     vk::UniquePipelineLayout pipeline_layout;
     vk::UniquePipeline       pipeline;
     vk::UniqueShaderModule   vertex_shader, fragment_shader;
-
-    std::filesystem::path shader_path;
-
   public:
-    forward_rendering_algorithm(std::filesystem::path shader_path)
-        : shader_path(std::move(shader_path)) {}
-
     void init_with_device(
         vk::Device                            device,
         VmaAllocator                          allocator,

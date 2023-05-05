@@ -7,6 +7,16 @@
 #include <vulkan/vulkan_format_traits.hpp>
 #include <fs-shim.h>
 
+const uint32_t vertex_shader_bytecode[] = {
+#include "src/egg/renderer/algorithms/forward/forward.vert.num"
+};
+const vk::ShaderModuleCreateInfo vertex_shader_create_info{ {}, vertex_shader_bytecode };
+
+const uint32_t fragment_shader_bytecode[] = {
+#include "src/egg/renderer/algorithms/forward/forward.frag.num"
+};
+const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, fragment_shader_bytecode };
+
 void forward_rendering_algorithm::init_with_device(
     vk::Device                            device,
     VmaAllocator                          allocator,
@@ -107,20 +117,6 @@ void forward_rendering_algorithm::create_static_objects(
     cmd_buf_inherit_info = vk::CommandBufferInheritanceInfo{render_pass.get(), 0, VK_NULL_HANDLE};
 }
 
-vk::UniqueShaderModule load_shader(vk::Device device, const std::filesystem::path& bin_path) {
-    std::ifstream file(bin_path, std::ios::ate | std::ios::binary);
-    if(!file)
-        throw std::runtime_error(std::string("failed to load shader at: ") + path_to_string(bin_path));
-
-    std::vector<char> buffer((size_t)file.tellg());
-    file.seekg(0);
-    file.read(buffer.data(), buffer.size());
-    file.close();
-
-    return device.createShaderModuleUnique(vk::ShaderModuleCreateInfo{
-        {}, buffer.size(), (uint32_t*)buffer.data()});
-}
-
 void forward_rendering_algorithm::create_pipeline_layouts(
     vk::DescriptorSetLayout scene_data_desc_set_layout,
     vk::PushConstantRange   per_object_push_constants_range
@@ -130,11 +126,12 @@ void forward_rendering_algorithm::create_pipeline_layouts(
 }
 
 void forward_rendering_algorithm::create_pipelines() {
-    // TODO: if we put these in the binary by exporting them from glslc as C files and compiling
-    // them in, we don't have to bother with the path problem and we would only have a single
-    // hot-reload target!
-    vertex_shader   = load_shader(device, shader_path / "forward.vert.bin");
-    fragment_shader = load_shader(device, shader_path / "forward.frag.bin");
+    if (!vertex_shader) {
+        vertex_shader = device.createShaderModuleUnique(vertex_shader_create_info);
+    }
+    if (!fragment_shader) {
+        fragment_shader = device.createShaderModuleUnique(fragment_shader_create_info);
+    }
 
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         {{}, vk::ShaderStageFlagBits::eVertex,   vertex_shader.get(),   "main"},

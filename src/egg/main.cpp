@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
 
     auto world = std::make_shared<flecs::world>();
 
-    renderer rndr{window, world, std::make_unique<forward_rendering_algorithm>(argv[2])};
+    renderer rndr{window, world, std::make_unique<forward_rendering_algorithm>()};
 
     auto bndl = std::make_shared<asset_bundle>(argv[1]);
     rndr.start_resource_upload(bndl);

@@ -105,7 +105,7 @@ add_executable(egg
     src/egg/bundle.cpp)
 add_shaders(egg
     ENV vulkan1.3
-    FORMAT bin
+    FORMAT num
     SOURCES
         src/egg/renderer/algorithms/forward/forward.vert
         src/egg/renderer/algorithms/forward/forward.frag
