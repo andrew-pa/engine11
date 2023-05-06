@@ -5,8 +5,8 @@
 #include "egg/renderer/memory.h"
 #include "egg/renderer/scene_renderer.h"
 #include "error.h"
+#include "dl-shim.h"
 #include <iostream>
-#include <dlfcn.h>
 
 using create_rendering_algorithm_f = rendering_algorithm* (*)();
 
@@ -120,8 +120,8 @@ renderer::renderer(
         r->resize(wnd);
     });
 
-    rendering_algo_lib = dlopen(rendering_algorithm_library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
-    auto crafn = (create_rendering_algorithm_f)dlsym(rendering_algo_lib, "create_rendering_algorithm");
+    rendering_algo_lib = open_shared_library(rendering_algorithm_library_path);
+    auto crafn = (create_rendering_algorithm_f)load_symbol(rendering_algo_lib, "create_rendering_algorithm");
     auto* algo = crafn();
 
     // create different rendering layers
@@ -137,7 +137,7 @@ renderer::~renderer() {
     present_queue.waitIdle();
 
     delete sr;
-    dlclose(rendering_algo_lib);
+    close_shared_library(rendering_algo_lib);
 
     delete ir;
     delete fr;

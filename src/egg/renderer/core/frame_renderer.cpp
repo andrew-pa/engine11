@@ -44,7 +44,18 @@ void frame_renderer::init_swapchain() {
 
     auto surface_caps  = r->phy_dev.getSurfaceCapabilitiesKHR(r->window_surface.get());
     cfo.preTransform   = surface_caps.currentTransform;
-    cfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eInherit;
+    std::unordered_set<vk::CompositeAlphaFlagBitsKHR> supported_alpha{
+        vk::CompositeAlphaFlagBitsKHR::eInherit,
+        vk::CompositeAlphaFlagBitsKHR::eOpaque
+    };
+    for (auto i = supported_alpha.begin(); i != supported_alpha.end();) {
+		if((*i & surface_caps.supportedCompositeAlpha) != surface_caps.supportedCompositeAlpha) {
+            i = supported_alpha.erase(i);
+        } else {
+            i++;
+        }
+    }
+    cfo.compositeAlpha = *supported_alpha.begin();
     cfo.presentMode    = vk::PresentModeKHR::eFifo;
     cfo.clipped        = VK_TRUE;
 
