@@ -41,7 +41,7 @@ class forward_rendering_algorithm : public rendering_algorithm {
 
     void create_pipelines() override;
 
-    void create_framebuffers(frame_renderer* fr) override;
+    void create_framebuffers(abstract_frame_renderer* fr) override;
 
     vk::CommandBufferInheritanceInfo* get_command_buffer_inheritance_info() override {
         return &cmd_buf_inherit_info;

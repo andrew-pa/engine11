@@ -11,9 +11,21 @@
 #include <vulkan/vulkan.hpp>
 
 /// creates & manages swap chains, framebuffers, per-frame command buffer
-class frame_renderer;
+class frame_renderer; //the actual implementation of frame_renderer_abstract
+class abstract_frame_renderer {
+    // provided so that rendering_algorithms can be in a shared library
+public:
+    virtual vk::Extent2D get_current_extent() const = 0;
+    virtual std::vector<vk::UniqueFramebuffer> create_framebuffers(
+        vk::RenderPass                                                  render_pass,
+        const std::function<void(size_t, std::vector<vk::ImageView>&)>& custom_image_views
+        = [](auto, auto) {}
+    ) = 0;
+};
+
 /// initializes and renders ImGUI layer
 class imgui_renderer;
+
 /// synchronizes scene data to GPU and manages actual rendering of the scene via a render pipeline
 class scene_renderer;
 
@@ -39,7 +51,7 @@ class rendering_algorithm {
     // load shaders and create pipelines
     virtual void create_pipelines() = 0;
     // create framebuffers
-    virtual void create_framebuffers(frame_renderer* fr) = 0;
+    virtual void create_framebuffers(abstract_frame_renderer* fr) = 0;
     // generate command buffers
     virtual vk::CommandBufferInheritanceInfo* get_command_buffer_inheritance_info() = 0;
     virtual void                              generate_commands(

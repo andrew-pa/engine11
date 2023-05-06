@@ -1,5 +1,4 @@
 #include "egg/renderer/algorithms/forward.h"
-#include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/memory.h"
 #include "error.h"
 #include <fstream>
@@ -201,8 +200,8 @@ void forward_rendering_algorithm::create_pipelines() {
     pipeline = std::move(res.value);
 }
 
-void forward_rendering_algorithm::create_framebuffers(frame_renderer* fr) {
-    depth_buffer_create_info.setExtent(vk::Extent3D(fr->extent(), 1));
+void forward_rendering_algorithm::create_framebuffers(abstract_frame_renderer* fr) {
+    depth_buffer_create_info.setExtent(vk::Extent3D(fr->get_current_extent(), 1));
     depth_buffer = std::make_unique<gpu_image>(
         allocator, depth_buffer_create_info, VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
     );
@@ -225,7 +224,7 @@ void forward_rendering_algorithm::create_framebuffers(frame_renderer* fr) {
             views.emplace_back(depth_buffer_image_view.get());
         }
     );
-    render_pass_begin_info.setRenderArea(vk::Rect2D(vk::Offset2D(), fr->extent()));
+    render_pass_begin_info.setRenderArea(vk::Rect2D(vk::Offset2D(), fr->get_current_extent()));
 }
 
 vk::RenderPassBeginInfo* forward_rendering_algorithm::get_render_pass_begin_info(

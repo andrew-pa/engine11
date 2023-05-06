@@ -10,7 +10,7 @@ struct frame {
     vk::CommandBuffer frame_cmd_buf;
 };
 
-class frame_renderer {
+class frame_renderer : public abstract_frame_renderer {
     renderer* r;
     // TODO: we should probably explicitly deconstruct these because they are possibly getting freed
     // out of order? (cause of segfault on clean exit maybe? maybe we just need to waitIdle?)
@@ -32,12 +32,13 @@ class frame_renderer {
         vk::RenderPass                                                  render_pass,
         const std::function<void(size_t, std::vector<vk::ImageView>&)>& custom_image_views
         = [](auto, auto) {}
-    );
+    ) override;
 
     frame begin_frame();
     void  end_frame(frame&& frame);
 
     inline vk::Extent2D extent() const { return swapchain_extent; }
+    vk::Extent2D get_current_extent() const override { return swapchain_extent; }
 
     inline float aspect_ratio() const {
         return (float)swapchain_extent.width / (float)swapchain_extent.height;
