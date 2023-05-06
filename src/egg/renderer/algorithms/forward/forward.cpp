@@ -6,15 +6,17 @@
 #include <vulkan/vulkan_format_traits.hpp>
 #include <fs-shim.h>
 
+#define arraysize(A) (sizeof(A)/sizeof(A[0]))
+
 const uint32_t vertex_shader_bytecode[] = {
 #include "src/egg/renderer/algorithms/forward/forward.vert.num"
 };
-const vk::ShaderModuleCreateInfo vertex_shader_create_info{ {}, vertex_shader_bytecode };
+const vk::ShaderModuleCreateInfo vertex_shader_create_info{ {}, arraysize(vertex_shader_bytecode), vertex_shader_bytecode };
 
 const uint32_t fragment_shader_bytecode[] = {
 #include "src/egg/renderer/algorithms/forward/forward.frag.num"
 };
-const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, fragment_shader_bytecode };
+const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, arraysize(fragment_shader_bytecode), fragment_shader_bytecode };
 
 void forward_rendering_algorithm::init_with_device(
     vk::Device                            device,
