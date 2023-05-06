@@ -25,6 +25,11 @@ public:
 
 /// initializes and renders ImGUI layer
 class imgui_renderer;
+class abstract_imgui_renderer {
+public:
+    virtual void add_window(const std::string& name, const std::function<void(bool*)>& draw) = 0;
+    virtual uint64_t add_texture(vk::ImageView image_view, vk::ImageLayout image_layout) = 0;
+};
 
 /// synchronizes scene data to GPU and manages actual rendering of the scene via a render pipeline
 class scene_renderer;
@@ -54,7 +59,7 @@ class rendering_algorithm {
     virtual void create_framebuffers(abstract_frame_renderer* fr) = 0;
     // generate command buffers
     virtual vk::CommandBufferInheritanceInfo* get_command_buffer_inheritance_info() = 0;
-    virtual void                              generate_commands(
+    virtual void generate_commands(
                                      vk::CommandBuffer                                          cb,
                                      vk::DescriptorSet                                          scene_data_desc_set,
                                      std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
@@ -108,9 +113,12 @@ class renderer {
 
     void render_frame();
 
-    ~renderer();
+    inline vk::Device device() const { return dev.get(); }
+    inline VmaAllocator gpu_allocator() const { return allocator; }
 
-    void add_gui_window(const std::string& name, const std::function<void(bool*)>& draw);
+    inline abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
+
+    ~renderer();
 
     friend class frame_renderer;
     friend class imgui_renderer;

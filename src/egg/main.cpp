@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     cam.add<tag::active_camera>();
     cam.add<comp::camera>();
 
-    rndr->add_gui_window("Camera", [&](bool* open) {
+    rndr->imgui()->add_window("Camera", [&](bool* open) {
         ImGui::Begin("Camera", open);
         vec3 pos = cam.get<comp::position>()->pos;
         if(ImGui::DragFloat3("Position", &pos[0], 0.05f, -1000.f, 1000.f))

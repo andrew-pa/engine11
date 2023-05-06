@@ -99,6 +99,7 @@ add_executable(egg
     src/egg/renderer/core/device.cpp
     src/egg/renderer/imgui_renderer.cpp
     src/egg/renderer/scene_renderer.cpp
+    src/egg/renderer/gpu_static_scene_data.cpp
     src/egg/renderer/memory.cpp
     src/egg/renderer/algorithms/forward/forward.cpp
     src/egg/components.cpp

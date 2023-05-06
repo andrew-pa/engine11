@@ -3,7 +3,7 @@
 #include "egg/renderer/core/frame_renderer.h"
 #include "imgui.h"
 
-class imgui_renderer {
+class imgui_renderer : public abstract_imgui_renderer{
     renderer* r;
 
     vk::UniqueDescriptorPool           desc_pool;
@@ -21,9 +21,9 @@ class imgui_renderer {
 
     void create_swapchain_depd(frame_renderer* fr);
 
-    void add_window(const std::string& name, const std::function<void(bool*)>& draw);
+    void add_window(const std::string& name, const std::function<void(bool*)>& draw) override;
 
-    uint64_t add_texture(vk::ImageView image_view, vk::ImageLayout image_layout);
+    uint64_t add_texture(vk::ImageView image_view, vk::ImageLayout image_layout) override;
 
     void start_resource_upload(vk::CommandBuffer upload_cmds);
     void resource_upload_cleanup();

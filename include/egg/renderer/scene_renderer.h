@@ -26,30 +26,38 @@ struct per_object_push_constants {
     texture_id base_color, normals, roughness, metallic;
 };
 
+struct gpu_static_scene_data {
+    gpu_static_scene_data(renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds);
+
+    std::unique_ptr<gpu_buffer> vertex_buffer, index_buffer, staging_buffer;
+    // TODO: these texture maps are dubious, maybe we should make the linear ordering of texture ids
+    // explicit so things are faster
+    std::unordered_map<texture_id, texture> textures;
+
+    vk::UniqueSampler             texture_sampler;
+    vk::UniqueDescriptorSetLayout desc_set_layout;
+    vk::UniqueDescriptorPool      desc_set_pool;
+    vk::DescriptorSet             desc_set;  // lifetime is tied to pool
+
+    std::vector<vk::DescriptorImageInfo> setup_descriptors(renderer* r, asset_bundle* bundle, std::vector<vk::WriteDescriptorSet>& writes);
+    void resource_upload_cleanup();
+private:
+    void load_geometry_from_bundle(VmaAllocator allocator, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
+    void create_textures_from_bundle(renderer* r, asset_bundle* current_bundle);
+    void generate_upload_commands_for_textures(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
+
+    void texture_window_gui(bool* open, std::shared_ptr<asset_bundle> current_bundle);
+};
+
 class scene_renderer {
     renderer*                            r;
     std::shared_ptr<flecs::world>        world;
     std::shared_ptr<asset_bundle>        current_bundle;
     std::unique_ptr<rendering_algorithm> algo;
 
-    // TODO: could move static resources into a seperate component to reduce complexity of the
-    // scene_renderer itself
-    std::unique_ptr<gpu_buffer> vertex_buffer, index_buffer, staging_buffer;
-    // TODO: these texture maps are dubious, maybe we should make the linear ordering of texture ids
-    // explicit so things are faster
-    std::unordered_map<texture_id, texture> textures;
-    void load_geometry_from_bundle(VmaAllocator allocator, vk::CommandBuffer upload_cmds);
-    void create_textures_from_bundle();
-    void generate_upload_commands_for_textures(vk::CommandBuffer upload_cmds);
-
-    void texture_window_gui(bool* open);
+    std::unique_ptr<gpu_static_scene_data> scene_data;
 
     gpu_shared_value_heap<glm::mat4> transforms;
-
-    vk::UniqueSampler             texture_sampler;
-    vk::UniqueDescriptorSetLayout scene_data_desc_set_layout;
-    vk::UniqueDescriptorPool      scene_data_desc_set_pool;
-    vk::DescriptorSet             scene_data_desc_set;  // lifetime is tied to pool
 
     vk::UniqueCommandBuffer scene_render_cmd_buffer;
     bool                    should_regenerate_command_buffer;
