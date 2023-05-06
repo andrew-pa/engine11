@@ -53,7 +53,10 @@ class scene_renderer {
     renderer*                            r;
     std::shared_ptr<flecs::world>        world;
     std::shared_ptr<asset_bundle>        current_bundle;
-    std::unique_ptr<rendering_algorithm> algo;
+
+    std::unordered_set<vk::Format> supported_depth_formats;
+    vk::AttachmentDescription surface_color_attachment;
+    rendering_algorithm* algo;
 
     std::unique_ptr<gpu_static_scene_data> scene_data;
 
@@ -71,10 +74,12 @@ class scene_renderer {
 
   public:
     scene_renderer(
-        renderer* r, std::shared_ptr<flecs::world> world, std::unique_ptr<rendering_algorithm> algo
+        renderer* r, std::shared_ptr<flecs::world> world, rendering_algorithm* algo
     );
 
     ~scene_renderer();
+
+    rendering_algorithm* swap_rendering_algorithm(rendering_algorithm* new_algo);
 
     void start_resource_upload(std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds);
     void setup_scene_post_upload();

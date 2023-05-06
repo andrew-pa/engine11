@@ -109,8 +109,7 @@ add_shaders(egg
     FORMAT num
     SOURCES
         src/egg/renderer/algorithms/forward/forward.vert
-        src/egg/renderer/algorithms/forward/forward.frag
-)
+        src/egg/renderer/algorithms/forward/forward.frag)
 target_compile_features(egg PUBLIC cxx_std_20)
 target_link_libraries(egg
     flecs::flecs_static
@@ -119,6 +118,20 @@ target_link_libraries(egg
     Vulkan::Vulkan VulkanMemoryAllocator
     imguilib
     libzstd_static)
+
+add_library(egg-forward-renderer SHARED
+    src/egg/renderer/algorithms/forward/shared.cpp
+    src/egg/renderer/memory.cpp
+    src/egg/renderer/algorithms/forward/forward.cpp)
+target_compile_features(egg-forward-renderer PUBLIC cxx_std_20)
+# TODO: we shouldn't need this once we can add the shaders to this target instead
+target_include_directories(egg-forward-renderer PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/)
+target_link_libraries(egg-forward-renderer
+    flecs::flecs_static
+    glm
+    glfw
+    Vulkan::Vulkan VulkanMemoryAllocator
+    imguilib)
 
 add_executable(asset-bundler src/asset-bundler/main.cpp src/asset-bundler/output_bundle.cpp src/asset-bundler/importer.cpp)
 target_compile_features(asset-bundler PUBLIC cxx_std_20)

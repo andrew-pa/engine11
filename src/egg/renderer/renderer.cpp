@@ -6,6 +6,9 @@
 #include "egg/renderer/scene_renderer.h"
 #include "error.h"
 #include <iostream>
+#include <dlfcn.h>
+
+using create_rendering_algorithm_f = rendering_algorithm* (*)();
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugReportFlagsEXT      flags,
@@ -46,7 +49,7 @@ vk::Extent2D get_window_extent(GLFWwindow* window) {
 renderer::renderer(
     GLFWwindow*                          window,
     std::shared_ptr<flecs::world>        world,
-    std::unique_ptr<rendering_algorithm> pipeline
+    const std::filesystem::path& rendering_algorithm_library_path
 ) {
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
@@ -117,20 +120,28 @@ renderer::renderer(
         r->resize(wnd);
     });
 
+    rendering_algo_lib = dlopen(rendering_algorithm_library_path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    auto crafn = (create_rendering_algorithm_f)dlsym(rendering_algo_lib, "create_rendering_algorithm");
+    auto* algo = crafn();
+
     // create different rendering layers
     fr = new frame_renderer(this, get_window_extent(window));
     ir = new imgui_renderer(this, window);
     ir->create_swapchain_depd(fr);
-    sr = new scene_renderer(this, std::move(world), std::move(pipeline));
+    sr = new scene_renderer(this, std::move(world), algo);
     sr->create_swapchain_depd(fr);
 }
 
 renderer::~renderer() {
     graphics_queue.waitIdle();
     present_queue.waitIdle();
+
     delete sr;
+    dlclose(rendering_algo_lib);
+
     delete ir;
     delete fr;
+
     command_pool.reset();
     upload_cmds.reset();
     upload_fence.reset();

@@ -38,19 +38,18 @@ using glm::vec2;
 using glm::vec3;
 
 scene_renderer::scene_renderer(
-    renderer* _r, std::shared_ptr<flecs::world> _world, std::unique_ptr<rendering_algorithm> _algo
+    renderer* _r, std::shared_ptr<flecs::world> _world, rendering_algorithm* _algo
 )
-    : r(_r), world(std::move(_world)), algo(std::move(_algo)),
-      transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
-      should_regenerate_command_buffer(true) {
-
-    std::unordered_set<vk::Format> supported_depth_formats{
+    : r(_r), world(std::move(_world)), supported_depth_formats{
         vk::Format::eD16Unorm,
         vk::Format::eD16UnormS8Uint,
         vk::Format::eD24UnormS8Uint,
         vk::Format::eX8D24UnormPack32,
         vk::Format::eD32Sfloat,
-        vk::Format::eD32SfloatS8Uint};
+        vk::Format::eD32SfloatS8Uint},
+      algo(_algo),
+      transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer), should_regenerate_command_buffer(true)
+{
     for(auto i = supported_depth_formats.begin(); i != supported_depth_formats.end();) {
         auto props = r->phy_dev.getFormatProperties(*i);
         if((props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment)
@@ -70,7 +69,7 @@ scene_renderer::scene_renderer(
 
     setup_ecs();
 
-    algo->create_static_objects(vk::AttachmentDescription{
+    surface_color_attachment = vk::AttachmentDescription{
         vk::AttachmentDescriptionFlags(),
         r->surface_format.format,
         vk::SampleCountFlagBits::e1,
@@ -79,7 +78,9 @@ scene_renderer::scene_renderer(
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
         vk::ImageLayout::eUndefined,
-        vk::ImageLayout::ePresentSrcKHR});
+        vk::ImageLayout::ePresentSrcKHR};
+
+    algo->create_static_objects(surface_color_attachment);
 }
 
 scene_renderer::~scene_renderer() {
@@ -150,6 +151,24 @@ void scene_renderer::setup_ecs() {
     renderable_q    = world->query<comp::gpu_transform, comp::renderable>();
 }
 
+const vk::PushConstantRange scene_data_push_consts {
+            vk::ShaderStageFlagBits::eAll,
+            0,
+            sizeof(uint32_t) * 2 + sizeof(per_object_push_constants)};
+
+
+rendering_algorithm* scene_renderer::swap_rendering_algorithm(rendering_algorithm* new_algo) {
+    auto* old_algo = algo;
+    algo = new_algo;
+    algo->init_with_device(r->dev.get(), r->allocator, supported_depth_formats);
+    algo->create_static_objects(surface_color_attachment);
+    algo->create_pipeline_layouts(scene_data->desc_set_layout.get(), scene_data_push_consts);
+    algo->create_pipelines();
+    algo->create_framebuffers(r->fr);
+    should_regenerate_command_buffer = true;
+    return old_algo;
+}
+
 void scene_renderer::start_resource_upload(
     std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
 ) {
@@ -157,7 +176,6 @@ void scene_renderer::start_resource_upload(
 
     scene_data = std::make_unique<gpu_static_scene_data>(r, current_bundle, upload_cmds);
 }
-
 
 void scene_renderer::setup_scene_post_upload() {
     std::vector<vk::WriteDescriptorSet> writes;
@@ -178,11 +196,7 @@ void scene_renderer::setup_scene_post_upload() {
     r->dev->updateDescriptorSets(writes.size(), writes.data(), 0, nullptr);
 
     algo->create_pipeline_layouts(
-        scene_data->desc_set_layout.get(),
-        vk::PushConstantRange{
-            vk::ShaderStageFlagBits::eAll,
-            0,
-            sizeof(uint32_t) * 2 + sizeof(per_object_push_constants)}
+        scene_data->desc_set_layout.get(), scene_data_push_consts
     );
 
     algo->create_pipelines();

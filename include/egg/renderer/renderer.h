@@ -99,11 +99,13 @@ class renderer {
     imgui_renderer* ir;
     scene_renderer* sr;
 
+    void* rendering_algo_lib;
+
   public:
     renderer(
         GLFWwindow*                          window,
         std::shared_ptr<flecs::world>        world,
-        std::unique_ptr<rendering_algorithm> pipeline
+        const std::filesystem::path& rendering_algorithm_library_path
     );
 
     void start_resource_upload(const std::shared_ptr<asset_bundle>& assets);

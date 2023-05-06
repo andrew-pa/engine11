@@ -3,7 +3,7 @@
 #include "egg/renderer/core/frame_renderer.h"
 #include "imgui.h"
 
-class imgui_renderer : public abstract_imgui_renderer{
+class imgui_renderer : public abstract_imgui_renderer {
     renderer* r;
 
     vk::UniqueDescriptorPool           desc_pool;
