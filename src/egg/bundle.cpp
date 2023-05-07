@@ -22,22 +22,22 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     if(!file)
         throw std::runtime_error(std::string("failed to load bundle file at: ") + path_to_string(location));
     size_t compressed_buffer_size = (size_t)file.tellg();
-    byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
+    uint8_t*  compressed_buffer      = (uint8_t*)malloc(compressed_buffer_size);
     file.seekg(0);
     file.read((char*)compressed_buffer, compressed_buffer_size);
     file.close();
-    std::cout << " read " << compressed_buffer_size << " bytes\n";
+    std::cout << " read " << compressed_buffer_size << " uint8_ts\n";
 
     std::cout << "decompressing bundle... ";
     std::cout.flush();
     size_t size = ZSTD_decompressBound(compressed_buffer, compressed_buffer_size);
-    bundle_data = (byte*)malloc(size);
+    bundle_data = (uint8_t*)malloc(size);
     total_size  = ZSTD_decompress(bundle_data, size, compressed_buffer, compressed_buffer_size);
-    std::cout << " got " << total_size << " bytes\n";
+    std::cout << " got " << total_size << " uint8_ts\n";
     free(compressed_buffer);
 
     header           = (struct header*)bundle_data;
-    byte* header_ptr = bundle_data + sizeof(asset_bundle_format::header);
+    uint8_t* header_ptr = bundle_data + sizeof(asset_bundle_format::header);
 
     // important that these are in the same order as in output_bundle::write()'s copy_X() calls
     strings = (string_header*)header_ptr;
@@ -54,8 +54,8 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     header_ptr += sizeof(texture_header) * header->num_textures;
     assert(header_ptr == bundle_data + header->data_offset);
 
-    std::cout << "bundle CPU data " << header->gpu_data_offset << " bytes, "
-              << " GPU data " << gpu_data_size() << " bytes\n";
+    std::cout << "bundle CPU data " << header->gpu_data_offset << " uint8_ts, "
+              << " GPU data " << gpu_data_size() << " uint8_ts\n";
 
     /*for(size_t i = 0; i < header->num_strings; ++i) {
         std::cout << "string " << i
@@ -75,10 +75,10 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
 
 asset_bundle::~asset_bundle() { free(bundle_data); }
 
-void asset_bundle::take_gpu_data(byte* dest) {
+void asset_bundle::take_gpu_data(uint8_t* dest) {
     assert(!gpu_data_taken);
     memcpy(dest, bundle_data + header->gpu_data_offset, gpu_data_size());
-    bundle_data    = (byte*)realloc(bundle_data, header->gpu_data_offset);
+    bundle_data    = (uint8_t*)realloc(bundle_data, header->gpu_data_offset);
     gpu_data_taken = true;
 }
 

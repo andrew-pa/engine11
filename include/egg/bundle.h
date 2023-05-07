@@ -13,7 +13,7 @@ class asset_bundle {
     // std::vector<asset_bundle_format::material_header> materials;
     // std::vector<asset_bundle_format::object_header> objects;
     // std::vector<asset_bundle_format::group_header> groups;
-    byte*  bundle_data    = nullptr;
+    uint8_t*  bundle_data    = nullptr;
     size_t total_size     = 0;
     bool   gpu_data_taken = false;
 
@@ -32,7 +32,7 @@ class asset_bundle {
     inline const asset_bundle_format::header& bundle_header() const { return *header; }
 
     // dest must be big enough to store all GPU data
-    void take_gpu_data(byte* dest);
+    void take_gpu_data(uint8_t* dest);
 
     inline size_t gpu_data_size() const { return total_size - bundle_header().gpu_data_offset; }
 

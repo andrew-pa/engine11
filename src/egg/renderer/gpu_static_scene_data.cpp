@@ -11,7 +11,7 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
             .usage = VMA_MEMORY_USAGE_AUTO}
     );
 
-    bundle->take_gpu_data((byte*)staging_buffer->cpu_mapped());
+    bundle->take_gpu_data((uint8_t*)staging_buffer->cpu_mapped());
 
     load_geometry_from_bundle(r->gpu_allocator(), bundle.get(), upload_cmds);
     create_textures_from_bundle(r, bundle.get());

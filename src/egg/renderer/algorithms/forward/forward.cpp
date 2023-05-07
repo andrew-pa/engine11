@@ -5,16 +5,17 @@
 #include <iostream>
 #include <vulkan/vulkan_format_traits.hpp>
 #include <fs-shim.h>
+#include "asset-bundler/format.h"
 
 #define arraysize(A) (sizeof(A)/sizeof(A[0]))
 
 const uint32_t vertex_shader_bytecode[] = {
-#include "src/egg/renderer/algorithms/forward/forward.vert.num"
+#include "forward.vert.num"
 };
 const vk::ShaderModuleCreateInfo vertex_shader_create_info{ {}, sizeof(vertex_shader_bytecode), vertex_shader_bytecode };
 
 const uint32_t fragment_shader_bytecode[] = {
-#include "src/egg/renderer/algorithms/forward/forward.frag.num"
+#include "forward.frag.num"
 };
 const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, sizeof(fragment_shader_bytecode), fragment_shader_bytecode };
 
@@ -134,6 +135,9 @@ void forward_rendering_algorithm::create_pipelines() {
         fragment_shader = device.createShaderModuleUnique(fragment_shader_create_info);
     }
 
+    std::cout << "create pipelines!\n";
+    std::cout << "create pipelines!\n";
+
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         {{}, vk::ShaderStageFlagBits::eVertex,   vertex_shader.get(),   "main"},
         {{}, vk::ShaderStageFlagBits::eFragment, fragment_shader.get(), "main"}
@@ -154,7 +158,7 @@ void forward_rendering_algorithm::create_pipelines() {
         VK_FALSE,
         VK_FALSE,
         vk::PolygonMode::eFill,
-        vk::CullModeFlagBits::eBack,
+        vk::CullModeFlagBits::eFront,
         vk::FrontFace::eCounterClockwise,
         VK_FALSE,
         0.f,

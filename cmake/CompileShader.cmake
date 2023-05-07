@@ -16,7 +16,7 @@ function(add_shaders target)
                 ${glslc_executable}
                 $<$<BOOL:${arg_ENV}>:--target-env=${arg_ENV}>
                 $<$<BOOL:${arg_FORMAT}>:-mfmt=${arg_FORMAT}>
-                -I ${CMAKE_CURRENT_SOURCE_DIR}/include/shaders
+                -I ${PROJECT_SOURCE_DIR}/include/shaders
                 -g -MD -MF ${source}.d
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${source}.${arg_FORMAT}
                 ${CMAKE_CURRENT_SOURCE_DIR}/${source}

@@ -6,7 +6,9 @@
 #include "egg/renderer/scene_renderer.h"
 #include "error.h"
 #include "dl-shim.h"
+#include <FileWatch.hpp>
 #include <iostream>
+#include <fs-shim.h>
 
 using create_rendering_algorithm_f = rendering_algorithm* (*)();
 
@@ -130,6 +132,28 @@ renderer::renderer(
     ir->create_swapchain_depd(fr);
     sr = new scene_renderer(this, std::move(world), algo);
     sr->create_swapchain_depd(fr);
+
+    rendering_algo_lib_watcher = (void*)new filewatch::FileWatch<std::string> {
+        path_to_string(rendering_algorithm_library_path.parent_path()),
+        [&](const std::string& p, filewatch::Event e) {
+            using namespace filewatch;
+            std::cout << p << "\n";
+            if (e == Event::added || e == Event::modified || e == Event::renamed_new) {
+                if (p == rendering_algorithm_library_path.filename()) {
+                    std::cout << "reloading rendering algorithm " << p << "\n";
+                    auto* new_algo_lib = open_shared_library(rendering_algorithm_library_path);
+					auto crafn = (create_rendering_algorithm_f)load_symbol(rendering_algo_lib, "create_rendering_algorithm");
+					auto* new_algo = crafn();
+                    auto* old_algo = sr->swap_rendering_algorithm(new_algo);
+                    graphics_queue.waitIdle();
+                    present_queue.waitIdle();
+                    delete old_algo;
+                    close_shared_library(rendering_algo_lib);
+                    rendering_algo_lib = new_algo_lib;
+                }
+            }
+        }
+    };
 }
 
 renderer::~renderer() {

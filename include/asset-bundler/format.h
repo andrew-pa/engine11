@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <vulkan/vulkan.hpp>
 
-using std::byte;
 using texture_id                 = uint16_t;
 const texture_id INVALID_TEXTURE = 0;
 using string_id                  = uint32_t;

@@ -90,6 +90,13 @@ FetchContent_MakeAvailable(stb)
 include_directories(include/ ${stb_SOURCE_DIR})
 add_library(stblib src/stb.cpp)
 
+FetchContent_Declare(
+    FileWatch
+    GIT_REPOSITORY https://github.com/ThomasMonkman/filewatch
+    GIT_PROGRESS TRUE)
+FetchContent_MakeAvailable(FileWatch)
+include_directories(${FileWatch_SOURCE_DIR})
+
 #####
 add_subdirectory(src/egg)
 add_subdirectory(src/egg/renderer/algorithms/forward)
