@@ -5,8 +5,7 @@
 #include "egg/renderer/memory.h"
 #include "egg/renderer/scene_renderer.h"
 #include "error.h"
-#include "dl-shim.h"
-#include <FileWatch.hpp>
+#include "egg/shared_library_reloader.h"
 #include <iostream>
 #include <fs-shim.h>
 
@@ -49,14 +48,16 @@ vk::Extent2D get_window_extent(GLFWwindow* window) {
 }
 
 renderer::renderer(
-    GLFWwindow*                          window,
+    GLFWwindow* window,
     std::shared_ptr<flecs::world>        world,
     const std::filesystem::path& rendering_algorithm_library_path
-) {
+)
+    : rendering_algo_lib_loader(new shared_library_reloader(rendering_algorithm_library_path))
+{
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
-    auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
-    std::vector<const char*> extensions{glfw_req_exts, glfw_req_exts + glfw_ext_count};
+    auto* glfw_req_exts = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
+    std::vector<const char*> extensions{ glfw_req_exts, glfw_req_exts + glfw_ext_count };
     //extensions.push_back("VK_KHR_portability_enumeration");
 #ifndef NDEBUG
     extensions.emplace_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -67,7 +68,7 @@ renderer::renderer(
         0,
         {},
         (uint32_t)extensions.size(),
-        extensions.data()});
+        extensions.data() });
 
     // set up vulkan debugging reports
 #ifndef NDEBUG
@@ -75,85 +76,62 @@ renderer::renderer(
         vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eDebug
             | vk::DebugReportFlagBitsEXT::ePerformanceWarning | vk::DebugReportFlagBitsEXT::eWarning
             | vk::DebugReportFlagBitsEXT::eInformation,
-        debug_callback};
+        debug_callback };
     auto err1 = instance->createDebugReportCallbackEXT(
         &cbco,
         nullptr,
         &debug_report_callback,
         vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr)
     );
-    if(err1 != vk::Result::eSuccess) {
+    if (err1 != vk::Result::eSuccess) {
         std::cout << "WARNING: failed to create debug report callback: " << vk::to_string(err1)
-                  << "\n";
+            << "\n";
     }
 #endif
     // create window surface
     VkSurfaceKHR surface;
 
     auto err = glfwCreateWindowSurface(instance.get(), window, nullptr, &surface);
-    if(err != VK_SUCCESS) {
-        for(const auto* ext : extensions)
+    if (err != VK_SUCCESS) {
+        for (const auto* ext : extensions)
             std::cout << "requested extension: " << ext << "\n";
         throw vulkan_runtime_error("failed to create window surface", err);
     }
 
     window_surface = vk::UniqueSurfaceKHR(surface,
-        {instance.get()});
+        { instance.get() });
 
     init_device(instance.get());
 
     command_pool = dev->createCommandPoolUnique(vk::CommandPoolCreateInfo{
-        vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphics_queue_family_index});
+        vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphics_queue_family_index });
 
     // read surface capabilities, which should be stable throughout execution
-    auto surface_caps   = phy_dev.getSurfaceCapabilitiesKHR(window_surface.get());
+    auto surface_caps = phy_dev.getSurfaceCapabilitiesKHR(window_surface.get());
     surface_image_count = std::max(surface_caps.minImageCount, 2u);
     std::cout << "using a swap chain with " << surface_image_count << " images\n";
 
     auto fmts = phy_dev.getSurfaceFormatsKHR(window_surface.get());
-    for(auto fmt : fmts)
+    for (auto fmt : fmts)
         std::cout << "available format " << vk::to_string(fmt.format) << " / "
-                  << vk::to_string(fmt.colorSpace) << "\n";
+        << vk::to_string(fmt.colorSpace) << "\n";
     surface_format = fmts[0];
 
     glfwSetWindowUserPointer(window, this);
     glfwSetWindowSizeCallback(window, [](GLFWwindow* wnd, int w, int h) {
         auto* r = (renderer*)glfwGetWindowUserPointer(wnd);
         r->resize(wnd);
-    });
+        });
 
-    rendering_algo_lib = open_shared_library(rendering_algorithm_library_path);
-    auto crafn = (create_rendering_algorithm_f)load_symbol(rendering_algo_lib, "create_rendering_algorithm");
-    auto* algo = crafn();
+    auto init_lib = rendering_algo_lib_loader->initial_load();
+    auto crafn = (create_rendering_algorithm_f)load_symbol(init_lib, "create_rendering_algorithm");
 
     // create different rendering layers
     fr = new frame_renderer(this, get_window_extent(window));
     ir = new imgui_renderer(this, window);
     ir->create_swapchain_depd(fr);
-    sr = new scene_renderer(this, std::move(world), algo);
+    sr = new scene_renderer(this, std::move(world), crafn());
     sr->create_swapchain_depd(fr);
-
-    rendering_algo_lib_watcher = (void*)new filewatch::FileWatch<std::string> {
-        path_to_string(rendering_algorithm_library_path.parent_path()),
-        [&](const std::string& p, filewatch::Event e) {
-            using namespace filewatch;
-            std::cout << p << "\n";
-            if (e == Event::added || e == Event::modified || e == Event::renamed_new) {
-                if (p == rendering_algorithm_library_path.filename()) {
-                    std::cout << "reloading rendering algorithm " << p << "\n";
-                    auto* new_algo_lib = open_shared_library(rendering_algorithm_library_path);
-					auto crafn = (create_rendering_algorithm_f)load_symbol(rendering_algo_lib, "create_rendering_algorithm");
-					auto* new_algo = crafn();
-                    auto* old_algo = sr->swap_rendering_algorithm(new_algo);
-                    graphics_queue.waitIdle();
-                    present_queue.waitIdle();
-                    delete old_algo;
-                    close_shared_library(rendering_algo_lib);
-                    rendering_algo_lib = new_algo_lib;
-                }
-            }
-        }
-    };
 }
 
 renderer::~renderer() {
@@ -161,7 +139,7 @@ renderer::~renderer() {
     present_queue.waitIdle();
 
     delete sr;
-    close_shared_library(rendering_algo_lib);
+    delete rendering_algo_lib_loader;
 
     delete ir;
     delete fr;
@@ -215,8 +193,17 @@ void renderer::resize(GLFWwindow* window) {
 }
 
 void renderer::render_frame() {
+    rendering_algo_lib_loader->poll([&](void* new_lib) {
+        auto crafn = (create_rendering_algorithm_f)load_symbol(new_lib, "create_rendering_algorithm");
+        auto old_algo = sr->swap_rendering_algorithm(crafn());
+        graphics_queue.waitIdle();
+        present_queue.waitIdle();
+        delete old_algo;
+    });
+
     auto frame = fr->begin_frame();
     sr->render_frame(frame);
     ir->render_frame(frame);
     fr->end_frame(std::move(frame));
+
 }

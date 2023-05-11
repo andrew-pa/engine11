@@ -6,6 +6,7 @@
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 #include <fs-shim.h>
+#include <chrono>
 
 using asset_bundle_format::group_header;
 using asset_bundle_format::header;
@@ -17,6 +18,7 @@ using asset_bundle_format::texture_header;
 
 asset_bundle::asset_bundle(const std::filesystem::path& location) {
     std::cout << "loading bundle from " << location << "...";
+    auto start_read_time = std::chrono::system_clock::now();
     std::cout.flush();
     std::ifstream file(location, std::ios::ate | std::ios::binary);
     if(!file)
@@ -26,15 +28,24 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     file.seekg(0);
     file.read((char*)compressed_buffer, compressed_buffer_size);
     file.close();
-    std::cout << " read " << compressed_buffer_size << " uint8_ts\n";
+    std::cout << " read " << compressed_buffer_size << " bytes\n";
+    auto end_read_time = std::chrono::system_clock::now();
+    std::cout << "reading bundle took "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(end_read_time - start_read_time)
+        << "\n";
 
     std::cout << "decompressing bundle... ";
     std::cout.flush();
+    auto start_decom_time = std::chrono::system_clock::now();
     size_t size = ZSTD_decompressBound(compressed_buffer, compressed_buffer_size);
     bundle_data = (uint8_t*)malloc(size);
     total_size  = ZSTD_decompress(bundle_data, size, compressed_buffer, compressed_buffer_size);
-    std::cout << " got " << total_size << " uint8_ts\n";
+    std::cout << " got " << total_size << " bytes\n";
     free(compressed_buffer);
+    auto end_decom_time = std::chrono::system_clock::now();
+    std::cout << "decompressing bundle took "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(end_decom_time-start_decom_time)
+        << "\n";
 
     header           = (struct header*)bundle_data;
     uint8_t* header_ptr = bundle_data + sizeof(asset_bundle_format::header);
@@ -54,8 +65,8 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     header_ptr += sizeof(texture_header) * header->num_textures;
     assert(header_ptr == bundle_data + header->data_offset);
 
-    std::cout << "bundle CPU data " << header->gpu_data_offset << " uint8_ts, "
-              << " GPU data " << gpu_data_size() << " uint8_ts\n";
+    std::cout << "bundle CPU data " << header->gpu_data_offset << " bytes, "
+              << " GPU data " << gpu_data_size() << " bytes\n";
 
     /*for(size_t i = 0; i < header->num_strings; ++i) {
         std::cout << "string " << i

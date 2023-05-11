@@ -160,6 +160,10 @@ const vk::PushConstantRange scene_data_push_consts {
 
 
 rendering_algorithm* scene_renderer::swap_rendering_algorithm(rendering_algorithm* new_algo) {
+    std::cout << "swapping in new rendering algorithm\n";
+    if (!scene_data) {
+        throw std::runtime_error("cannot replace rendering algorithm before scene data is loaded");
+    }
     auto* old_algo = algo;
     algo = new_algo;
     algo->init_with_device(r->dev.get(), r->allocator, supported_depth_formats);

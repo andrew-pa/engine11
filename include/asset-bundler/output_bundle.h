@@ -1,6 +1,8 @@
 #pragma once
 #include "asset-bundler/model.h"
 
+using std::byte;
+
 class output_bundle {
     path                               output_path;
     string_id                          next_string_id = 1;

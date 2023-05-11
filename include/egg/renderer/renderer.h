@@ -44,11 +44,7 @@ class renderer {
     imgui_renderer* ir;
     scene_renderer* sr;
 
-    std::filesystem::path rendering_algorithm_library_path;
-    void* rendering_algo_lib;
-    void* rendering_algo_lib_watcher;
-    rendering_algorithm* load_rendering_algo();
-    void unload_rendering_algo(rendering_algorithm* ra);
+    class shared_library_reloader* rendering_algo_lib_loader;
 
   public:
     renderer(
@@ -68,6 +64,9 @@ class renderer {
     inline VmaAllocator gpu_allocator() const { return allocator; }
 
     inline abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
+
+    renderer(renderer&) = delete;
+    renderer& operator=(renderer&) = delete;
 
     ~renderer();
 

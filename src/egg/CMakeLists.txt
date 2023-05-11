@@ -8,6 +8,7 @@ add_executable(egg
     renderer/scene_renderer.cpp
     renderer/gpu_static_scene_data.cpp
     renderer/memory.cpp
+    shared_library_reloader.cpp
     components.cpp
     bundle.cpp)
 target_compile_features(egg PUBLIC cxx_std_20)
