@@ -7,7 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <memory>
-#include <vk_mem_alloc.h>
+#include "egg/renderer/memory.h"
 #include <vulkan/vulkan.hpp>
 
 #include "egg/renderer/renderer_shared.h"
@@ -32,7 +32,7 @@ class renderer {
     vk::PhysicalDevice phy_dev;
     uint32_t           graphics_queue_family_index, present_queue_family_index;
     vk::Queue          graphics_queue, present_queue;
-    VmaAllocator       allocator;
+    std::shared_ptr<gpu_allocator> allocator;
     void               init_device(vk::Instance instance);
 
     vk::UniqueCommandPool command_pool;
@@ -61,7 +61,7 @@ class renderer {
     void render_frame();
 
     inline vk::Device device() const { return dev.get(); }
-    inline VmaAllocator gpu_allocator() const { return allocator; }
+    inline std::shared_ptr<gpu_allocator> gpu_allocator() const { return allocator; }
 
     inline abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
 

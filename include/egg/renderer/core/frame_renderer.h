@@ -26,6 +26,7 @@ class frame_renderer : public abstract_frame_renderer {
 
   public:
     frame_renderer(renderer* r, vk::Extent2D swapchain_extent);
+    virtual ~frame_renderer() override = default;
 
     void                               reset_swapchain(vk::Extent2D new_swapchain_extent);
     std::vector<vk::UniqueFramebuffer> create_framebuffers(

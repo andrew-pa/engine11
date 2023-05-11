@@ -2,40 +2,71 @@
 #include "error.h"
 
 gpu_buffer::gpu_buffer(
-    VmaAllocator                   allocator,
+    std::shared_ptr<gpu_allocator> allocator,
     const vk::BufferCreateInfo&    buffer_cfo,
     const VmaAllocationCreateInfo& alloc_cfo
 )
     : allocator(allocator) {
     VmaAllocationInfo info;
-    auto              res = vmaCreateBuffer(
-        allocator, (VkBufferCreateInfo*)&buffer_cfo, &alloc_cfo, &buf, &allocation, &info
+    auto res = allocator->create_buffer(
+        buffer_cfo, alloc_cfo, &buf, &allocation, &info
     );
-    if(res != VK_SUCCESS) throw vulkan_runtime_error("failed to allocate buffer", res);
+    if(res != vk::Result::eSuccess) throw vulkan_runtime_error("failed to allocate buffer", res);
     mapping = info.pMappedData;
 }
 
 gpu_buffer::~gpu_buffer() {
-    vmaDestroyBuffer(allocator, buf, allocation);
+    allocator->destroy_buffer(buf, allocation);
     buf        = VK_NULL_HANDLE;
     allocation = nullptr;
 }
 
 gpu_image::gpu_image(
-    VmaAllocator                   allocator,
+    std::shared_ptr<gpu_allocator> allocator,
     const vk::ImageCreateInfo&     image_cfo,
     const VmaAllocationCreateInfo& alloc_cfo
 )
     : allocator(allocator) {
     VmaAllocationInfo info;
-    auto              res = vmaCreateImage(
-        allocator, (VkImageCreateInfo*)&image_cfo, &alloc_cfo, &img, &allocation, &info
+    auto res = allocator->create_image(
+        image_cfo, alloc_cfo, &img, &allocation, &info
     );
-    if(res != VK_SUCCESS) throw vulkan_runtime_error("failed to allocate image", res);
+    if(res != vk::Result::eSuccess) throw vulkan_runtime_error("failed to allocate image", res);
 }
 
 gpu_image::~gpu_image() {
-    vmaDestroyImage(allocator, img, allocation);
+    allocator->destroy_image(img, allocation);
     img        = VK_NULL_HANDLE;
     allocation = nullptr;
+}
+
+struct vma_gpu_allocator : public gpu_allocator {
+    VmaAllocator allocator;
+    vma_gpu_allocator(const VmaAllocatorCreateInfo& cfo) {
+		auto err = vmaCreateAllocator(&cfo, &allocator);
+		if(err != VK_SUCCESS) throw vulkan_runtime_error("failed to create GPU allocator", err);
+    }
+    virtual ~vma_gpu_allocator() override {
+        vmaDestroyAllocator(allocator);
+    }
+
+    virtual vk::Result create_buffer(const vk::BufferCreateInfo& buffer_cfo, const VmaAllocationCreateInfo& alloc_cfo, VkBuffer* buf, VmaAllocation* alloc, VmaAllocationInfo* alloc_info) override {
+        return vk::Result(vmaCreateBuffer(allocator, (VkBufferCreateInfo*)&buffer_cfo, &alloc_cfo, buf, alloc, alloc_info));
+    }
+
+    virtual void destroy_buffer(vk::Buffer buf, VmaAllocation alloc) override {
+        vmaDestroyBuffer(allocator, buf, alloc);
+    }
+
+    virtual vk::Result create_image(const vk::ImageCreateInfo& image_cfo, const VmaAllocationCreateInfo& alloc_cfo, VkImage* img, VmaAllocation* alloc, VmaAllocationInfo* alloc_info) override {
+        return vk::Result(vmaCreateImage(allocator, (VkImageCreateInfo*)&image_cfo, &alloc_cfo, img, alloc, alloc_info));
+    }
+
+    virtual void destroy_image(vk::Image img, VmaAllocation alloc) override {
+        vmaDestroyImage(allocator, img, alloc);
+    }
+};
+
+std::shared_ptr<gpu_allocator> create_allocator(const VmaAllocatorCreateInfo& cfo) {
+    return std::make_shared<vma_gpu_allocator>(cfo);
 }

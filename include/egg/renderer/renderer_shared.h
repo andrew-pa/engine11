@@ -3,7 +3,7 @@
 #include <functional>
 #include <unordered_set>
 #include <memory>
-#include <vk_mem_alloc.h>
+#include "egg/renderer/memory.h"
 #include <vulkan/vulkan.hpp>
 
 #ifdef _MSC_VER
@@ -23,6 +23,7 @@ public:
         const std::function<void(size_t, std::vector<vk::ImageView>&)>& custom_image_views
         = [](auto, auto) {}
     ) = 0;
+    virtual ~abstract_frame_renderer() = default;
 };
 
 /// initializes and renders ImGUI layer
@@ -31,6 +32,7 @@ class abstract_imgui_renderer {
 public:
     virtual void add_window(const std::string& name, const std::function<void(bool*)>& draw) = 0;
     virtual uint64_t add_texture(vk::ImageView image_view, vk::ImageLayout image_layout) = 0;
+    virtual ~abstract_imgui_renderer() = default;
 };
 
 /// synchronizes scene data to GPU and manages actual rendering of the scene via a render pipeline
@@ -42,7 +44,7 @@ class rendering_algorithm {
   public:
     virtual void init_with_device(
         vk::Device                            device,
-        VmaAllocator                          allocator,
+        std::shared_ptr<gpu_allocator>        allocator,
         const std::unordered_set<vk::Format>& supported_depth_formats
     ) = 0;
     // create render pass, descriptor pools etc

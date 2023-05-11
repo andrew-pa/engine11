@@ -23,7 +23,7 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
 }
 
 void gpu_static_scene_data::load_geometry_from_bundle(
-    VmaAllocator allocator,
+    std::shared_ptr<gpu_allocator> allocator,
     asset_bundle* current_bundle,
     vk::CommandBuffer upload_cmds
 ) {

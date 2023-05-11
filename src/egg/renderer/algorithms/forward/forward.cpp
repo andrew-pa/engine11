@@ -21,7 +21,7 @@ const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, sizeof(fragmen
 
 void forward_rendering_algorithm::init_with_device(
     vk::Device                            device,
-    VmaAllocator                          allocator,
+    std::shared_ptr<gpu_allocator>        allocator,
     const std::unordered_set<vk::Format>& supported_depth_formats
 ) {
     this->device    = device;
@@ -135,8 +135,8 @@ void forward_rendering_algorithm::create_pipelines() {
         fragment_shader = device.createShaderModuleUnique(fragment_shader_create_info);
     }
 
-    std::cout << "create pipelines!\n";
-    std::cout << "create pipelines!\n";
+    //std::cout << "create pipelines!\n";
+    //std::cout << "create pipelines!\n";
 
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         {{}, vk::ShaderStageFlagBits::eVertex,   vertex_shader.get(),   "main"},

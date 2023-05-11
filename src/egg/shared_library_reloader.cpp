@@ -48,6 +48,7 @@ void* shared_library_reloader::initial_load() {
 
 void shared_library_reloader::poll(std::function<void(void*)> on_reload) {
 	if (should_reload.exchange(false)) {
+		_sleep(1000);
 		std::cout << "reloading " << library_path << "\n";
 		void* new_lib = copy_and_load(library_path, reload_counter + 1);
 		on_reload(new_lib);

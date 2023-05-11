@@ -3,6 +3,7 @@
 #include "error.h"
 #include <iostream>
 #include <unordered_set>
+#include <egg/renderer/memory.h>
 
 struct queue_family_indices {
     int graphics = -1;
@@ -94,12 +95,12 @@ void renderer::init_device(vk::Instance instance) {
         nullptr,
         &device_features});
 
-    VmaAllocatorCreateInfo cfo = {};
-    cfo.instance               = instance;
-    cfo.physicalDevice         = phy_dev;
-    cfo.device                 = dev.get();
-    auto err                   = vmaCreateAllocator(&cfo, &allocator);
-    if(err != VK_SUCCESS) throw vulkan_runtime_error("failed to create GPU allocator", err);
+    VmaAllocatorCreateInfo cfo = {
+        .physicalDevice = phy_dev,
+        .device = dev.get(),
+        .instance = instance,
+    };
+    allocator = create_allocator(cfo);
 
     graphics_queue = dev->getQueue(qfixs.graphics, 0);
     present_queue  = dev->getQueue(qfixs.present, 0);

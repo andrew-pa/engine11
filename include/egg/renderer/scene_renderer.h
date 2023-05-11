@@ -42,7 +42,7 @@ struct gpu_static_scene_data {
     std::vector<vk::DescriptorImageInfo> setup_descriptors(renderer* r, asset_bundle* bundle, std::vector<vk::WriteDescriptorSet>& writes);
     void resource_upload_cleanup();
 private:
-    void load_geometry_from_bundle(VmaAllocator allocator, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
+    void load_geometry_from_bundle(std::shared_ptr<gpu_allocator> allocator, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
     void create_textures_from_bundle(renderer* r, asset_bundle* current_bundle);
     void generate_upload_commands_for_textures(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
 

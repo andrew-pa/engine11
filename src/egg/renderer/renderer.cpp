@@ -148,7 +148,7 @@ renderer::~renderer() {
     upload_cmds.reset();
     upload_fence.reset();
 
-    vmaDestroyAllocator(allocator);
+    allocator.reset();
     window_surface.reset();
     dev.reset();
     instance->destroyDebugReportCallbackEXT(debug_report_callback,

@@ -166,10 +166,15 @@ rendering_algorithm* scene_renderer::swap_rendering_algorithm(rendering_algorith
     }
     auto* old_algo = algo;
     algo = new_algo;
+    std::cout << "\tinitalizing with device\n";
     algo->init_with_device(r->dev.get(), r->allocator, supported_depth_formats);
+    std::cout << "\tcreating static objects\n";
     algo->create_static_objects(surface_color_attachment);
+    std::cout << "\tcreating pipeline layouts\n";
     algo->create_pipeline_layouts(scene_data->desc_set_layout.get(), scene_data_push_consts);
+    std::cout << "\tcreating pipelines\n";
     algo->create_pipelines();
+    std::cout << "\tcreating framebuffers\n";
     algo->create_framebuffers(r->fr);
     should_regenerate_command_buffer = true;
     return old_algo;
@@ -267,6 +272,7 @@ void scene_renderer::render_frame(frame& frame) {
     // if command buffers should be invalidated, reset and regenerate it, otherwise just submit it
     if(should_regenerate_command_buffer) {
         should_regenerate_command_buffer = false;
+        std::cout << "regenerating command buffers\n";
 
         auto cb = scene_render_cmd_buffer.get();
         cb.begin(vk::CommandBufferBeginInfo{

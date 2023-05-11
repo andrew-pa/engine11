@@ -5,7 +5,7 @@
 
 class forward_rendering_algorithm : public rendering_algorithm {
     vk::Device   device;
-    VmaAllocator allocator;
+    std::shared_ptr<gpu_allocator> allocator;
 
     vk::UniqueRenderPass             render_pass;
     std::vector<vk::ClearValue>      clear_values;
@@ -24,7 +24,7 @@ class forward_rendering_algorithm : public rendering_algorithm {
   public:
     void init_with_device(
         vk::Device                            device,
-        VmaAllocator                          allocator,
+        std::shared_ptr<gpu_allocator>        allocator,
         const std::unordered_set<vk::Format>& supported_depth_formats
     ) override;
 

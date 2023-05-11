@@ -8,15 +8,37 @@
 // TODO: there is some way to make these exactly like std::unique_ptr, which would make them a lot
 // more ergonomic while remaining safe
 
+// an interface for VMA that makes sure everything happens in the main process even if called in a shared library
+class gpu_allocator {
+public:
+    virtual vk::Result create_buffer(const vk::BufferCreateInfo& buffer_cfo,
+        const VmaAllocationCreateInfo& alloc_cfo,
+        VkBuffer* buf,
+        VmaAllocation* alloc,
+        VmaAllocationInfo* alloc_info) = 0;
+    virtual void destroy_buffer(vk::Buffer buf, VmaAllocation alloc) = 0;
+
+    virtual vk::Result create_image(const vk::ImageCreateInfo& image_cfo,
+        const VmaAllocationCreateInfo& alloc_cfo,
+        VkImage* img,
+        VmaAllocation* alloc,
+        VmaAllocationInfo* alloc_info) = 0;
+    virtual void destroy_image(vk::Image img, VmaAllocation alloc) = 0;
+    
+    virtual ~gpu_allocator() = default;
+};
+
+std::shared_ptr<gpu_allocator> create_allocator(const VmaAllocatorCreateInfo& cfo);
+
 class gpu_buffer {
-    VmaAllocator  allocator;
+    std::shared_ptr<gpu_allocator>  allocator;
     VkBuffer      buf;
     VmaAllocation allocation;
     void*         mapping;
 
   public:
     gpu_buffer(
-        VmaAllocator                   allocator,
+        std::shared_ptr<gpu_allocator> allocator,
         const vk::BufferCreateInfo&    buffer_cfo,
         const VmaAllocationCreateInfo& alloc_cfo
     );
@@ -31,13 +53,13 @@ class gpu_buffer {
 };
 
 class gpu_image {
-    VmaAllocator  allocator;
+    std::shared_ptr<gpu_allocator>  allocator;
     VkImage       img;
     VmaAllocation allocation;
 
   public:
     gpu_image(
-        VmaAllocator                   allocator,
+        std::shared_ptr<gpu_allocator>                   allocator,
         const vk::ImageCreateInfo&     image_cfo,
         const VmaAllocationCreateInfo& alloc_cfo
     );
@@ -63,7 +85,7 @@ class gpu_shared_value_heap : public gpu_buffer {
 
   public:
     gpu_shared_value_heap(
-        VmaAllocator allocator, size_t initial_max_size, vk::BufferUsageFlags buffer_usage
+        std::shared_ptr<gpu_allocator> allocator, size_t initial_max_size, vk::BufferUsageFlags buffer_usage
     )
         : gpu_buffer(
             allocator,
