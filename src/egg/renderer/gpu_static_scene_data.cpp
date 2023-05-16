@@ -173,14 +173,17 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
         VK_FALSE,
         16.f});
 
+    // TODO: we should create the descriptor set layout in the scene_renderer?
     vk::DescriptorSetLayoutBinding bindings[] = {
-  // transforms storage buffer
+		// transforms storage buffer
         {0, vk::DescriptorType::eStorageBuffer,     1,           vk::ShaderStageFlagBits::eAll},
- // scene textures
+		// scene textures
         {1,
          vk::DescriptorType::eCombinedImageSampler,
          (uint32_t)current_bundle->bundle_header().num_textures,
-         vk::ShaderStageFlagBits::eAll                                                        }
+         vk::ShaderStageFlagBits::eAll                                                        },
+        // per-frame shader uniforms
+        {2, vk::DescriptorType::eUniformBuffer,     1,           vk::ShaderStageFlagBits::eAll},
     };
 
     desc_set_layout
@@ -189,6 +192,7 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
 
     vk::DescriptorPoolSize pool_sizes[] = {
         {vk::DescriptorType::eStorageBuffer,        1          },
+        {vk::DescriptorType::eUniformBuffer,        1          },
         {vk::DescriptorType::eCombinedImageSampler,
          (uint32_t)current_bundle->bundle_header().num_textures},
     };

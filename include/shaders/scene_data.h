@@ -11,6 +11,10 @@ layout(push_constant) uniform per_object_pc {
     per_object_push_constants object;
 };
 
+layout(set = 0, binding = 2) uniform per_frame {
+    vec3 camera_position;
+};
+
 // TODO: should the set index be configurable?
 layout(set = 0, binding = 0) buffer transforms_buffer { mat4 transforms[]; };
 

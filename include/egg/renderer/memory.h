@@ -71,6 +71,30 @@ class gpu_image {
     inline vk::Image get() { return img; }
 };
 
+template<typename T>
+class gpu_shared_value : public gpu_buffer {
+public:
+    gpu_shared_value(std::shared_ptr<gpu_allocator> a, vk::BufferUsageFlags usage)
+        : gpu_buffer(a,
+            vk::BufferCreateInfo{ {}, sizeof(T), usage },
+            VmaAllocationCreateInfo{
+                .flags
+                = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
+                .usage = VMA_MEMORY_USAGE_AUTO}) {}
+
+    inline T* val() {
+        return (T*)cpu_mapped();
+    }
+
+    T* operator *() {
+        return val();
+    }
+
+    T* operator ->() {
+        return val();
+    }
+};
+
 // a heap of Ts shared between the CPU and GPU (~HOST_VISIBLE memory)
 template<typename T>
 class gpu_shared_value_heap : public gpu_buffer {

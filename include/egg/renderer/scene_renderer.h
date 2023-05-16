@@ -26,6 +26,10 @@ struct per_object_push_constants {
     texture_id base_color, normals, roughness, metallic;
 };
 
+struct shader_uniform_values {
+    vec3 camera_pos;
+};
+
 struct gpu_static_scene_data {
     gpu_static_scene_data(renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds);
 
@@ -61,6 +65,7 @@ class scene_renderer {
     std::unique_ptr<gpu_static_scene_data> scene_data;
 
     gpu_shared_value_heap<glm::mat4> transforms;
+    gpu_shared_value<shader_uniform_values> shader_uniforms;
 
     vk::UniqueCommandBuffer scene_render_cmd_buffer;
     bool                    should_regenerate_command_buffer;

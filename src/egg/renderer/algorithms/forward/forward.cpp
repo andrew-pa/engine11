@@ -109,7 +109,7 @@ void forward_rendering_algorithm::create_static_objects(
         {}, 2, attachments, 1, subpasses, 2, depds});
 
     clear_values = {
-        vk::ClearColorValue{std::array<float, 4>{0.f, 0.6f, 0.9f, 1.f}},
+        vk::ClearColorValue{std::array<float, 4>{0.f, 0.0f, 0.0f, 1.f}},
         vk::ClearDepthStencilValue{1.f,              0                       }
     };
 

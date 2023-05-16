@@ -48,7 +48,9 @@ scene_renderer::scene_renderer(
         vk::Format::eD32Sfloat,
         vk::Format::eD32SfloatS8Uint},
       algo(_algo),
-      transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer), should_regenerate_command_buffer(true)
+      transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
+      shader_uniforms(r->allocator, vk::BufferUsageFlagBits::eUniformBuffer),
+      should_regenerate_command_buffer(true)
 {
     for(auto i = supported_depth_formats.begin(); i != supported_depth_formats.end();) {
         auto props = r->phy_dev.getFormatProperties(*i);
@@ -123,7 +125,10 @@ void scene_renderer::setup_ecs() {
             std::optional<mat4> s;
             const auto*         obj = it.entity(i).get<comp::renderable>();
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
-            //if(it.entity(i).has<tag::active_camera>()) *t.transform = inverse(*t.transform);
+            if (it.entity(i).has<tag::active_camera>()) {
+                *t.transform = inverse(*t.transform);
+                shader_uniforms->camera_pos = p.pos;
+            }
             t.update(p, r, s);
         }));
     observers.emplace_back(world->observer<comp::camera>()
@@ -202,6 +207,17 @@ void scene_renderer::setup_scene_post_upload() {
         vk::DescriptorType::eStorageBuffer,
         nullptr,
         &transforms_buffer_info
+    );
+
+    vk::DescriptorBufferInfo uniforms_buffer_info{shader_uniforms.get(), 0, VK_WHOLE_SIZE};
+    writes.emplace_back(
+        scene_data->desc_set,
+        2,
+        0,
+        1,
+        vk::DescriptorType::eUniformBuffer,
+        nullptr,
+        &uniforms_buffer_info
     );
 
     r->dev->updateDescriptorSets(writes.size(), writes.data(), 0, nullptr);
