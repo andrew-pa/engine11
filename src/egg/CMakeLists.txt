@@ -8,6 +8,7 @@ add_executable(egg
     renderer/scene_renderer.cpp
     renderer/gpu_static_scene_data.cpp
     renderer/memory.cpp
+    input/input_distributor.cpp
     shared_library_reloader.cpp
     components.cpp
     bundle.cpp)

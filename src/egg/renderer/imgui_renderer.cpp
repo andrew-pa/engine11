@@ -65,7 +65,7 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
         vk::RenderPassCreateFlags(), 1, attachments, 1, subpasses, 1, depds});
     start_render_pass = vk::RenderPassBeginInfo{render_pass.get()};
 
-    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplGlfw_InitForVulkan(window, false);
     ImGui_ImplVulkan_InitInfo imvk_init_info = {
         .Instance        = r->instance.get(),
         .PhysicalDevice  = r->phy_dev,

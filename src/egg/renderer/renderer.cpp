@@ -117,12 +117,6 @@ renderer::renderer(
         << vk::to_string(fmt.colorSpace) << "\n";
     surface_format = fmts[0];
 
-    glfwSetWindowUserPointer(window, this);
-    glfwSetWindowSizeCallback(window, [](GLFWwindow* wnd, int w, int h) {
-        auto* r = (renderer*)glfwGetWindowUserPointer(wnd);
-        r->resize(wnd);
-        });
-
     auto init_lib = rendering_algo_lib_loader->initial_load();
     auto crafn = (create_rendering_algorithm_f)load_symbol(init_lib, "create_rendering_algorithm");
 

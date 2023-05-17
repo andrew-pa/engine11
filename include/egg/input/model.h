@@ -1,5 +1,7 @@
 #pragma once
 #include <optional>
+#include <unordered_map>
+#include <memory>
 #include <flecs.h>
 
 using map_id = uint8_t;
@@ -33,7 +35,7 @@ struct mapped_input {
 
 class interaction_model {
 public:
-	virtual void process_input(const mapped_input& input, flecs::entity& e) = 0;
+	virtual void process_input(const mapped_input& input, flecs::entity e) = 0;
 	virtual ~interaction_model() = default;
 };
 

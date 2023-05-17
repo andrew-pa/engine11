@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <iostream>
+#include "egg/input/input_distributor.h"
 
 int main(int argc, char* argv[]) {
     GLFWwindow* window;
@@ -14,7 +15,7 @@ int main(int argc, char* argv[]) {
     // disable GLFW setting up an OpenGL swapchain
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    window = glfwCreateWindow(1280, 960, "erg", nullptr, nullptr);
+    window = glfwCreateWindow(1280, 960, "engine11", nullptr, nullptr);
     if(window == nullptr) {
         glfwTerminate();
         return -1;
@@ -26,6 +27,16 @@ int main(int argc, char* argv[]) {
 
     auto bndl = std::make_shared<asset_bundle>(argv[1]);
     rndr->start_resource_upload(bndl);
+
+    input_distributor* inp = new input_distributor(window, rndr, *world.get());
+    inp->register_axis_mapping("axis", axis_mapping{
+        .mouse = 0,
+        .key = key_axis_mapping{.positive_key = GLFW_KEY_W, .negative_key = GLFW_KEY_S}
+    });
+    inp->register_button_mapping("button", button_mapping{
+        .mouse = GLFW_MOUSE_BUTTON_1,
+        .key = GLFW_KEY_SPACE
+    });
 
     // instantiate a group
     for(auto oi = bndl->group_objects(0); oi.has_more(); ++oi) {
@@ -106,6 +117,7 @@ int main(int argc, char* argv[]) {
         world->progress();
     }
 
+    delete inp;
     delete rndr;
     world.reset();
     glfwTerminate();
