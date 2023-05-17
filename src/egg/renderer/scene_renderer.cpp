@@ -49,6 +49,7 @@ scene_renderer::scene_renderer(
         vk::Format::eD32SfloatS8Uint},
       algo(_algo),
       transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
+      gpu_lights(r->allocator, 16, vk::BufferUsageFlagBits::eStorageBuffer, true),
       shader_uniforms(r->allocator, vk::BufferUsageFlagBits::eUniformBuffer),
       should_regenerate_command_buffer(true)
 {
@@ -138,10 +139,11 @@ void scene_renderer::setup_ecs() {
         .each([&](flecs::iter& it, size_t i, comp::camera& cam) {
             if(it.event() == flecs::OnAdd) {
                 std::cout << "add camera\n";
-                cam.proj_transform = transforms.alloc();
-                cam.update(r->fr->aspect_ratio());
+                //cam.update(r->fr->aspect_ratio());
             } else if(it.event() == flecs::OnSet) {
                 std::cout << "set camera\n";
+                if(cam.proj_transform.first == nullptr)
+					cam.proj_transform = transforms.alloc();
                 cam.update(r->fr->aspect_ratio());
             } else if(it.event() == flecs::OnRemove) {
                 transforms.free(cam.proj_transform.second);
@@ -153,6 +155,20 @@ void scene_renderer::setup_ecs() {
         .event(flecs::OnRemove)
         .iter([&](flecs::iter&, comp::gpu_transform*, comp::renderable*) {
             should_regenerate_command_buffer = true;
+        }));
+    observers.emplace_back(world->observer<comp::light>()
+        .event(flecs::OnAdd).event(flecs::OnSet).event(flecs::OnRemove)
+        .each([&](flecs::iter& it, size_t i, comp::light& lgh) {
+            if (it.event() == flecs::OnAdd) {
+                //lgh.gpu_info = gpu_lights.alloc();
+            } else if (it.event() == flecs::OnSet) {
+                if (lgh.gpu_info.first == nullptr)
+                    lgh.gpu_info = gpu_lights.alloc();
+                lgh.update();
+            } else if (it.event() == flecs::OnRemove) {
+                lgh.gpu_info.first->type = (comp::light_type)0;
+                gpu_lights.free(lgh.gpu_info.second);
+            }
         }));
     active_camera_q = world->query<tag::active_camera, comp::gpu_transform, comp::camera>();
     renderable_q    = world->query<comp::gpu_transform, comp::renderable>();
@@ -218,6 +234,17 @@ void scene_renderer::setup_scene_post_upload() {
         vk::DescriptorType::eUniformBuffer,
         nullptr,
         &uniforms_buffer_info
+    );
+
+    vk::DescriptorBufferInfo lights_buffer_info{gpu_lights.get(), 0, VK_WHOLE_SIZE};
+    writes.emplace_back(
+        scene_data->desc_set,
+        3,
+        0,
+        1,
+        vk::DescriptorType::eStorageBuffer,
+        nullptr,
+        &lights_buffer_info
     );
 
     r->dev->updateDescriptorSets(writes.size(), writes.data(), 0, nullptr);

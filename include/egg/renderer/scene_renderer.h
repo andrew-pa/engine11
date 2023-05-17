@@ -66,6 +66,7 @@ class scene_renderer {
 
     gpu_shared_value_heap<glm::mat4> transforms;
     gpu_shared_value<shader_uniform_values> shader_uniforms;
+    gpu_shared_value_heap<comp::light_info> gpu_lights;
 
     vk::UniqueCommandBuffer scene_render_cmd_buffer;
     bool                    should_regenerate_command_buffer;

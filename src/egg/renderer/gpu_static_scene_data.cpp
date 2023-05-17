@@ -184,6 +184,8 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
          vk::ShaderStageFlagBits::eAll                                                        },
         // per-frame shader uniforms
         {2, vk::DescriptorType::eUniformBuffer,     1,           vk::ShaderStageFlagBits::eAll},
+		// lights storage buffer
+        {3, vk::DescriptorType::eStorageBuffer,     1,           vk::ShaderStageFlagBits::eAll},
     };
 
     desc_set_layout
@@ -191,7 +193,7 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
             {}, sizeof(bindings) / sizeof(bindings[0]), bindings});
 
     vk::DescriptorPoolSize pool_sizes[] = {
-        {vk::DescriptorType::eStorageBuffer,        1          },
+        {vk::DescriptorType::eStorageBuffer,        2          },
         {vk::DescriptorType::eUniformBuffer,        1          },
         {vk::DescriptorType::eCombinedImageSampler,
          (uint32_t)current_bundle->bundle_header().num_textures},

@@ -16,3 +16,8 @@ void comp::camera::update(float aspect_ratio) const {
     *proj_transform.first = glm::perspective(fov, aspect_ratio, 0.1f, 1000.f);
     //std::cout << *proj_transform.first << "\n";
 }
+
+void comp::light::update() const {
+    if(gpu_info.first != nullptr)
+		*gpu_info.first = info;
+}

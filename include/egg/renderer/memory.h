@@ -107,16 +107,25 @@ class gpu_shared_value_heap : public gpu_buffer {
 
     std::list<free_block> free_blocks;
 
+    struct header {
+        uint32_t max_index;
+        uint32_t min_index;
+        uint32_t padding[2];
+    };
+
+    size_t header_offset;
+    header* hdr;
+
   public:
     gpu_shared_value_heap(
-        std::shared_ptr<gpu_allocator> allocator, size_t initial_max_size, vk::BufferUsageFlags buffer_usage
+        std::shared_ptr<gpu_allocator> allocator, size_t initial_max_size, vk::BufferUsageFlags buffer_usage, bool include_header = false
     )
         : gpu_buffer(
             allocator,
             vk::BufferCreateInfo(
                 {
     },
-                initial_max_size * sizeof(T),
+                initial_max_size * sizeof(T) + (include_header ? sizeof(header) : 0),
                 buffer_usage
             ),
             VmaAllocationCreateInfo{
@@ -124,7 +133,14 @@ class gpu_shared_value_heap : public gpu_buffer {
                 = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
                 .usage = VMA_MEMORY_USAGE_AUTO}
         ),
-          free_blocks{free_block{0, initial_max_size}} {}
+          free_blocks{free_block{0, initial_max_size}}, header_offset(include_header ? sizeof(header) : 0), hdr(nullptr)
+    {
+        if (include_header) {
+            hdr = (header*)cpu_mapped();
+            hdr->max_index = initial_max_size;
+            hdr->min_index = initial_max_size;
+        }
+    }
 
     std::pair<T*, size_t> alloc() {
         if(free_blocks.empty()) {
@@ -136,11 +152,19 @@ class gpu_shared_value_heap : public gpu_buffer {
         block.size--;
         size_t index = block.offset + block.size;
         if(block.size == 0) free_blocks.pop_front();
-        std::cout << "alloc " << index << "\n";
-        return std::pair<T*, size_t>{((T*)cpu_mapped()) + index, index};
+        //std::cout << "alloc " << index << "\n";
+        if (hdr != nullptr) {
+            hdr->min_index = std::min(hdr->min_index, (uint32_t)index);
+            hdr->max_index = std::max(hdr->max_index, (uint32_t)index);
+        }
+        return std::pair<T*, size_t>{((T*)((char*)cpu_mapped() + header_offset)) + index, index};
     }
 
     void free(size_t index) {
+        if (hdr != nullptr) {
+            hdr->min_index = std::max(hdr->min_index, (uint32_t)index);
+            hdr->max_index = std::min(hdr->max_index, (uint32_t)index);
+        }
         for(auto i = free_blocks.begin(); i != free_blocks.end(); ++i) {
             if(i->offset == index + 1) {
                 i->offset--;

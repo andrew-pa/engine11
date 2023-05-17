@@ -17,7 +17,6 @@ void main() {
     }
 
     vec3 V = normalize(camera_position - finput.positionW);
-    const vec3 L = normalize(vec3(0.0, 0.4, 1.0));
 
     vec4 base_color = texture(textures[uint(object.base_color)], finput.tex_coord);
     base_color.xyz = pow(base_color.xyz, vec3(2.2));
@@ -28,25 +27,28 @@ void main() {
 
     vec3 N = finput.normal_to_world * normN;
 
-    vec3 H = normalize(V+L), kD;
-
     vec3 F0 = compute_F0(base_color.xyz, metallic);
+
+    vec3 color = vec3(0.003) * base_color.xyz;
     
-    float NdotH = max(0.0, dot(N, H)),
-          NdotV = max(0.0, dot(N, V)),
-          NdotL = max(0.0, dot(N, L)),
-          HdotV = max(0.0, dot(H, V));
+    vec3 L = vec3(1.0, 0.0, 0.0), radiance = vec3(100.0, 0.0, 100.0);
+    for(uint i = lights.min_index; i < lights.max_index; ++i) {
+    //for(uint i = 15; i < 16; ++i) {
+        if(!compute_light_radiance(i, finput.positionW, L, radiance)) continue;
+		vec3 H = normalize(V+L), kD;
+		float NdotH = max(0.0, dot(N, H)),
+			  NdotV = max(0.0, dot(N, V)),
+			  NdotL = max(0.0, dot(N, L)),
+			  HdotV = max(0.0, dot(H, V));
 
-    vec3 specular = cook_torrance_brdf(
-        NdotH, NdotV, NdotL, HdotV,
-        F0, roughness, metallic, kD
-    );
+		vec3 specular = cook_torrance_brdf(
+			NdotH, NdotV, NdotL, HdotV,
+			F0, roughness, metallic, kD
+		);
 
-    vec3 Lo = (kD * base_color.xyz / PI + specular) * vec3(5.0, 5.0, 5.0) * NdotL;
-
-    vec3 amb = vec3(0.003) * base_color.xyz;
-
-    vec3 color = Lo + amb;
+		color += (kD * base_color.xyz / PI + specular) * radiance * NdotL;
+        //color += radiance;
+    }
 
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0 / 2.2));
