@@ -4,7 +4,7 @@
 #include "backends/imgui_impl_glfw.h"
 
 input_distributor::input_distributor(GLFWwindow* window, renderer* r, flecs::world& world)
-	: r(r), window(window), next_id(1)
+	: r(r), window(window), next_id(1), last_mouse_pos()
 {
 	int x, y;
 	glfwGetWindowSize(window, &x, &y);
@@ -54,19 +54,35 @@ void input_distributor::init_callbacks(GLFWwindow* window) {
 
 void input_distributor::init_ecs(flecs::world& world) {
 	world.system<comp::interactable>("Interaction")
-		.each([&](flecs::entity e, comp::interactable& intr) {
-			intr.model->process_input(input_state, e);
+		.iter([&](flecs::iter& it, comp::interactable* intrs) {
+			for (auto i : it) {
+				auto e = it.entity(i);
+				auto& intr = intrs[i];
+				if (intr.active) {
+					intr.model->process_input(input_state, e);
+				}
+			}
+			this->after_distribution();
 		});
 }
 
 void input_distributor::process_mouse_pos(vec2 p) {
+	vec2 mp = glm::clamp((p / window_size)*2.0f-1.0f, -1.0f, 1.0f);
 	for(const auto&[id, map] : axises) {
 		if (map.mouse.has_value()) {
-			auto axis = map.mouse.value();
-			input_state.axis_states[id] =
-				glm::clamp((p[axis] / window_size[axis])*2.0f-1.0f, -1.0f, 1.0f);
+			auto m = map.mouse.value();
+			auto& v = input_state.axis_states[id];
+			switch (m.mode) {
+			case mouse_mapping_mode::normal:
+				v = mp[m.axis];
+				break;
+			case mouse_mapping_mode::delta:
+				v = mp[m.axis] - last_mouse_pos[m.axis];
+				break;
+			}
 		}
 	}
+	last_mouse_pos = mp;
 }
 
 void input_distributor::process_mouse_button(int button, int action) {
@@ -97,7 +113,7 @@ void input_distributor::process_key(int key, int action) {
 			s = action == GLFW_PRESS;
 		}
 	}
-	float axis_value = action == GLFW_PRESS ? 1.0f : 0.0f;
+	float axis_value = action == GLFW_RELEASE ? 0.0f : 1.0f;
 	for (const auto& [id, map] : axises) {
 		if (map.key.has_value()) {
 			const auto& m = map.key.value();
@@ -111,11 +127,20 @@ void input_distributor::process_key(int key, int action) {
 	}
 }
 
+void input_distributor::after_distribution() {
+	for (auto& [id, map] : axises) {
+		if (map.mouse.has_value() && map.mouse.value().mode == mouse_mapping_mode::delta) {
+			input_state.axis_states[id] = 0.f;
+		}
+	}
+}
+
 map_id input_distributor::register_axis_mapping(const char* name, axis_mapping mapping) {
 	auto id = next_id;
 	next_id++;
 	id_names[name] = id;
 	axises[id] = mapping;
+	input_state.axis_states[id] = 0.f;
 	return id;
 }
 
@@ -124,6 +149,7 @@ map_id input_distributor::register_button_mapping(const char* name, button_mappi
 	next_id++;
 	id_names[name] = id;
 	buttons[id] = mapping;
+	input_state.button_states[id] = false;
 	return id;
 }
 
@@ -156,6 +182,7 @@ void input_distributor::build_gui(bool* open) {
 					ImGui::Text("ERROR");
 				}
 			}
+			// TODO: display mapping for different input methods as well
 		}
 		ImGui::EndTable();
 	}

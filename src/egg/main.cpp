@@ -6,6 +6,7 @@
 #include <flecs.h>
 #include <iostream>
 #include "egg/input/input_distributor.h"
+#include "egg/input/camera_interaction_models.h"
 
 int main(int argc, char* argv[]) {
     GLFWwindow* window;
@@ -29,14 +30,6 @@ int main(int argc, char* argv[]) {
     rndr->start_resource_upload(bndl);
 
     input_distributor* inp = new input_distributor(window, rndr, *world.get());
-    inp->register_axis_mapping("axis", axis_mapping{
-        .mouse = 0,
-        .key = key_axis_mapping{.positive_key = GLFW_KEY_W, .negative_key = GLFW_KEY_S}
-    });
-    inp->register_button_mapping("button", button_mapping{
-        .mouse = GLFW_MOUSE_BUTTON_1,
-        .key = GLFW_KEY_SPACE
-    });
 
     // instantiate a group
     for(auto oi = bndl->group_objects(0); oi.has_more(); ++oi) {
@@ -52,10 +45,14 @@ int main(int argc, char* argv[]) {
     auto cam = world->entity();
     cam.set<comp::position>({vec3(0.f, 0.f, 40.f)});
     cam.set<comp::rotation>({
-        quat{0.f, 0.f, 0.897f, -0.443f}
+        quat{0.f, 0.f, 0.f, 1.f}
+        //quat{0.f, 0.f, 0.897f, -0.443f}
     });
     cam.add<tag::active_camera>();
     cam.set<comp::camera>({});
+    auto cam_inter = std::dynamic_pointer_cast<interaction_model>(std::make_shared<fly_camera_interaction_model>(5.0f));
+    cam_inter->register_with_distributor(inp);
+    cam.set<comp::interactable>(comp::interactable{ .active = true, .model = cam_inter });
 
     rndr->imgui()->add_window("Camera", [&](bool* open) {
         ImGui::Begin("Camera", open);

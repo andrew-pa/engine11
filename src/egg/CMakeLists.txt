@@ -9,6 +9,7 @@ add_executable(egg
     renderer/gpu_static_scene_data.cpp
     renderer/memory.cpp
     input/input_distributor.cpp
+    input/camera_interaction_models.cpp
     shared_library_reloader.cpp
     components.cpp
     bundle.cpp)

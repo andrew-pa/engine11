@@ -8,11 +8,22 @@ using map_id = uint8_t;
 
 struct key_axis_mapping {
 	uint32_t positive_key, negative_key;
+	key_axis_mapping(uint32_t positive_key, uint32_t negative_key)
+		:positive_key(positive_key), negative_key(negative_key) {}
+};
+
+enum class mouse_mapping_mode {
+	normal, delta
+};
+
+struct mouse_axis_mapping {
+	uint32_t axis;
+	mouse_mapping_mode mode;
 };
 
 struct axis_mapping {
 	// select x=0 or y=1 axis of mouse coordinates
-	std::optional<uint32_t> mouse = std::nullopt;
+	std::optional<mouse_axis_mapping> mouse = std::nullopt;
 	std::optional<key_axis_mapping> key = std::nullopt;
 	// TODO: might want to also allow a key style mapping for gamepad D-pads
 	// select axis from GLFW_GAMEPAD_AXIS_*
@@ -35,12 +46,14 @@ struct mapped_input {
 
 class interaction_model {
 public:
+	virtual void register_with_distributor(class input_distributor* dist) = 0;
 	virtual void process_input(const mapped_input& input, flecs::entity e) = 0;
 	virtual ~interaction_model() = default;
 };
 
 namespace comp {
 	struct interactable {
+		bool active;
 		std::shared_ptr<interaction_model> model;
 	};
 }

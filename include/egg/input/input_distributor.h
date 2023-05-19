@@ -19,6 +19,7 @@ class input_distributor {
 	std::unordered_map<map_id, axis_mapping> axises;
 	std::unordered_map<map_id, button_mapping> buttons;
 
+	vec2 last_mouse_pos;
 	mapped_input input_state;
 
 	void init_callbacks(GLFWwindow* window);
@@ -27,6 +28,8 @@ class input_distributor {
 	void process_mouse_pos(vec2 p);
 	void process_mouse_button(int button, int action);
 	void process_key(int key, int action);
+
+	void after_distribution();
 
 	void build_gui(bool* open);
 public:

@@ -7,7 +7,8 @@ void comp::gpu_transform::update(const position& p, const rotation& r, const std
 
     mat4 static_tf(1);
     if (s.has_value()) static_tf = s.value();
-    *transform = glm::translate(mat4(1), p.pos) * glm::toMat4(r.rot) * static_tf;
+    //*transform = glm::translate(mat4(1), p.pos) * glm::mat4_cast(r.rot) * static_tf;
+    *transform =  static_tf * glm::mat4_cast(r.rot) * glm::translate(mat4(1), p.pos);
 	//std::cout << "T" << (*transform) << "\n";
 }
 
