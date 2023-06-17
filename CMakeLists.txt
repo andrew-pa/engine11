@@ -37,6 +37,7 @@ FetchContent_Declare(
     GIT_TAG master
     GIT_PROGRESS TRUE)
 FetchContent_MakeAvailable(vma)
+set_target_properties(VulkanMemoryAllocator PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
 FetchContent_Declare(
     imgui
@@ -89,13 +90,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(stb)
 include_directories(include/ ${stb_SOURCE_DIR})
 add_library(stblib src/stb.cpp)
-
-FetchContent_Declare(
-    FileWatch
-    GIT_REPOSITORY https://github.com/ThomasMonkman/filewatch
-    GIT_PROGRESS TRUE)
-FetchContent_MakeAvailable(FileWatch)
-include_directories(${FileWatch_SOURCE_DIR})
 
 #####
 add_subdirectory(src/egg)

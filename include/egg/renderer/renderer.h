@@ -61,7 +61,7 @@ class renderer {
     void render_frame();
 
     inline vk::Device device() const { return dev.get(); }
-    inline std::shared_ptr<gpu_allocator> gpu_allocator() const { return allocator; }
+    inline std::shared_ptr<gpu_allocator> gpu_alloc() const { return allocator; }
 
     inline abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
 

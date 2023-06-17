@@ -1,4 +1,5 @@
 #pragma once
+#include <filesystem>
 
 #ifdef _MSC_VER
 #define WIN32_LEAN_AND_MEAN
@@ -16,9 +17,13 @@ inline void close_shared_library(void* shared_library) {
     FreeLibrary((HINSTANCE)shared_library);
 }
 #else
-#include <dlfcns.h>
+#include <dlfcn.h>
 inline void* open_shared_library(const std::filesystem::path& p) {
-    return dlopen(p.c_str(), RTLD_LAZY|RTLD_LOCAL);
+    void* h = dlopen(p.c_str(), RTLD_LAZY|RTLD_LOCAL);
+    if(h == nullptr) {
+        throw std::runtime_error(std::string("failed to open shared library ") + dlerror());
+    }
+    return h;
 }
 
 inline void* load_symbol(void* shared_library, const char* symbol) {

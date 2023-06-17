@@ -102,6 +102,18 @@ int main(int argc, char* argv[]) {
         }
     });
 
+    auto lgh4 = world->entity();
+    lgh4.set<comp::light>(comp::light{
+        comp::light_info {
+            .emmitance = vec3(0.f, 0.2f, 1.f),
+            .type = comp::light_type::spot,
+            .position = vec3(0.f, 30.f, 0.f),
+            .param1 = 0.f,
+            .direction = vec3(0.f, -1.f, 0.f),
+            .param2 = 3.f
+        }
+    });
+
     world->progress();
 
     rndr->wait_for_resource_upload_to_finish();

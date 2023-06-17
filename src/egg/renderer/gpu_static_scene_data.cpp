@@ -3,7 +3,7 @@
 
 gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds) {
     staging_buffer = std::make_unique<gpu_buffer>(
-        r->gpu_allocator(),
+        r->gpu_alloc(),
         vk::BufferCreateInfo{{}, bundle->gpu_data_size(), vk::BufferUsageFlagBits::eTransferSrc},
         VmaAllocationCreateInfo{
             .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
@@ -13,7 +13,7 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
 
     bundle->take_gpu_data((uint8_t*)staging_buffer->cpu_mapped());
 
-    load_geometry_from_bundle(r->gpu_allocator(), bundle.get(), upload_cmds);
+    load_geometry_from_bundle(r->gpu_alloc(), bundle.get(), upload_cmds);
     create_textures_from_bundle(r, bundle.get());
     generate_upload_commands_for_textures(bundle.get(), upload_cmds);
 
@@ -68,7 +68,7 @@ void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundl
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
         auto img = std::make_unique<gpu_image>(
-            r->gpu_allocator(),
+            r->gpu_alloc(),
             vk::ImageCreateInfo{
                 {},
                 vk::ImageType::e2D,

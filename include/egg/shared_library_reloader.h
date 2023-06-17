@@ -1,13 +1,19 @@
 #pragma once
 #include <functional>
+#include <atomic>
 #include "fs-shim.h"
 #include "dl-shim.h"
+
+struct abstract_watcher {
+    virtual bool poll() = 0;
+    virtual ~abstract_watcher() = default;
+};
 
 class shared_library_reloader {
     std::filesystem::path library_path;
     uint64_t reload_counter;
     void* current_lib;
-    void* watcher;
+    abstract_watcher* watcher;
     std::atomic_bool should_reload;
 public:
     shared_library_reloader(std::filesystem::path library_path);
