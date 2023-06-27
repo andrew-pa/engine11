@@ -140,9 +140,15 @@ void output_bundle::copy_objects(byte*& header_ptr, byte*& data_ptr, byte* top) 
                  .num_meshes = (uint32_t)o.mesh_indices.size(),
                  .offset     = (size_t)(data_ptr - top),
         };
-        // !!! Assumes these have the same shape in memory
-        memcpy(&h->transform_matrix, &o.transform, sizeof(float) * 16);
-        h->transform_matrix = glm::transpose(h->transform_matrix);
+        // assimp uses row major matrices but GLSL/the engine is column major
+        // memcpy(&h->transform_matrix, &o.transform, sizeof(float) * 16);
+        const auto& t = o.transform;
+        h->transform_matrix = glm::mat4(
+                vec4(t.a1, t.b1, t.c1, t.d1),
+                vec4(t.a2, t.b2, t.c2, t.d2),
+                vec4(t.a3, t.b3, t.c3, t.d3),
+                vec4(t.a4, t.b4, t.c4, t.d4)
+            );
         header_ptr += sizeof(asset_bundle_format::object_header);
         memcpy(data_ptr, o.mesh_indices.data(), o.mesh_indices.size() * sizeof(uint32_t));
         data_ptr += o.mesh_indices.size() * sizeof(uint32_t);

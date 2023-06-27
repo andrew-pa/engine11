@@ -159,7 +159,7 @@ void forward_rendering_algorithm::create_pipelines() {
         VK_FALSE,
         vk::PolygonMode::eFill,
         vk::CullModeFlagBits::eBack,
-        vk::FrontFace::eCounterClockwise,
+        vk::FrontFace::eClockwise,
         VK_FALSE,
         0.f,
         0.f,

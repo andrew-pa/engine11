@@ -30,6 +30,7 @@ public:
 class imgui_renderer;
 class abstract_imgui_renderer {
 public:
+    // TODO: have a clean way to remove windows so they don't persist after their parent object has been destroyed
     virtual void add_window(const std::string& name, const std::function<void(bool*)>& draw) = 0;
     virtual uint64_t add_texture(vk::ImageView image_view, vk::ImageLayout image_layout) = 0;
     virtual ~abstract_imgui_renderer() = default;

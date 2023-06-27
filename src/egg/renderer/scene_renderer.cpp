@@ -1,6 +1,7 @@
 #include "egg/renderer/scene_renderer.h"
 #include "egg/components.h"
 #include "egg/renderer/imgui_renderer.h"
+#include "imgui.h"
 #include <iostream>
 #include <unordered_set>
 #include <utility>
@@ -49,8 +50,8 @@ scene_renderer::scene_renderer(
         vk::Format::eD32SfloatS8Uint},
       algo(_algo),
       transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
-      gpu_lights(r->allocator, 16, vk::BufferUsageFlagBits::eStorageBuffer, true),
       shader_uniforms(r->allocator, vk::BufferUsageFlagBits::eUniformBuffer),
+      gpu_lights(r->allocator, 16, vk::BufferUsageFlagBits::eStorageBuffer, true),
       should_regenerate_command_buffer(true)
 {
     for(auto i = supported_depth_formats.begin(); i != supported_depth_formats.end();) {
@@ -84,6 +85,32 @@ scene_renderer::scene_renderer(
         vk::ImageLayout::ePresentSrcKHR};
 
     algo->create_static_objects(surface_color_attachment);
+
+    r->imgui()->add_window("Renderer/GPU Transforms", [&](bool* open) {
+            if(ImGui::Begin("Renderer/GPU Transforms", open)) {
+                if(ImGui::BeginTable("#TransformTable", 2, ImGuiTableFlags_Resizable)) {
+                    ImGui::TableSetupColumn("Index");
+                    ImGui::TableSetupColumn("Matrix");
+                    auto[start_index, end_index] = transforms.current_valid_range();
+                    auto* data = (mat4*)transforms.cpu_mapped();
+                    ImGui::TableHeadersRow();
+                    for(size_t i = start_index; i < end_index; ++i) {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%zu", i);
+                        ImGui::TableNextColumn();
+                        ImGui::PushID(i);
+                        ImGui::DragFloat4("c0", (float*)&data[i][0]);
+                        ImGui::DragFloat4("c1", (float*)&data[i][1]);
+                        ImGui::DragFloat4("c2", (float*)&data[i][2]);
+                        ImGui::DragFloat4("c3", (float*)&data[i][3]);
+                        ImGui::PopID();
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            ImGui::End();
+    });
 }
 
 scene_renderer::~scene_renderer() {
@@ -126,11 +153,11 @@ void scene_renderer::setup_ecs() {
             std::optional<mat4> s;
             const auto*         obj = it.entity(i).get<comp::renderable>();
             if(obj != nullptr) s = current_bundle->object_transform(obj->object);
+            t.update(p, r, s);
             if (it.entity(i).has<tag::active_camera>()) {
                 *t.transform = inverse(*t.transform);
                 shader_uniforms->camera_pos = p.pos;
             }
-            t.update(p, r, s);
         }));
     observers.emplace_back(world->observer<comp::camera>()
         .event(flecs::OnAdd)

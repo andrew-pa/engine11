@@ -10,7 +10,7 @@ fly_camera_interaction_model::fly_camera_interaction_model(float speed)
 
 void fly_camera_interaction_model::register_with_distributor(class input_distributor* dist) {
 	move_x = dist->register_axis_mapping("Move Camera X", axis_mapping{
-		.key = key_axis_mapping{GLFW_KEY_D, GLFW_KEY_A}
+		.key = key_axis_mapping{GLFW_KEY_A, GLFW_KEY_D}
 	});
 	move_y = dist->register_axis_mapping("Move Camera Y", axis_mapping{
 		.key = key_axis_mapping{GLFW_KEY_Q, GLFW_KEY_E}
@@ -41,7 +41,7 @@ void fly_camera_interaction_model::process_input(const mapped_input& input, flec
 
 	vec2 np = vec2(input.axis_states.at(yaw), input.axis_states.at(pitch)) * glm::pi<float>();
 	rot = glm::angleAxis(np.x, vec3(0.f, 1.f, 0.f));
-	rot = glm::angleAxis(np.y, vec3(1.f, 0.f, 0.f)) * rot;
+	rot = rot * glm::angleAxis(np.y, vec3(1.f, 0.f, 0.f));
 	rot = glm::normalize(rot);
 
 	e.set<comp::position>({ pos });

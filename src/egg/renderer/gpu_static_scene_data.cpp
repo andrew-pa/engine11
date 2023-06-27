@@ -17,7 +17,7 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
     create_textures_from_bundle(r, bundle.get());
     generate_upload_commands_for_textures(bundle.get(), upload_cmds);
 
-    r->imgui()->add_window("Textures", [&](bool* open) {
+    r->imgui()->add_window("Textures", [this, bundle](bool* open) {
         this->texture_window_gui(open, bundle);
     });
 }

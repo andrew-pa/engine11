@@ -25,7 +25,7 @@ void main() {
     float metallic  = texture(textures[uint(object.metallic)], finput.tex_coord).x;
     vec3 normN = normalize(texture(textures[uint(object.normals)], finput.tex_coord).xyz * 2.0 - 1.0);
 
-    vec3 N = finput.normal_to_world * normN;
+    vec3 N = normalize(finput.normal_to_world * normN);
 
     vec3 F0 = compute_F0(base_color.xyz, metallic);
 
@@ -53,5 +53,5 @@ void main() {
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0 / 2.2));
 
-    final_color = vec4(color, base_color.a);
+    final_color = vec4(color, 1.0);
 }

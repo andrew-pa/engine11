@@ -77,42 +77,42 @@ int main(int argc, char* argv[]) {
         }
     };
     lgh1.set<comp::light>(lgh);
-
-    auto lgh2 = world->entity();
-    lgh2.set<comp::light>(comp::light{
-        comp::light_info {
-            .emmitance = vec3(4.5f, 5.f, 5.5f),
-            .type = comp::light_type::directional,
-            .position = vec3(0.f),
-            .param1 = 0.f,
-            .direction = normalize(vec3(-0.1f, 0.35f, 1.f)),
-            .param2 = 0.f
-        }
-    });
-
-    auto lgh3 = world->entity();
-    lgh3.set<comp::light>(comp::light{
-        comp::light_info {
-            .emmitance = vec3(1.f, 1.5f, 1.f),
-            .type = comp::light_type::directional,
-            .position = vec3(0.f),
-            .param1 = 0.f,
-            .direction = normalize(vec3(0.1f, 1.f, 0.2f)),
-            .param2 = 0.f
-        }
-    });
-
-    auto lgh4 = world->entity();
-    lgh4.set<comp::light>(comp::light{
-        comp::light_info {
-            .emmitance = vec3(0.f, 0.2f, 1.f),
-            .type = comp::light_type::spot,
-            .position = vec3(0.f, 30.f, 0.f),
-            .param1 = 0.f,
-            .direction = vec3(0.f, -1.f, 0.f),
-            .param2 = 3.f
-        }
-    });
+    //
+    // auto lgh2 = world->entity();
+    // lgh2.set<comp::light>(comp::light{
+    //     comp::light_info {
+    //         .emmitance = vec3(4.5f, 5.f, 5.5f),
+    //         .type = comp::light_type::directional,
+    //         .position = vec3(0.f),
+    //         .param1 = 0.f,
+    //         .direction = normalize(vec3(-0.1f, 0.35f, 1.f)),
+    //         .param2 = 0.f
+    //     }
+    // });
+    //
+    // auto lgh3 = world->entity();
+    // lgh3.set<comp::light>(comp::light{
+    //     comp::light_info {
+    //         .emmitance = vec3(1.f, 1.5f, 1.f),
+    //         .type = comp::light_type::directional,
+    //         .position = vec3(0.f),
+    //         .param1 = 0.f,
+    //         .direction = normalize(vec3(0.1f, 1.f, 0.2f)),
+    //         .param2 = 0.f
+    //     }
+    // });
+    //
+    // auto lgh4 = world->entity();
+    // lgh4.set<comp::light>(comp::light{
+    //     comp::light_info {
+    //         .emmitance = vec3(0.f, 0.2f, 1.f),
+    //         .type = comp::light_type::spot,
+    //         .position = vec3(0.f, 30.f, 0.f),
+    //         .param1 = 0.f,
+    //         .direction = vec3(0.f, -1.f, 0.f),
+    //         .param2 = 3.f
+    //     }
+    // });
 
     world->progress();
 

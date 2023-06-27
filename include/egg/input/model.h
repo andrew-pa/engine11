@@ -8,7 +8,7 @@ using map_id = uint8_t;
 
 struct key_axis_mapping {
 	uint32_t positive_key, negative_key;
-	key_axis_mapping(uint32_t positive_key, uint32_t negative_key)
+	key_axis_mapping(uint32_t negative_key, uint32_t positive_key)
 		:positive_key(positive_key), negative_key(negative_key) {}
 };
 

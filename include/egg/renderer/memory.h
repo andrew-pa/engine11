@@ -113,7 +113,7 @@ class gpu_shared_value_heap : public gpu_buffer {
         uint32_t padding[2];
     };
 
-    size_t header_offset;
+    size_t header_offset, total_size;
     header* hdr;
 
   public:
@@ -133,7 +133,7 @@ class gpu_shared_value_heap : public gpu_buffer {
                 = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
                 .usage = VMA_MEMORY_USAGE_AUTO}
         ),
-          free_blocks{free_block{0, initial_max_size}}, header_offset(include_header ? sizeof(header) : 0), hdr(nullptr)
+          free_blocks{free_block{0, initial_max_size}}, header_offset(include_header ? sizeof(header) : 0), hdr(nullptr), total_size(initial_max_size)
     {
         if (include_header) {
             hdr = (header*)cpu_mapped();
@@ -181,5 +181,12 @@ class gpu_shared_value_heap : public gpu_buffer {
             }
         }
         free_blocks.emplace_back(index, 1);
+    }
+
+    std::pair<size_t, size_t> current_valid_range() const {
+        if(hdr != nullptr) {
+            return {hdr->min_index, hdr->max_index};
+        }
+        return {0, total_size};
     }
 };

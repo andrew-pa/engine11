@@ -20,5 +20,6 @@ void main() {
     vec4 posW =  MtoW * vec4(positionM, 1.0);
     voutput.positionW = posW.xyz;
 
+// TODO: what if it isn't the camera that is wrong, but the MtoW matrix instead???
     gl_Position = camera_proj() * camera_view() * posW;
 }
