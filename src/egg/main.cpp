@@ -23,13 +23,14 @@ int main(int argc, char* argv[]) {
     }
 
     auto world = std::make_shared<flecs::world>();
+    world->set<flecs::Rest>({});
 
-    renderer* rndr = new renderer{window, world, argv[2]};
+    auto* rndr = new renderer{window, world, argv[2]};
 
     auto bndl = std::make_shared<asset_bundle>(argv[1]);
     rndr->start_resource_upload(bndl);
 
-    input_distributor* inp = new input_distributor(window, rndr, *world.get());
+    auto* inp = new input_distributor(window, rndr, *world);
 
     // instantiate a group
     for(auto oi = bndl->group_objects(0); oi.has_more(); ++oi) {
@@ -68,7 +69,7 @@ int main(int argc, char* argv[]) {
     auto lgh1 = world->entity();
     auto lgh = comp::light{
         comp::light_info {
-            .emmitance = vec3(5.5f, 5.f, 4.5f),
+            .emmitance = vec3(1.1f, 1.f, 0.9f) * 2.f,
             .type = comp::light_type::directional,
             .position = vec3(0.f),
             .param1 = 0.f,
@@ -77,31 +78,60 @@ int main(int argc, char* argv[]) {
         }
     };
     lgh1.set<comp::light>(lgh);
-    //
-    // auto lgh2 = world->entity();
-    // lgh2.set<comp::light>(comp::light{
-    //     comp::light_info {
-    //         .emmitance = vec3(4.5f, 5.f, 5.5f),
-    //         .type = comp::light_type::directional,
-    //         .position = vec3(0.f),
-    //         .param1 = 0.f,
-    //         .direction = normalize(vec3(-0.1f, 0.35f, 1.f)),
-    //         .param2 = 0.f
-    //     }
-    // });
-    //
-    // auto lgh3 = world->entity();
-    // lgh3.set<comp::light>(comp::light{
-    //     comp::light_info {
-    //         .emmitance = vec3(1.f, 1.5f, 1.f),
-    //         .type = comp::light_type::directional,
-    //         .position = vec3(0.f),
-    //         .param1 = 0.f,
-    //         .direction = normalize(vec3(0.1f, 1.f, 0.2f)),
-    //         .param2 = 0.f
-    //     }
-    // });
-    //
+
+    /*auto lgh2 = world->entity();
+    lgh2.set<comp::light>(comp::light{
+        comp::light_info {
+            .emmitance = vec3(4.5f, 5.f, 5.5f),
+            .type = comp::light_type::directional,
+            .position = vec3(0.f),
+            .param1 = 0.f,
+            .direction = normalize(vec3(-0.1f, 0.35f, 1.f)),
+            .param2 = 0.f
+        }
+    });
+
+    auto lgh3 = world->entity();
+    lgh3.set<comp::light>(comp::light{
+        comp::light_info {
+            .emmitance = vec3(1.f, 1.5f, 1.f),
+            .type = comp::light_type::directional,
+            .position = vec3(0.f),
+            .param1 = 0.f,
+            .direction = normalize(vec3(0.1f, 1.f, 0.2f)),
+            .param2 = 0.f
+        }
+    });*/
+
+    auto lgh4 = world->entity();
+    lgh4.set<comp::light>(comp::light{
+        comp::light_info {
+            .emmitance = vec3(10.f, 12.0f, 18.f),
+            .type = comp::light_type::spot,
+            .position = vec3(0.f, 0.f, 10.f),
+            .param1 = 0.9f,
+            .direction = vec3(0.f, 0.f, 1.f),
+            .param2 = 0.5f
+        }
+    });
+
+    rndr->imgui()->add_window("Light", [&](bool* open) {
+        if(ImGui::Begin("Light", open)) {
+            auto* li = lgh4.get_mut<comp::light>();
+            bool mod = false;
+            if(ImGui::ColorEdit3("Color", &li->info.emmitance[0], ImGuiColorEditFlags_Float|ImGuiColorEditFlags_HDR)) mod = true;
+            if(ImGui::DragFloat3("Position", &li->info.position[0], 0.05f, -1000.f, 1000.f)) mod = true;
+            if(ImGui::DragFloat3("Direction", &li->info.direction[0], 0.05f, -1000.f, 1000.f)) {
+                li->info.direction = glm::normalize(li->info.direction);
+                mod = true;
+            }
+            if(ImGui::DragFloat("Param 1", &li->info.param1, 0.005f, 0.f, 1000.f)) mod = true;
+            if(ImGui::DragFloat("Param 2", &li->info.param2, 0.005f, 0.f, 1000.f)) mod = true;
+            if(mod) lgh4.modified<comp::light>();
+        }
+        ImGui::End();
+    });
+
     // auto lgh4 = world->entity();
     // lgh4.set<comp::light>(comp::light{
     //     comp::light_info {

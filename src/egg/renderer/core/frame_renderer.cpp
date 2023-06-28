@@ -44,18 +44,21 @@ void frame_renderer::init_swapchain() {
 
     auto surface_caps  = r->phy_dev.getSurfaceCapabilitiesKHR(r->window_surface.get());
     cfo.preTransform   = surface_caps.currentTransform;
-    std::unordered_set<vk::CompositeAlphaFlagBitsKHR> supported_alpha{
+    std::unordered_set<vk::CompositeAlphaFlagBitsKHR> supported_alpha {
         vk::CompositeAlphaFlagBitsKHR::eInherit,
-        vk::CompositeAlphaFlagBitsKHR::eOpaque
+        vk::CompositeAlphaFlagBitsKHR::eOpaque,
     };
+    std::cout << "surface supported composite alpha = " << vk::to_string(surface_caps.supportedCompositeAlpha) << "\n";
     for (auto i = supported_alpha.begin(); i != supported_alpha.end();) {
-		if((*i & surface_caps.supportedCompositeAlpha) != surface_caps.supportedCompositeAlpha) {
+		if((*i & surface_caps.supportedCompositeAlpha) == vk::CompositeAlphaFlagBitsKHR{}) {
+            std::cout << vk::to_string(*i) << " " << vk::to_string(*i & surface_caps.supportedCompositeAlpha) << "\n";
             i = supported_alpha.erase(i);
         } else {
             i++;
         }
     }
     cfo.compositeAlpha = *supported_alpha.begin();
+    std::cout << "selecting compositeAlpha = " << vk::to_string(cfo.compositeAlpha) << "\n";
     cfo.presentMode    = vk::PresentModeKHR::eFifo;
     cfo.clipped        = VK_TRUE;
 

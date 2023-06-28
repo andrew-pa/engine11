@@ -20,6 +20,7 @@ class input_distributor {
 	std::unordered_map<map_id, button_mapping> buttons;
 
 	vec2 last_mouse_pos;
+    bool mouse_enabled;
 	mapped_input input_state;
 
 	void init_callbacks(GLFWwindow* window);

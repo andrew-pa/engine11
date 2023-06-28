@@ -4,7 +4,7 @@
 #include "backends/imgui_impl_glfw.h"
 
 input_distributor::input_distributor(GLFWwindow* window, renderer* r, flecs::world& world)
-	: r(r), window(window), next_id(1), last_mouse_pos()
+	: r(r), window(window), next_id(1), last_mouse_pos(), mouse_enabled(true)
 {
 	int x, y;
 	glfwGetWindowSize(window, &x, &y);
@@ -67,7 +67,8 @@ void input_distributor::init_ecs(flecs::world& world) {
 }
 
 void input_distributor::process_mouse_pos(vec2 p) {
-	vec2 mp = glm::clamp((p / window_size)*2.0f-1.0f, -1.0f, 1.0f);
+    if(!mouse_enabled) return;
+	vec2 mp = (p / window_size)*2.0f-1.0f;
 	for(const auto&[id, map] : axises) {
 		if (map.mouse.has_value()) {
 			auto m = map.mouse.value();
@@ -86,6 +87,7 @@ void input_distributor::process_mouse_pos(vec2 p) {
 }
 
 void input_distributor::process_mouse_button(int button, int action) {
+    if(!mouse_enabled) return;
 	for (const auto& [id, map] : buttons) {
 		if (map.mouse.has_value() && button == map.mouse.value()) {
 			auto& s = input_state.button_states[id];
@@ -105,7 +107,9 @@ void input_distributor::process_key(int key, int action) {
 			default: assert(false);
 			}
 			glfwSetInputMode(window, GLFW_CURSOR, new_mode);
-		}
+		} else if(key == GLFW_KEY_F2) {
+            mouse_enabled = !mouse_enabled;
+        }
 	}
 	for (const auto& [id, map] : buttons) {
 		if (map.key.has_value() && key == map.key.value()) {
