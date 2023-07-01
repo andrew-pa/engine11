@@ -24,7 +24,9 @@ public:
         VmaAllocation* alloc,
         VmaAllocationInfo* alloc_info) = 0;
     virtual void destroy_image(vk::Image img, VmaAllocation alloc) = 0;
-    
+
+    virtual VmaAllocationInfo get_allocation_info(VmaAllocation alloc) = 0;
+
     virtual ~gpu_allocator() = default;
 };
 
@@ -48,7 +50,7 @@ class gpu_buffer {
     gpu_buffer& operator=(const gpu_buffer&) = delete;
 
     inline vk::Buffer get() { return buf; }
-    
+
     inline void* cpu_mapped() { return mapping; }
 };
 
@@ -69,6 +71,8 @@ class gpu_image {
     gpu_image& operator=(const gpu_image&) = delete;
 
     inline vk::Image get() { return img; }
+
+    void* cpu_mapped() const;
 };
 
 template<typename T>

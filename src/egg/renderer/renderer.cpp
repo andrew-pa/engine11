@@ -68,7 +68,8 @@ renderer::renderer(
         0,
         {},
         (uint32_t)extensions.size(),
-        extensions.data() });
+        extensions.data()
+    });
 
     // set up vulkan debugging reports
 #ifndef NDEBUG

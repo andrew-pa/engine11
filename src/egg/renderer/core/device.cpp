@@ -49,7 +49,7 @@ void renderer::init_device(vk::Instance instance) {
             break;
         }
     }
-    if(!qfixs.complete()) throw std::runtime_error("failed to find sutable physical device");
+    if(!qfixs.complete()) throw std::runtime_error("failed to find suitable physical device");
 
     auto props = phy_dev.getProperties();
     std::cout << "using physical device " << props.deviceName << " ("

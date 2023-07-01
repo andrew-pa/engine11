@@ -1,6 +1,7 @@
 #include "asset-bundler/importer.h"
 #include "asset-bundler/model.h"
 #include "asset-bundler/output_bundle.h"
+#include "asset-bundler/texture_processor.h"
 
 /* asset-bundler:
  *  content pipeline & bundling utility
@@ -18,6 +19,7 @@ int main(int argc, char* argv[]) {
     }
 
     output_bundle out{argv[1]};
+    texture_processor tex_proc;
     importer      imp{out, argc, argv};
     imp.load();
     out.write();

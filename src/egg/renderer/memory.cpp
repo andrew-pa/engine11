@@ -34,6 +34,11 @@ gpu_image::gpu_image(
     if(res != vk::Result::eSuccess) throw vulkan_runtime_error("failed to allocate image", res);
 }
 
+void* gpu_image::cpu_mapped() const {
+    auto info = allocator->get_allocation_info(allocation);
+    return info.pMappedData;
+}
+
 gpu_image::~gpu_image() {
     allocator->destroy_image(img, allocation);
     img        = VK_NULL_HANDLE;
@@ -46,24 +51,30 @@ struct vma_gpu_allocator : public gpu_allocator {
 		auto err = vmaCreateAllocator(&cfo, &allocator);
 		if(err != VK_SUCCESS) throw vulkan_runtime_error("failed to create GPU allocator", err);
     }
-    virtual ~vma_gpu_allocator() override {
+    ~vma_gpu_allocator() override {
         vmaDestroyAllocator(allocator);
     }
 
-    virtual vk::Result create_buffer(const vk::BufferCreateInfo& buffer_cfo, const VmaAllocationCreateInfo& alloc_cfo, VkBuffer* buf, VmaAllocation* alloc, VmaAllocationInfo* alloc_info) override {
+     vk::Result create_buffer(const vk::BufferCreateInfo& buffer_cfo, const VmaAllocationCreateInfo& alloc_cfo, VkBuffer* buf, VmaAllocation* alloc, VmaAllocationInfo* alloc_info) override {
         return vk::Result(vmaCreateBuffer(allocator, (VkBufferCreateInfo*)&buffer_cfo, &alloc_cfo, buf, alloc, alloc_info));
     }
 
-    virtual void destroy_buffer(vk::Buffer buf, VmaAllocation alloc) override {
+    void destroy_buffer(vk::Buffer buf, VmaAllocation alloc) override {
         vmaDestroyBuffer(allocator, buf, alloc);
     }
 
-    virtual vk::Result create_image(const vk::ImageCreateInfo& image_cfo, const VmaAllocationCreateInfo& alloc_cfo, VkImage* img, VmaAllocation* alloc, VmaAllocationInfo* alloc_info) override {
+    vk::Result create_image(const vk::ImageCreateInfo& image_cfo, const VmaAllocationCreateInfo& alloc_cfo, VkImage* img, VmaAllocation* alloc, VmaAllocationInfo* alloc_info) override {
         return vk::Result(vmaCreateImage(allocator, (VkImageCreateInfo*)&image_cfo, &alloc_cfo, img, alloc, alloc_info));
     }
 
-    virtual void destroy_image(vk::Image img, VmaAllocation alloc) override {
+    void destroy_image(vk::Image img, VmaAllocation alloc) override {
         vmaDestroyImage(allocator, img, alloc);
+    }
+
+    VmaAllocationInfo get_allocation_info(VmaAllocation alloc) override {
+        VmaAllocationInfo info;
+        vmaGetAllocationInfo(allocator, alloc, &info);
+        return info;
     }
 };
 
