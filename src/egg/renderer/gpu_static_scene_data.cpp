@@ -1,5 +1,6 @@
 #include "egg/renderer/scene_renderer.h"
 #include "egg/renderer/imgui_renderer.h"
+#include <vulkan/vulkan_format_traits.hpp>
 
 gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds) {
     staging_buffer = std::make_unique<gpu_buffer>(
@@ -64,7 +65,6 @@ void gpu_static_scene_data::load_geometry_from_bundle(
 }
 
 void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundle* current_bundle) {
-    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
         auto img = std::make_unique<gpu_image>(
@@ -74,7 +74,7 @@ void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundl
                 vk::ImageType::e2D,
                 vk::Format(th.format),
                 vk::Extent3D{th.width, th.height, 1},
-                1,
+                th.mip_levels,
                 1,
                 vk::SampleCountFlagBits::e1,
                 vk::ImageTiling::eOptimal,
@@ -82,6 +82,8 @@ void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundl
         },
             VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
         );
+
+        auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, th.mip_levels, 0, 1);
 
         auto img_view = r->device().createImageViewUnique(vk::ImageViewCreateInfo{
             {},
@@ -135,19 +137,30 @@ void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* 
 
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
-        upload_cmds.copyBufferToImage(
-            staging_buffer->get(),
-            textures.at(th.id).img->get(),
-            vk::ImageLayout::eTransferDstOptimal,
-            vk::BufferImageCopy{
-                th.offset - current_bundle->bundle_header().gpu_data_offset,
-                0,
-                0,
-                vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-                vk::Offset3D{0, 0, 0},
-                vk::Extent3D{th.width, th.height, 1},
+
+        // copy each mip level from the buffer
+        uint32_t w = th.width, h = th.height;
+        size_t mip_offset = 0;
+        std::vector<vk::BufferImageCopy> regions;
+        for(uint32_t mip_level = 0; mip_level < th.mip_levels; ++mip_level) {
+            regions.emplace_back(
+                vk::BufferImageCopy{
+                    th.offset - current_bundle->bundle_header().gpu_data_offset + mip_offset,
+                    0, 0,
+                    vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, mip_level, 0, 1},
+                    vk::Offset3D{0, 0, 0},
+                    vk::Extent3D{w, h, 1},
+                }
+            );
+            mip_offset += w * h * vk::blockSize(vk::Format(th.format));
+            w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
         }
-        );
+
+        upload_cmds.copyBufferToImage(
+                staging_buffer->get(),
+                textures.at(th.id).img->get(),
+                vk::ImageLayout::eTransferDstOptimal,
+                regions);
     }
 
     upload_cmds.pipelineBarrier(

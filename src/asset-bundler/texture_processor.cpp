@@ -125,14 +125,11 @@ texture_processor::texture_processor() {
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphics_queue_family_index });
 }
 
-size_t texture_processor::submit_texture(texture_id id, uint32_t width, uint32_t height, uint32_t channels, void* data) {
-    auto mip_layer_count = (uint32_t)std::floor(std::log2(std::max(width, height))) + 1;
+void texture_processor::submit_texture(texture_id id, texture_info* info) {
+    info->mip_levels = (uint32_t)std::floor(std::log2(std::max(info->width, info->height))) + 1;
 
     // create job resources
-    texture_process_job s{device.get(), cmd_pool.get(), allocator, width, height, channels, mip_layer_count};
-
-    // copy original data into staging buffer
-    memcpy(s.staging->cpu_mapped(), data, width*height*channels);
+    texture_process_job s{device.get(), cmd_pool.get(), allocator, info};
 
     // build command buffer:
     // copy from staging buffer to top of mipmap chain
@@ -141,20 +138,17 @@ size_t texture_processor::submit_texture(texture_id id, uint32_t width, uint32_t
 
     // submit command buffer
     s.submit(graphics_queue);
-    auto size = s.total_size;
+    info->len = s.total_size;
     jobs.emplace(id, std::move(s));
-
-    // return size of result data
-    return size;
 }
 
-texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, uint32_t width, uint32_t height, uint32_t channels, uint32_t mip_layer_count)
+texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, texture_info* info)
     : device(dev), image_info{
         {},
             vk::ImageType::e2D,
-            vk::Format(format_from_channels(channels)),
-            vk::Extent3D(width, height, 1),
-            mip_layer_count,
+            info->format,
+            vk::Extent3D(info->width, info->height, 1),
+            info->mip_levels,
             1,
             vk::SampleCountFlagBits::e1,
             vk::ImageTiling::eOptimal,
@@ -190,6 +184,9 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
             .usage = VMA_MEMORY_USAGE_AUTO
         });
 
+    // copy original data into staging buffer
+    memcpy(staging->cpu_mapped(), info->data, info->width*info->height*vk::blockSize(info->format));
+
     cmd_buffer->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     // transition the first mip level to transfer destination to prepare to recieve staging buffer data
@@ -211,7 +208,7 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
                 0, 0, 0,
                 vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1},
                 vk::Offset3D{0,0,0},
-                vk::Extent3D{(uint32_t)width,(uint32_t)height,1}
+                vk::Extent3D{info->width, info->height,1}
             });
 }
 
