@@ -38,7 +38,7 @@ struct string_header {
 struct texture_header {
     texture_id id;
     string_id  name;
-    uint32_t   width, height;
+    uint32_t   width, height, mip_levels;
     VkFormat   format;
     size_t     offset;
 };

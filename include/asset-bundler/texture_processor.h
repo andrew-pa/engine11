@@ -13,7 +13,8 @@ struct texture_process_job {
     std::unique_ptr<gpu_buffer> staging;
     std::unique_ptr<gpu_image> img;
 
-    texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, uint32_t width, uint32_t height, uint32_t channels, uint32_t mip_layer_count);
+    texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, texture_info* info);
+
     void submit(vk::Queue queue);
     void wait_for_completion();
     void copy_to_dest(uint8_t* dest) const;
@@ -37,7 +38,7 @@ class texture_processor {
 public:
     texture_processor();
 
-    size_t submit_texture(texture_id id, uint32_t width, uint32_t height, uint32_t channels, void* data);
+    void submit_texture(texture_id id, texture_info* info);
     void recieve_processed_texture(texture_id id, void* destination);
 };
 

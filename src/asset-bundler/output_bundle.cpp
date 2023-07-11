@@ -8,13 +8,12 @@ void output_bundle::add_texture(
     texture_id id, std::string name, uint32_t width, uint32_t height, int nchannels, stbi_uc* data
 ) {
     string_id ns = add_string(std::move(name));
-    size_t total_size = tex_proc->submit_texture(id, width, height, nchannels, data);
+    texture_info info{
+        ns, width, height, format_from_channels(nchannels), data
+    };
+    tex_proc->submit_texture(id, &info);
     // TODO: record number of mips and layers
-    textures.emplace(
-        id,
-        texture_info{
-            ns, width, height, format_from_channels(nchannels), data, total_size}
-    );
+    textures.emplace(id, info);
 }
 
 std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
@@ -114,11 +113,10 @@ void output_bundle::copy_textures(byte*& header_ptr, byte*& data_ptr, byte* top)
             .name   = t.second.name,
             .width  = t.second.width,
             .height = t.second.height,
+            .mip_levels = t.second.mip_levels,
             .format = (VkFormat)t.second.format,
             .offset = (size_t)(data_ptr - top)};
         header_ptr += sizeof(asset_bundle_format::texture_header);
-        // memcpy(data_ptr, t.second.data, t.second.len);
-        // TODO: finalize
         tex_proc->recieve_processed_texture(t.first, data_ptr);
         data_ptr += t.second.len;
     }

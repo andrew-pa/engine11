@@ -19,13 +19,12 @@ struct texture_info {
         uint32_t   width,
         uint32_t   height,
         vk::Format format,
-        stbi_uc*   data,
-        size_t     len
+        stbi_uc*   data
     )
-        : name(name), width(width), height(height), format(format), data(data), len(len) {}
+        : name(name), width(width), height(height), format(format), data(data){}
 
     string_id  name;
-    uint32_t   width, height;
+    uint32_t   width, height, mip_levels;
     vk::Format format;
     stbi_uc*   data;
     size_t     len;
