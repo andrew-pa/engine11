@@ -18,9 +18,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    output_bundle out{argv[1]};
     texture_processor tex_proc;
-    importer      imp{out, argc, argv};
+    output_bundle out{argv[1], &tex_proc};
+    importer      imp{out, argc, argv, &tex_proc};
     imp.load();
     out.write();
     return 0;

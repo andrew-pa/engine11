@@ -9,11 +9,14 @@ struct texture_process_job {
     vk::UniqueFence fence;
 
     vk::ImageCreateInfo image_info;
+    size_t total_size;
+    std::unique_ptr<gpu_buffer> staging;
     std::unique_ptr<gpu_image> img;
 
-    texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, int width, int height, int channels, uint32_t mip_layer_count);
+    texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, uint32_t width, uint32_t height, uint32_t channels, uint32_t mip_layer_count);
     void submit(vk::Queue queue);
     void wait_for_completion();
+    void copy_to_dest(uint8_t* dest) const;
 
     void generate_mipmaps();
 };
@@ -34,7 +37,7 @@ class texture_processor {
 public:
     texture_processor();
 
-    size_t submit_texture(texture_id id, int width, int height, int channels, void* data);
+    size_t submit_texture(texture_id id, uint32_t width, uint32_t height, uint32_t channels, void* data);
     void recieve_processed_texture(texture_id id, void* destination);
 };
 

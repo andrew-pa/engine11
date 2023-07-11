@@ -1,6 +1,7 @@
 #include "asset-bundler/texture_processor.h"
 #include <error.h>
 #include <iostream>
+#include <vulkan/vulkan_format_traits.hpp>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugReportFlagsEXT      flags,
@@ -124,14 +125,14 @@ texture_processor::texture_processor() {
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphics_queue_family_index });
 }
 
-size_t texture_processor::submit_texture(texture_id id, int width, int height, int channels, void* data) {
+size_t texture_processor::submit_texture(texture_id id, uint32_t width, uint32_t height, uint32_t channels, void* data) {
     auto mip_layer_count = (uint32_t)std::floor(std::log2(std::max(width, height))) + 1;
 
     // create job resources
     texture_process_job s{device.get(), cmd_pool.get(), allocator, width, height, channels, mip_layer_count};
 
     // copy original data into staging buffer
-    memcpy(s.img->cpu_mapped(), data, width*height*channels);
+    memcpy(s.staging->cpu_mapped(), data, width*height*channels);
 
     // build command buffer:
     // copy from staging buffer to top of mipmap chain
@@ -140,13 +141,14 @@ size_t texture_processor::submit_texture(texture_id id, int width, int height, i
 
     // submit command buffer
     s.submit(graphics_queue);
+    auto size = s.total_size;
     jobs.emplace(id, std::move(s));
 
     // return size of result data
-    return 0;
+    return size;
 }
 
-texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, int width, int height, int channels, uint32_t mip_layer_count)
+texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, uint32_t width, uint32_t height, uint32_t channels, uint32_t mip_layer_count)
     : device(dev), image_info{
         {},
             vk::ImageType::e2D,
@@ -155,7 +157,7 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
             mip_layer_count,
             1,
             vk::SampleCountFlagBits::e1,
-            vk::ImageTiling::eLinear,
+            vk::ImageTiling::eOptimal,
             vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst
     }
 {
@@ -166,15 +168,51 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
 
     fence = device.createFenceUnique(vk::FenceCreateInfo{});
 
-    img = std::make_unique<gpu_image>(alloc,
-            image_info,
-            VmaAllocationCreateInfo{
-                .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                .usage = VMA_MEMORY_USAGE_AUTO,
-            }
-        );
+    // set the initial image layout to the general layout so we can write directly to it from the CPU
+    image_info.setInitialLayout(vk::ImageLayout::eGeneral);
+
+    total_size = 0;
+    uint32_t w = image_info.extent.width, h = image_info.extent.height;
+    for(auto mi = 0; mi < image_info.mipLevels; ++mi) {
+        total_size += w * h * vk::blockSize(image_info.format);
+        w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
+    }
+    total_size *= image_info.arrayLayers;
+
+    img = std::make_unique<gpu_image>(alloc, image_info);
+    staging = std::make_unique<gpu_buffer>(alloc,
+        vk::BufferCreateInfo {
+            {}, total_size, vk::BufferUsageFlagBits::eTransferSrc|vk::BufferUsageFlagBits::eTransferDst
+        },
+        VmaAllocationCreateInfo{
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+                     | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = VMA_MEMORY_USAGE_AUTO
+        });
 
     cmd_buffer->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    // transition the first mip level to transfer destination to prepare to recieve staging buffer data
+    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+            {}, {}, {}, {
+            vk::ImageMemoryBarrier {
+                vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eTransferWrite,
+                vk::ImageLayout::eGeneral, vk::ImageLayout::eTransferDstOptimal,
+                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                img->get(),
+                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,1}
+            }
+        });
+
+    // copy original image data from staging buffer to first mip level
+    cmd_buffer->copyBufferToImage(staging->get(), img->get(),
+            vk::ImageLayout::eTransferDstOptimal,
+            vk::BufferImageCopy {
+                0, 0, 0,
+                vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                vk::Offset3D{0,0,0},
+                vk::Extent3D{(uint32_t)width,(uint32_t)height,1}
+            });
 }
 
 void texture_process_job::generate_mipmaps() {
@@ -219,21 +257,54 @@ void texture_process_job::generate_mipmaps() {
                 1, &blit_info,
                 vk::Filter::eLinear);
 
-        // setup for the next mip level
-        blit_info.srcSubresource = blit_info.dstSubresource;
-        blit_info.srcOffsets = blit_info.dstOffsets;
-        blit_info.dstSubresource.mipLevel++;
-        blit_info.dstOffsets[1].setX(glm::max(1, blit_info.dstOffsets[1].x / 2));
-        blit_info.dstOffsets[1].setY(glm::max(1, blit_info.dstOffsets[1].y / 2));
+        if(i + 1 < image_info.mipLevels) {
+            // setup for the next mip level
+            blit_info.srcSubresource = blit_info.dstSubresource;
+            blit_info.srcOffsets = blit_info.dstOffsets;
+            blit_info.dstSubresource.mipLevel++;
+            blit_info.dstOffsets[1].setX(glm::max(1, blit_info.dstOffsets[1].x / 2));
+            blit_info.dstOffsets[1].setY(glm::max(1, blit_info.dstOffsets[1].y / 2));
 
-        // transition the mip level we just wrote to from destination layout to source layout so we can copy from it in the next iteration
-        barrierDstToSrc.subresourceRange.setBaseMipLevel(blit_info.srcSubresource.mipLevel);
-        // transition the next unwritten mip level from undefined to destination layout so we can write to it in the next iteration
-        barrierUninitToDst.subresourceRange.setBaseMipLevel(blit_info.dstSubresource.mipLevel);
+            // transition the mip level we just wrote to from destination layout to source layout so we can copy from it in the next iteration
+            barrierDstToSrc.subresourceRange.setBaseMipLevel(blit_info.srcSubresource.mipLevel);
+            // transition the next unwritten mip level from undefined to destination layout so we can write to it in the next iteration
+            barrierUninitToDst.subresourceRange.setBaseMipLevel(blit_info.dstSubresource.mipLevel);
 
-        cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
-                {}, {}, {}, {barrierUninitToDst, barrierDstToSrc});
+            cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+                    {}, {}, {}, {barrierUninitToDst, barrierDstToSrc});
+        }
     }
+
+    // transition the entire image back to transfer source so that we can copy it back to the staging buffer
+    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+            {}, {}, {}, {
+                vk::ImageMemoryBarrier {
+                    vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead,
+                    vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
+                    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                    img->get(), vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,image_info.mipLevels,0,1}
+                }
+            });
+
+    std::vector<vk::BufferImageCopy> regions;
+    uint32_t w = image_info.extent.width, h = image_info.extent.height;
+    size_t offset = 0;
+    for(uint32_t mip_level = 0; mip_level < image_info.mipLevels; ++mip_level) {
+        regions.emplace_back(vk::BufferImageCopy{
+                offset,
+                0, 0, // tightly pack texels
+                vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, mip_level, 0, 1},
+                vk::Offset3D{0,0,0},
+                vk::Extent3D{w,h,1}
+            });
+        offset += w * h * vk::blockSize(image_info.format);
+        w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
+    }
+    cmd_buffer->copyImageToBuffer(
+            img->get(),
+            vk::ImageLayout::eTransferSrcOptimal,
+            staging->get(),
+            regions);
 }
 
 void texture_process_job::submit(vk::Queue queue) {
@@ -247,9 +318,16 @@ void texture_process_job::wait_for_completion() {
         throw vulkan_runtime_error("failed to run texture process job", err);
 }
 
+void texture_process_job::copy_to_dest(uint8_t* dest) const {
+    auto* src = (uint8_t*)staging->cpu_mapped();
+    // since we already directed the GPU to copy the image into the buffer in the right layout, we just need to copy it out of GPU shared memory
+    memcpy(dest, src, total_size);
+}
+
 void texture_processor::recieve_processed_texture(texture_id id, void* destination) {
     auto job = std::move(jobs.extract(id).mapped());
     job.wait_for_completion();
     // copy data out of staging buffer into destination
+    job.copy_to_dest((uint8_t*)destination);
     // clean up resources used for this texture
 }

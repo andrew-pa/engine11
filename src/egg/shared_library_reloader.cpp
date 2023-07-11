@@ -3,6 +3,8 @@
 #include <thread>
 
 #ifdef _MSC_VER
+#elif __APPLE__
+
 #else
 #include <unistd.h>
 #include <sys/inotify.h>
@@ -95,6 +97,7 @@ void* shared_library_reloader::initial_load() {
 		}
 	};*/
 #ifdef _MSC_VER
+#elif __APPLE__
 #else
     watcher = new inotify_watcher(library_path);
 #endif

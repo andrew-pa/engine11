@@ -42,7 +42,7 @@ class gpu_buffer {
     gpu_buffer(
         std::shared_ptr<gpu_allocator> allocator,
         const vk::BufferCreateInfo&    buffer_cfo,
-        const VmaAllocationCreateInfo& alloc_cfo
+        const VmaAllocationCreateInfo& alloc_cfo = VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO }
     );
     ~gpu_buffer();
 
@@ -63,7 +63,7 @@ class gpu_image {
     gpu_image(
         std::shared_ptr<gpu_allocator>                   allocator,
         const vk::ImageCreateInfo&     image_cfo,
-        const VmaAllocationCreateInfo& alloc_cfo
+        const VmaAllocationCreateInfo& alloc_cfo = VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO }
     );
     ~gpu_image();
 

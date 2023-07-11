@@ -31,7 +31,7 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     std::cout << " read " << compressed_buffer_size << " bytes\n";
     auto end_read_time = std::chrono::system_clock::now();
     std::cout << "reading bundle took "
-        << std::chrono::duration_cast<std::chrono::milliseconds>(end_read_time - start_read_time)
+        << std::chrono::duration_cast<std::chrono::milliseconds>(end_read_time - start_read_time).count()
         << "\n";
 
     std::cout << "decompressing bundle... ";
@@ -44,7 +44,7 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     free(compressed_buffer);
     auto end_decom_time = std::chrono::system_clock::now();
     std::cout << "decompressing bundle took "
-        << std::chrono::duration_cast<std::chrono::milliseconds>(end_decom_time-start_decom_time)
+        << std::chrono::duration_cast<std::chrono::milliseconds>(end_decom_time-start_decom_time).count()
         << "\n";
 
     header           = (struct header*)bundle_data;

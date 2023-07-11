@@ -1,9 +1,10 @@
 #include "asset-bundler/importer.h"
+#include "asset-bundler/texture_processor.h"
 #include "fs-shim.h"
 
 const std::unordered_set<std::string> texture_exts = {".png", ".jpg", ".bmp"};
 
-importer::importer(output_bundle& out, int argc, char* argv[]) : out(out) {
+importer::importer(output_bundle& out, int argc, char* argv[], texture_processor* tp) : out(out), tex_proc(tp) {
     for(size_t i = 2; i < argc; ++i) {
         path input = argv[i];
         if(aimp.IsExtensionSupported(path_to_string(input.extension()).c_str()))
@@ -200,7 +201,6 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
         data     = new_data;
         channels = 4;
     }
-    // TODO: we should probably also compute mipmaps
     // TODO: possibly we could also apply compression with stb_dxt and save more VRAM
     out.add_texture(id, path_to_string(main_texture_path.filename()), width, height, channels, data);
 }

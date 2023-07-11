@@ -26,8 +26,9 @@ class output_bundle {
     void                      copy_objects(byte*& header_ptr, byte*& data_ptr, byte* top) const;
     void                      copy_groups(byte*& header_ptr, byte*& data_ptr, byte* top) const;
 
+    class texture_processor* tex_proc;
   public:
-    output_bundle(path output_path) : output_path(std::move(output_path)) {}
+    output_bundle(path output_path, class texture_processor* tp) : output_path(std::move(output_path)), tex_proc(tp) {}
 
     string_id add_string(std::string s) {
         auto id = next_string_id++;
