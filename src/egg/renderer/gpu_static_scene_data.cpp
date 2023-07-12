@@ -65,7 +65,6 @@ void gpu_static_scene_data::load_geometry_from_bundle(
 }
 
 void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundle* current_bundle) {
-    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
         auto img = std::make_unique<gpu_image>(
@@ -83,6 +82,8 @@ void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundl
         },
             VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
         );
+
+        auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, th.mip_levels, 0, 1);
 
         auto img_view = r->device().createImageViewUnique(vk::ImageViewCreateInfo{
             {},
