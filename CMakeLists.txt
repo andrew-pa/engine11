@@ -7,6 +7,8 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 include(FetchContent)
 include(CompileShader)
 
+find_package(Vulkan REQUIRED)
+
 FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/g-truc/glm
@@ -37,7 +39,11 @@ FetchContent_Declare(
     GIT_TAG master
     GIT_PROGRESS TRUE)
 FetchContent_MakeAvailable(vma)
-set_target_properties(VulkanMemoryAllocator PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
+add_library(vmalib src/vma.cpp)
+target_link_libraries(vmalib Vulkan::Vulkan)
+set_target_properties(vmalib PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+target_compile_features(vmalib PRIVATE cxx_std_14)
 
 FetchContent_Declare(
     imgui
@@ -59,9 +65,7 @@ add_library(imguilib
 target_link_libraries(imguilib glfw Vulkan::Vulkan)
 target_compile_features(imguilib PRIVATE cxx_std_20)
 
-include_directories(include/ ${imgui_SOURCE_DIR})
-
-find_package(Vulkan REQUIRED)
+include_directories(include/ ${imgui_SOURCE_DIR} ${vma_SOURCE_DIR}/include)
 
 FetchContent_Declare(
     zstd

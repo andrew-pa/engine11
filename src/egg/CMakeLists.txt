@@ -18,6 +18,6 @@ target_link_libraries(egg
     flecs::flecs_static
     glm
     glfw
-    Vulkan::Vulkan VulkanMemoryAllocator
+    Vulkan::Vulkan VulkanMemoryAllocator vmalib
     imguilib
     libzstd_static)

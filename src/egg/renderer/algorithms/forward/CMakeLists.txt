@@ -12,4 +12,4 @@ add_shaders(egg-forward-renderer
         forward.frag)
 target_link_libraries(egg-forward-renderer
     glm
-    Vulkan::Vulkan VulkanMemoryAllocator)
+    Vulkan::Vulkan VulkanMemoryAllocator vmalib)
