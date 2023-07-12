@@ -54,16 +54,11 @@ texture_processor::texture_processor() {
             | vk::DebugReportFlagBitsEXT::ePerformanceWarning | vk::DebugReportFlagBitsEXT::eWarning
             | vk::DebugReportFlagBitsEXT::eInformation,
         debug_callback };
-    auto err1 = instance->createDebugReportCallbackEXT(
-        &cbco,
+    debug_report_callback = instance->createDebugReportCallbackEXT(
+        cbco,
         nullptr,
-        &debug_report_callback,
         vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr)
     );
-    if (err1 != vk::Result::eSuccess) {
-        std::cout << "WARNING: failed to create debug report callback: " << vk::to_string(err1)
-            << "\n";
-    }
 #endif
 
     auto physical_devices = instance->enumeratePhysicalDevices();
@@ -125,18 +120,29 @@ texture_processor::texture_processor() {
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphics_queue_family_index });
 }
 
+texture_processor::~texture_processor() {
+    assert(jobs.size() == 0);
+    instance->destroyDebugReportCallbackEXT(debug_report_callback, nullptr,
+        vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr));
+    allocator.reset();
+    cmd_pool.reset();
+    device.reset();
+    instance.reset();
+}
+
 void texture_processor::submit_texture(texture_id id, texture_info* info) {
     info->mip_levels = (uint32_t)std::floor(std::log2(std::max(info->width, info->height))) + 1;
 
-    // create job resources
+    if (info->mip_levels == 1) {
+        // no reason to generate mip levels for this texture at all
+        info->len = info->width * vk::blockSize(info->format) * info->height;
+        return;
+    }
+
     texture_process_job s{device.get(), cmd_pool.get(), allocator, info};
 
-    // build command buffer:
-    // copy from staging buffer to top of mipmap chain
-    // generate rest of mipmap chain
     s.generate_mipmaps();
 
-    // submit command buffer
     s.submit(graphics_queue);
     info->len = s.total_size;
     jobs.emplace(id, std::move(s));
@@ -161,9 +167,6 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
     })[0]);
 
     fence = device.createFenceUnique(vk::FenceCreateInfo{});
-
-    // set the initial image layout to the general layout so we can write directly to it from the CPU
-    image_info.setInitialLayout(vk::ImageLayout::eGeneral);
 
     total_size = 0;
     uint32_t w = image_info.extent.width, h = image_info.extent.height;
@@ -190,11 +193,11 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
     cmd_buffer->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     // transition the first mip level to transfer destination to prepare to recieve staging buffer data
-    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
             {}, {}, {}, {
             vk::ImageMemoryBarrier {
                 vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eTransferWrite,
-                vk::ImageLayout::eGeneral, vk::ImageLayout::eTransferDstOptimal,
+                vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
                 VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
                 img->get(),
                 vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,1}
@@ -218,7 +221,8 @@ void texture_process_job::generate_mipmaps() {
         vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1},
         {vk::Offset3D{0,0,0},{(int32_t)image_info.extent.width,(int32_t)image_info.extent.height,1}},
         vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 1, 0, 1},
-        {vk::Offset3D{0,0,0},{(int32_t)image_info.extent.width/2,(int32_t)image_info.extent.height/2,1}},
+        {vk::Offset3D{0,0,0},{glm::max((int32_t)image_info.extent.width/2, 1),
+            glm::max((int32_t)image_info.extent.height/2, 1),1}},
     };
 
     vk::ImageMemoryBarrier barrierUninitToDst {
@@ -235,15 +239,10 @@ void texture_process_job::generate_mipmaps() {
     };
 
     // initial transition: transition the base mip level to source layout and the first new mip level to destination layout
-    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
             {}, {}, {}, {
             barrierUninitToDst,
-            vk::ImageMemoryBarrier {
-                {}, vk::AccessFlagBits::eTransferRead,
-                vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferSrcOptimal,
-                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                img->get(), vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,1}
-            }
+            barrierDstToSrc
         });
 
     // generate each mip level by copying from the last one
@@ -267,21 +266,15 @@ void texture_process_job::generate_mipmaps() {
             // transition the next unwritten mip level from undefined to destination layout so we can write to it in the next iteration
             barrierUninitToDst.subresourceRange.setBaseMipLevel(blit_info.dstSubresource.mipLevel);
 
-            cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+            cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
                     {}, {}, {}, {barrierUninitToDst, barrierDstToSrc});
         }
     }
 
-    // transition the entire image back to transfer source so that we can copy it back to the staging buffer
-    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
-            {}, {}, {}, {
-                vk::ImageMemoryBarrier {
-                    vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead,
-                    vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
-                    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                    img->get(), vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,image_info.mipLevels,0,1}
-                }
-            });
+    // transition the last mip level from transfer destination to transfer source
+    barrierDstToSrc.subresourceRange.setBaseMipLevel(image_info.mipLevels - 1);
+    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
+            {}, {}, {}, { barrierDstToSrc });
 
     std::vector<vk::BufferImageCopy> regions;
     uint32_t w = image_info.extent.width, h = image_info.extent.height;

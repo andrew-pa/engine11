@@ -37,6 +37,7 @@ class texture_processor {
     std::unordered_map<texture_id, texture_process_job> jobs;
 public:
     texture_processor();
+    ~texture_processor();
 
     void submit_texture(texture_id id, texture_info* info);
     void recieve_processed_texture(texture_id id, void* destination);

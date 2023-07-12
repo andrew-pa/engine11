@@ -12,7 +12,6 @@ void output_bundle::add_texture(
         ns, width, height, format_from_channels(nchannels), data
     };
     tex_proc->submit_texture(id, &info);
-    // TODO: record number of mips and layers
     textures.emplace(id, info);
 }
 
@@ -24,6 +23,7 @@ std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
     total += sizeof(asset_bundle_format::mesh_header) * meshes.size();
     total += sizeof(asset_bundle_format::object_header) * objects.size();
     total += sizeof(asset_bundle_format::group_header) * groups.size();
+    total += (16 - (total % 16)) % 16; // add padding to align data on a 16-byte boundary
     size_t header_size = total;
 
     for(const auto& s : strings)
@@ -67,6 +67,7 @@ void output_bundle::write() {
     copy_objects(header_ptr, data_ptr, buffer);
     copy_groups(header_ptr, data_ptr, buffer);
 
+    // TODO: we could easily eliminate this field by just passing `buffer + header_size` as `top` and including it in the offset for each resource
     header->gpu_data_offset = (size_t)(data_ptr - buffer);
     copy_textures(header_ptr, data_ptr, buffer);
     header->vertex_start_offset = (size_t)(data_ptr - buffer);

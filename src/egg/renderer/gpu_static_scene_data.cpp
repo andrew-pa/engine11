@@ -100,7 +100,7 @@ void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundl
 }
 
 void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds) {
-    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, VK_REMAINING_MIP_LEVELS, 0, 1);
     std::vector<vk::ImageMemoryBarrier> undef_to_transfer_barriers,
         transfer_to_shader_read_barriers;
     for(const auto& [id, tx] : textures) {

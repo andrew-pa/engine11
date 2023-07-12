@@ -105,7 +105,7 @@ void* shared_library_reloader::initial_load() {
 }
 
 void shared_library_reloader::poll(std::function<void(void*)> on_reload) {
-	if (watcher->poll()) { //(should_reload.exchange(false)) {
+	if (watcher != nullptr && watcher->poll()) { //(should_reload.exchange(false)) {
         // make sure the linker finishes writing the file
         std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << "reloading " << library_path << "\n";
