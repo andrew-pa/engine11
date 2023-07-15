@@ -20,6 +20,7 @@ class asset_bundle {
     asset_bundle_format::header*          header;
     asset_bundle_format::string_header*   strings;
     asset_bundle_format::texture_header*  textures;
+    asset_bundle_format::environment_header*  environments;
     asset_bundle_format::mesh_header*     meshes;
     asset_bundle_format::material_header* materials;
     asset_bundle_format::object_header*   objects;

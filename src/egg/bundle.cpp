@@ -15,6 +15,7 @@ using asset_bundle_format::mesh_header;
 using asset_bundle_format::object_header;
 using asset_bundle_format::string_header;
 using asset_bundle_format::texture_header;
+using asset_bundle_format::environment_header;
 
 asset_bundle::asset_bundle(const std::filesystem::path& location) {
     std::cout << "loading bundle from " << location << "...";
@@ -63,6 +64,8 @@ asset_bundle::asset_bundle(const std::filesystem::path& location) {
     header_ptr += sizeof(asset_bundle_format::group_header) * header->num_groups;
     textures = (texture_header*)header_ptr;
     header_ptr += sizeof(texture_header) * header->num_textures;
+    environments = (environment_header*)header_ptr;
+    header_ptr += sizeof(environment_header) * header->num_environments;
 
     std::cout << "bundle CPU data " << header->gpu_data_offset << " bytes, "
               << " GPU data " << gpu_data_size() << " bytes\n";

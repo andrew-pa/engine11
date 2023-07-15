@@ -67,6 +67,9 @@ struct environment_info {
     image_info skybox;
     // diffuse irradiance cubemap
     image_info diffuse_irradiance;
+
+    // total length of all data
+    size_t len;
 };
 
 inline vk::Format format_from_channels(int nchannels) {

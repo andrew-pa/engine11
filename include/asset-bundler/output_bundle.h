@@ -27,6 +27,7 @@ class output_bundle {
     void                      copy_meshes(byte*& header_ptr) const;
     void                      copy_objects(byte*& header_ptr, byte*& data_ptr, byte* top) const;
     void                      copy_groups(byte*& header_ptr, byte*& data_ptr, byte* top) const;
+    void                      copy_environments(byte*& header_ptr, byte*& data_ptr, byte* top) const;
 
     class texture_processor* tex_proc;
   public:

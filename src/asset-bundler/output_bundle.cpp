@@ -34,6 +34,7 @@ std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
     total += sizeof(asset_bundle_format::mesh_header) * meshes.size();
     total += sizeof(asset_bundle_format::object_header) * objects.size();
     total += sizeof(asset_bundle_format::group_header) * groups.size();
+    total += sizeof(asset_bundle_format::environment_header) * environments.size();
     total += (16 - (total % 16)) % 16; // add padding to align data on a 16-byte boundary
     size_t header_size = total;
 
@@ -45,6 +46,8 @@ std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
         total += o.mesh_indices.size() * sizeof(uint32_t);
     for(const auto& o : groups)
         total += o.objects.size() * sizeof(object_id);
+    for (const auto& e : environments)
+        total += e.len;
     total += sizeof(vertex) * vertices.size();
     total += sizeof(index_type) * indices.size();
     return {header_size, total};
@@ -67,26 +70,34 @@ void output_bundle::write() {
            .num_meshes         = meshes.size(),
            .num_objects        = objects.size(),
            .num_groups         = groups.size(),
+		   .num_environments = environments.size(),
            .num_total_vertices = vertices.size(),
            .num_total_indices  = indices.size(),
            .data_offset        = header_size};
+
     byte* header_ptr = buffer + sizeof(asset_bundle_format::header);
     byte* data_ptr   = buffer + header_size;
+    // CPU only data
     copy_strings(header_ptr, data_ptr, buffer);
     copy_materials(header_ptr);
     copy_meshes(header_ptr);
     copy_objects(header_ptr, data_ptr, buffer);
     copy_groups(header_ptr, data_ptr, buffer);
 
+    // everything that needs to go on the GPU (CPU headers will also be in the same order)
     // TODO: we could easily eliminate this field by just passing `buffer + header_size` as `top` and including it in the offset for each resource
     header->gpu_data_offset = (size_t)(data_ptr - buffer);
     copy_textures(header_ptr, data_ptr, buffer);
+    copy_environments(header_ptr, data_ptr, buffer);
+
     header->vertex_start_offset = (size_t)(data_ptr - buffer);
     memcpy(data_ptr, vertices.data(), vertices.size() * sizeof(vertex));
     data_ptr += vertices.size() * sizeof(vertex);
+
     header->index_start_offset = (size_t)(data_ptr - buffer);
     memcpy(data_ptr, indices.data(), indices.size() * sizeof(index_type));
     data_ptr += indices.size() * sizeof(index_type);
+
     assert((data_ptr - buffer) == total_size);
 
     // compress data and write it to file
@@ -134,6 +145,17 @@ void output_bundle::copy_textures(byte*& header_ptr, byte*& data_ptr, byte* top)
             memcpy(data_ptr, t.second.data, t.second.len);
         }
         data_ptr += t.second.len;
+    }
+}
+
+void output_bundle::copy_environments(byte*& header_ptr, byte*& data_ptr, byte* top) const {
+    for (const auto& e : environments) {
+        *((asset_bundle_format::environment_header*)header_ptr) = asset_bundle_format::environment_header{
+            .name = e.name,
+            .skybox = e.skybox.as_image(),
+            .diffuse_irradiance = e.diffuse_irradiance.as_image()
+        };
+        header_ptr += sizeof(asset_bundle_format::environment_header);
     }
 }
 

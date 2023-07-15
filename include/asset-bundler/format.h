@@ -25,7 +25,7 @@ using index_type = uint32_t;
 
 namespace asset_bundle_format {
 struct header {
-    size_t num_strings, num_textures, num_materials, num_meshes, num_objects, num_groups,
+    size_t num_strings, num_textures, num_materials, num_meshes, num_objects, num_groups, num_environments,
         num_total_vertices, vertex_start_offset, num_total_indices, index_start_offset, data_offset,
         gpu_data_offset;
 };
