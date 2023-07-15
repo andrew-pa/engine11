@@ -64,32 +64,36 @@ void gpu_static_scene_data::load_geometry_from_bundle(
     );
 }
 
+vk::ImageCreateInfo create_info_for_image(const asset_bundle_format::image& img, vk::ImageUsageFlags usage) {
+    return vk::ImageCreateInfo{
+		{},
+		vk::ImageType::e2D,
+		vk::Format(img.format),
+		vk::Extent3D{img.width, img.height, 1},
+		img.mip_levels,
+		img.array_layers,
+		vk::SampleCountFlagBits::e1,
+		vk::ImageTiling::eOptimal,
+		usage
+    };
+}
+
 void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundle* current_bundle) {
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
         auto img = std::make_unique<gpu_image>(
             r->gpu_alloc(),
-            vk::ImageCreateInfo{
-                {},
-                vk::ImageType::e2D,
-                vk::Format(th.format),
-                vk::Extent3D{th.width, th.height, 1},
-                th.mip_levels,
-                1,
-                vk::SampleCountFlagBits::e1,
-                vk::ImageTiling::eOptimal,
-                vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled
-        },
+            create_info_for_image(th.img, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled),
             VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
         );
 
-        auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, th.mip_levels, 0, 1);
+        auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, th.img.mip_levels, 0, th.img.array_layers);
 
         auto img_view = r->device().createImageViewUnique(vk::ImageViewCreateInfo{
             {},
             img->get(),
             vk::ImageViewType::e2D,
-            vk::Format(th.format),
+            vk::Format(th.img.format),
             vk::ComponentMapping{},
             subres_range});
 
@@ -139,10 +143,10 @@ void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* 
         const auto& th = current_bundle->texture_by_index(i);
 
         // copy each mip level from the buffer
-        uint32_t w = th.width, h = th.height;
+        uint32_t w = th.img.width, h = th.img.height;
         size_t mip_offset = 0;
         std::vector<vk::BufferImageCopy> regions;
-        for(uint32_t mip_level = 0; mip_level < th.mip_levels; ++mip_level) {
+        for(uint32_t mip_level = 0; mip_level < th.img.mip_levels; ++mip_level) {
             regions.emplace_back(
                 vk::BufferImageCopy{
                     th.offset - current_bundle->bundle_header().gpu_data_offset + mip_offset,
@@ -152,7 +156,7 @@ void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* 
                     vk::Extent3D{w, h, 1},
                 }
             );
-            mip_offset += w * h * vk::blockSize(vk::Format(th.format));
+            mip_offset += w * h * vk::blockSize(vk::Format(th.img.format));
             w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
         }
 
@@ -258,9 +262,9 @@ void gpu_static_scene_data::texture_window_gui(bool* open, std::shared_ptr<asset
             auto name = std::string(current_bundle->string(th.name));
             ImGui::Text("%s", name.c_str());
             ImGui::TableNextColumn();
-            ImGui::Text("%s", vk::to_string(vk::Format(th.format)).c_str());
+            ImGui::Text("%s", vk::to_string(vk::Format(th.img.format)).c_str());
             ImGui::TableNextColumn();
-            ImGui::Text("%u x %u", th.width, th.height);
+            ImGui::Text("%u x %u (%u mips, %u layers)", th.img.width, th.img.height, th.img.mip_levels, th.img.array_layers);
             ImGui::TableNextColumn();
             ImGui::Image((ImTextureID)tx.imgui_id, ImVec2(256, 256));
         }

@@ -5,7 +5,7 @@
 #include <zstd.h>
 
 void output_bundle::add_texture(
-    texture_id id, std::string name, uint32_t width, uint32_t height, int nchannels, stbi_uc* data
+    texture_id id, const std::string& name, uint32_t width, uint32_t height, int nchannels, stbi_uc* data
 ) {
     string_id ns = add_string(std::move(name));
     texture_info info{
@@ -14,6 +14,17 @@ void output_bundle::add_texture(
     tex_proc->submit_texture(id, &info);
     textures.emplace(id, info);
 }
+
+void output_bundle::add_environment(
+    const std::string& name, uint32_t width, uint32_t height, int nchannels, float* data
+) {
+    string_id ns = add_string(std::move(name));
+    auto info = tex_proc->submit_environment(ns, width, height, nchannels, data);
+    // no longer need image data because it has been uploaded to GPU
+    free(data);
+    environments.emplace_back(info);
+}
+
 
 std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
     size_t total = sizeof(asset_bundle_format::header);
@@ -112,13 +123,16 @@ void output_bundle::copy_textures(byte*& header_ptr, byte*& data_ptr, byte* top)
         *((asset_bundle_format::texture_header*)header_ptr) = asset_bundle_format::texture_header{
             .id     = t.first,
             .name   = t.second.name,
-            .width  = t.second.width,
-            .height = t.second.height,
-            .mip_levels = t.second.mip_levels,
-            .format = (VkFormat)t.second.format,
+            .img = t.second.img.as_image(),
             .offset = (size_t)(data_ptr - top)};
         header_ptr += sizeof(asset_bundle_format::texture_header);
-        tex_proc->recieve_processed_texture(t.first, data_ptr);
+        // check to see if this texture was processed on the GPU
+        if (t.second.data == nullptr) {
+            tex_proc->recieve_processed_texture(t.first, data_ptr);
+        }
+        else {
+            memcpy(data_ptr, t.second.data, t.second.len);
+        }
         data_ptr += t.second.len;
     }
 }

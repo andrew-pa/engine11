@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
     texture_processor tex_proc;
     output_bundle out{argv[1], &tex_proc};
-    importer      imp{out, argc, argv, &tex_proc};
+    importer      imp{out, argc, argv};
     imp.load();
     out.write();
     return 0;

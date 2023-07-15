@@ -35,12 +35,24 @@ struct string_header {
     size_t    offset, len;
 };
 
+struct image {
+    uint32_t   width, height, mip_levels, array_layers;
+    VkFormat   format;
+};
+
 struct texture_header {
     texture_id id;
     string_id  name;
-    uint32_t   width, height, mip_levels;
-    VkFormat   format;
+    image img;
     size_t     offset;
+};
+
+struct environment_header {
+    string_id name;
+    image skybox;
+    size_t skybox_offset;
+    image diffuse_irradiance;
+    size_t diffuse_irradiance_offset;
 };
 
 struct mesh_header {

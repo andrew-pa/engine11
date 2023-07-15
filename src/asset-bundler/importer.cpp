@@ -3,14 +3,18 @@
 #include "fs-shim.h"
 
 const std::unordered_set<std::string> texture_exts = {".png", ".jpg", ".bmp"};
+const std::unordered_set<std::string> environment_exts = {".hdr"};
 
-importer::importer(output_bundle& out, int argc, char* argv[], texture_processor* tp) : out(out), tex_proc(tp) {
+importer::importer(output_bundle& out, int argc, char* argv[]) : out(out) {
     for(size_t i = 2; i < argc; ++i) {
         path input = argv[i];
-        if(aimp.IsExtensionSupported(path_to_string(input.extension()).c_str()))
+        auto ext = path_to_string(input.extension());
+        if (aimp.IsExtensionSupported(ext.c_str()))
             models.emplace_back(input);
-        else if(texture_exts.find(path_to_string(input.extension())) != texture_exts.end())
+        else if (texture_exts.find(ext) != texture_exts.end())
             add_texture_path(input);
+        else if (environment_exts.find(ext) != environment_exts.end())
+            environments.emplace_back(input);
         else
             std::cout << "unknown file type: " << input.extension() << "\n";
     }
@@ -205,6 +209,18 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
     out.add_texture(id, path_to_string(main_texture_path.filename()), width, height, channels, data);
 }
 
+void importer::load_env(const path& ip) {
+    std::cout << "\t" << ip << "\n";
+    int width, height, channels;
+    auto* data = stbi_loadf(path_to_string(ip).c_str(), &width, &height, &channels, STBI_default);
+	if(data == nullptr) {
+        std::cout << "\t\tfailed to load environment map " << ip << ": "
+                  << stbi_failure_reason() << "\n";
+        return;
+    }
+    out.add_environment(path_to_string(ip.filename()), width, height, channels, data);
+}
+
 void importer::load() {
     std::cout << "loading models:\n";
     for(const auto& ip : models)
@@ -213,4 +229,8 @@ void importer::load() {
     std::cout << "loading textures:\n";
     for(const auto& [id, ip] : textures)
         load_texture(id, ip);
+
+    std::cout << "loading environments:\n";
+    for (const auto& ip : environments)
+        load_env(ip);
 }

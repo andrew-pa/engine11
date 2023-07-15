@@ -18,6 +18,8 @@ class output_bundle {
     std::vector<object_info> objects;
     std::vector<group_info>  groups;
 
+    std::vector<environment_info> environments;
+
     std::pair<size_t, size_t> total_and_header_size() const;
     void                      copy_strings(byte*& header_ptr, byte*& data_ptr, byte* top) const;
     void                      copy_textures(byte*& header_ptr, byte*& data_ptr, byte* top) const;
@@ -30,7 +32,7 @@ class output_bundle {
   public:
     output_bundle(path output_path, class texture_processor* tp) : output_path(std::move(output_path)), tex_proc(tp) {}
 
-    string_id add_string(std::string s) {
+    string_id add_string(const std::string& s) {
         auto id = next_string_id++;
         strings.emplace(id, s);
         return id;
@@ -40,7 +42,7 @@ class output_bundle {
 
     void add_texture(
         texture_id  id,
-        std::string name,
+        const std::string& name,
         uint32_t    width,
         uint32_t    height,
         int         nchannels,
@@ -78,6 +80,8 @@ class output_bundle {
     }
 
     void add_group(group_info&& info) { groups.emplace_back(info); }
+
+    void add_environment(const std::string& name, uint32_t width, uint32_t height, int nchannels, float* data);
 
     void write();
 

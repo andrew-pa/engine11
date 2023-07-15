@@ -13,6 +13,35 @@
 
 using std::filesystem::path;
 
+struct image_info {
+    uint32_t width, height, mip_levels, array_layers;
+    vk::Format format;
+
+    inline vk::ImageCreateInfo vulkan_create_info(vk::ImageUsageFlags usage) const {
+        return vk::ImageCreateInfo{
+            {},
+            vk::ImageType::e2D,
+            format,
+            vk::Extent3D{width, height, 1},
+            mip_levels,
+            array_layers,
+            vk::SampleCountFlagBits::e1,
+            vk::ImageTiling::eOptimal,
+            usage
+        };
+    }
+
+    inline asset_bundle_format::image as_image() const {
+        return asset_bundle_format::image{
+            .width = width,
+            .height = height,
+            .mip_levels = mip_levels,
+            .array_layers = array_layers,
+            .format = (VkFormat)format
+        };
+    }
+};
+
 struct texture_info {
     texture_info(
         string_id  name,
@@ -21,13 +50,23 @@ struct texture_info {
         vk::Format format,
         stbi_uc*   data
     )
-        : name(name), width(width), height(height), format(format), data(data){}
+        : name(name), img{ .width = width, .height = height, .mip_levels = 0, .array_layers = 1, .format = format }, data(data){}
 
     string_id  name;
-    uint32_t   width, height, mip_levels;
-    vk::Format format;
+    image_info img;
+    // TODO: we can remove this since now it is on the GPU
     stbi_uc*   data;
     size_t     len;
+};
+
+struct environment_info {
+    string_id name;
+    uint32_t job_id;
+
+    // skybox cubemap
+    image_info skybox;
+    // diffuse irradiance cubemap
+    image_info diffuse_irradiance;
 };
 
 inline vk::Format format_from_channels(int nchannels) {

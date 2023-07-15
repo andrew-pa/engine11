@@ -131,15 +131,19 @@ texture_processor::~texture_processor() {
 }
 
 void texture_processor::submit_texture(texture_id id, texture_info* info) {
-    info->mip_levels = (uint32_t)std::floor(std::log2(std::max(info->width, info->height))) + 1;
+    info->img.mip_levels = (uint32_t)std::floor(std::log2(std::max(info->img.width, info->img.height))) + 1;
 
-    if (info->mip_levels == 1) {
+    if (info->img.mip_levels == 1) {
         // no reason to generate mip levels for this texture at all
-        info->len = info->width * vk::blockSize(info->format) * info->height;
+        info->len = info->img.width * vk::blockSize(info->img.format) * info->img.height;
         return;
     }
 
     texture_process_job s{device.get(), cmd_pool.get(), allocator, info};
+
+    // free CPU image data and mark that this image has been copied to the GPU
+    free(info->data);
+    info->data = nullptr;
 
     s.generate_mipmaps();
 
@@ -148,26 +152,32 @@ void texture_processor::submit_texture(texture_id id, texture_info* info) {
     jobs.emplace(id, std::move(s));
 }
 
-texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, texture_info* info)
-    : device(dev), image_info{
-        {},
-            vk::ImageType::e2D,
-            info->format,
-            vk::Extent3D(info->width, info->height, 1),
-            info->mip_levels,
-            1,
-            vk::SampleCountFlagBits::e1,
-            vk::ImageTiling::eOptimal,
-            vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst
-    }
+environment_info texture_processor::submit_environment(string_id name, uint32_t width, uint32_t height, int nchannels, float* data) {
+    environment_process_job s{ device.get(), cmd_pool.get(), allocator };
+
+    // copy source environment onto GPU & create image on GPU
+    // run skybox generation shader
+    // copy cubemap into staging buffer
+
+    s.submit(graphics_queue);
+    env_jobs.emplace(name, s);
+}
+
+process_job::process_job(vk::Device dev, vk::CommandPool cmd_pool)
+    : device(dev)
 {
-    // create command buffer & fence
     cmd_buffer = std::move(device.allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo {
         cmd_pool, vk::CommandBufferLevel::ePrimary, 1
     })[0]);
 
     fence = device.createFenceUnique(vk::FenceCreateInfo{});
+}
 
+texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, texture_info* info)
+    : process_job(dev, cmd_pool), image_info{
+         info->img.vulkan_create_info(vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst)
+    }
+{
     total_size = 0;
     uint32_t w = image_info.extent.width, h = image_info.extent.height;
     for(auto mi = 0; mi < image_info.mipLevels; ++mi) {
@@ -188,7 +198,7 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
         });
 
     // copy original data into staging buffer
-    memcpy(staging->cpu_mapped(), info->data, info->width*info->height*vk::blockSize(info->format));
+    memcpy(staging->cpu_mapped(), info->data, info->img.width*info->img.height*vk::blockSize(info->img.format));
 
     cmd_buffer->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
@@ -211,7 +221,7 @@ texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_poo
                 0, 0, 0,
                 vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1},
                 vk::Offset3D{0,0,0},
-                vk::Extent3D{info->width, info->height,1}
+                vk::Extent3D{info->img.width, info->img.height,1}
             });
 }
 
@@ -297,12 +307,12 @@ void texture_process_job::generate_mipmaps() {
             regions);
 }
 
-void texture_process_job::submit(vk::Queue queue) {
+void process_job::submit(vk::Queue queue) {
     cmd_buffer->end();
     queue.submit(vk::SubmitInfo{0, nullptr, nullptr, 1, &cmd_buffer.get()}, fence.get());
 }
 
-void texture_process_job::wait_for_completion() {
+void process_job::wait_for_completion() {
     auto err = device.waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
     if(err != vk::Result::eSuccess)
         throw vulkan_runtime_error("failed to run texture process job", err);
@@ -320,4 +330,10 @@ void texture_processor::recieve_processed_texture(texture_id id, void* destinati
     // copy data out of staging buffer into destination
     job.copy_to_dest((uint8_t*)destination);
     // clean up resources used for this texture
+}
+
+environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc) 
+    : process_job(dev, cmd_pool)
+{
+
 }

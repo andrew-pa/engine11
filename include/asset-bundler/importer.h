@@ -10,10 +10,9 @@ class importer {
     Assimp::Importer                                            aimp;
     std::vector<path>                                           models;
     std::map<texture_id, std::tuple<path, std::optional<path>>> textures;
+    std::vector<path> environments;
 
     output_bundle& out;
-    // TODO: we probably don't need this here
-    class texture_processor* tex_proc;
 
     inline texture_id add_texture_path(std::filesystem::path p) {
         auto id = out.reserve_texture_id();
@@ -31,8 +30,9 @@ class importer {
 
     void load_texture(texture_id id, const std::tuple<path, std::optional<path>>& ip);
 
+    void load_env(const path& ip);
   public:
-    importer(output_bundle& out, int argc, char* argv[], class texture_processor* tp);
+    importer(output_bundle& out, int argc, char* argv[]);
 
     void load();
 };
