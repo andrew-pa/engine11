@@ -153,7 +153,11 @@ void texture_processor::submit_texture(texture_id id, texture_info* info) {
 }
 
 environment_info texture_processor::submit_environment(string_id name, uint32_t width, uint32_t height, int nchannels, float* data) {
-    environment_process_job s{ device.get(), cmd_pool.get(), allocator };
+    environment_info info{
+        .name = name
+    };
+
+    environment_process_job s{ device.get(), cmd_pool.get(), allocator, &info };
 
     // copy source environment onto GPU & create image on GPU
     // run skybox generation shader
@@ -161,6 +165,8 @@ environment_info texture_processor::submit_environment(string_id name, uint32_t 
 
     s.submit(graphics_queue);
     env_jobs.emplace(name, s);
+
+    return info;
 }
 
 process_job::process_job(vk::Device dev, vk::CommandPool cmd_pool)
@@ -332,8 +338,7 @@ void texture_processor::recieve_processed_texture(texture_id id, void* destinati
     // clean up resources used for this texture
 }
 
-environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc) 
+environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, environment_info* info) 
     : process_job(dev, cmd_pool)
 {
-
 }

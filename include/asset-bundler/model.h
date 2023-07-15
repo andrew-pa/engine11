@@ -60,8 +60,8 @@ struct texture_info {
 };
 
 struct environment_info {
+    // string id of name is used to identify environment job
     string_id name;
-    uint32_t job_id;
 
     // skybox cubemap
     image_info skybox;

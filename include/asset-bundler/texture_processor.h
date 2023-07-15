@@ -28,7 +28,13 @@ struct texture_process_job : public process_job {
 };
 
 struct environment_process_job : public process_job {
-    environment_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc);
+    size_t total_size;
+    std::unique_ptr<gpu_buffer> staging;
+
+    std::unique_ptr<gpu_image> src, skybox;
+
+    environment_process_job(vk::Device dev, vk::CommandPool cmd_pool,
+        const std::shared_ptr<gpu_allocator>& alloc, environment_info* info);
 };
 
 class texture_processor {
