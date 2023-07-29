@@ -8,33 +8,32 @@ struct process_job {
     vk::UniqueCommandBuffer cmd_buffer;
     vk::UniqueFence fence;
 
+    size_t total_output_size;
+    std::unique_ptr<gpu_buffer> staging;
+
     process_job(vk::Device dev, vk::CommandPool cmd_pool);
 
     void submit(vk::Queue queue);
-    void wait_for_completion();
+    void wait_for_completion(uint8_t* result_dest) const;
+protected:
+    void init_staging_buffer(const std::shared_ptr<gpu_allocator>& alloc, size_t size);
 };
 
 struct texture_process_job : public process_job {
     vk::ImageCreateInfo image_info;
-    size_t total_size;
-    std::unique_ptr<gpu_buffer> staging;
     std::unique_ptr<gpu_image> img;
 
     texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, texture_info* info);
-
-    void copy_to_dest(uint8_t* dest) const;
 
     void generate_mipmaps();
 };
 
 struct environment_process_job : public process_job {
-    size_t total_size;
-    std::unique_ptr<gpu_buffer> staging;
-
     std::unique_ptr<gpu_image> src, skybox;
 
     environment_process_job(vk::Device dev, vk::CommandPool cmd_pool,
-        const std::shared_ptr<gpu_allocator>& alloc, environment_info* info);
+        const std::shared_ptr<gpu_allocator>& alloc, environment_info* info,
+        uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data);
 };
 
 class texture_processor {
@@ -59,5 +58,6 @@ public:
     void recieve_processed_texture(texture_id id, void* destination);
 
     environment_info submit_environment(string_id name, uint32_t width, uint32_t height, int nchannels, float* data);
+    void recieve_processed_environment(string_id name, void* destination);
 };
 

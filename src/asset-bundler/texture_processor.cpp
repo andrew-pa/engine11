@@ -65,7 +65,8 @@ texture_processor::texture_processor() {
     for(auto pd : physical_devices) {
         auto qufams = pd.getQueueFamilyProperties();
         for(uint32_t i = 0; i < qufams.size(); ++i) {
-            if(qufams[i].queueCount > 0 && qufams[i].queueFlags & vk::QueueFlagBits::eGraphics) {
+            // TODO: right now we only support a single queue with graphcs and compute support
+            if(qufams[i].queueCount > 0 && qufams[i].queueFlags & vk::QueueFlagBits::eGraphics && qufams[i].queueFlags & vk::QueueFlagBits::eCompute) {
                 graphics_queue_family_index = i;
                 phy_device = pd;
                 break;
@@ -121,7 +122,7 @@ texture_processor::texture_processor() {
 }
 
 texture_processor::~texture_processor() {
-    assert(jobs.size() == 0);
+    assert(jobs.empty());
     instance->destroyDebugReportCallbackEXT(debug_report_callback, nullptr,
         vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr));
     allocator.reset();
@@ -148,29 +149,44 @@ void texture_processor::submit_texture(texture_id id, texture_info* info) {
     s.generate_mipmaps();
 
     s.submit(graphics_queue);
-    info->len = s.total_size;
+    info->len = s.total_output_size;
     jobs.emplace(id, std::move(s));
+}
+
+void texture_processor::recieve_processed_texture(texture_id id, void* destination) {
+    auto job = std::move(jobs.extract(id).mapped());
+    // copy data out of staging buffer into destination
+    job.wait_for_completion((uint8_t*)destination);
+    // clean up resources used for this texture
 }
 
 environment_info texture_processor::submit_environment(string_id name, uint32_t width, uint32_t height, int nchannels, float* data) {
     environment_info info{
-        .name = name
+        .name = name,
+        // TODO: these are fixed but should be based on some kind of quality level
+        .skybox = image_info {1024, 1024, 1, 6, vk::Format::eR8G8B8A8Unorm}
     };
 
-    environment_process_job s{ device.get(), cmd_pool.get(), allocator, &info };
+    environment_process_job s{ device.get(), cmd_pool.get(), allocator, &info, width, height, nchannels, data };
 
-    // copy source environment onto GPU & create image on GPU
-    // run skybox generation shader
-    // copy cubemap into staging buffer
+    // free CPU source data
+    free(data);
 
     s.submit(graphics_queue);
-    env_jobs.emplace(name, s);
+    env_jobs.emplace(name, std::move(s));
 
     return info;
 }
 
+void texture_processor::recieve_processed_environment(string_id name, void* destination) {
+    auto job = std::move(env_jobs.extract(name).mapped());
+    // copy data out of staging buffer into destination
+    job.wait_for_completion((uint8_t*)destination);
+    // clean up resources used for this texture
+}
+
 process_job::process_job(vk::Device dev, vk::CommandPool cmd_pool)
-    : device(dev)
+    : device(dev), total_output_size(0)
 {
     cmd_buffer = std::move(device.allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo {
         cmd_pool, vk::CommandBufferLevel::ePrimary, 1
@@ -179,29 +195,38 @@ process_job::process_job(vk::Device dev, vk::CommandPool cmd_pool)
     fence = device.createFenceUnique(vk::FenceCreateInfo{});
 }
 
-texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, texture_info* info)
-    : process_job(dev, cmd_pool), image_info{
-         info->img.vulkan_create_info(vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst)
-    }
-{
-    total_size = 0;
-    uint32_t w = image_info.extent.width, h = image_info.extent.height;
-    for(auto mi = 0; mi < image_info.mipLevels; ++mi) {
-        total_size += w * h * vk::blockSize(image_info.format);
-        w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
-    }
-    total_size *= image_info.arrayLayers;
-
-    img = std::make_unique<gpu_image>(alloc, image_info);
+void process_job::init_staging_buffer(const std::shared_ptr<gpu_allocator>& alloc, size_t size) {
     staging = std::make_unique<gpu_buffer>(alloc,
         vk::BufferCreateInfo {
-            {}, total_size, vk::BufferUsageFlagBits::eTransferSrc|vk::BufferUsageFlagBits::eTransferDst
+            {}, size, vk::BufferUsageFlagBits::eTransferSrc|vk::BufferUsageFlagBits::eTransferDst
         },
         VmaAllocationCreateInfo{
             .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
                      | VMA_ALLOCATION_CREATE_MAPPED_BIT,
             .usage = VMA_MEMORY_USAGE_AUTO
         });
+}
+
+size_t linear_image_size_in_bytes(const vk::ImageCreateInfo& image_info) {
+    size_t total_size = 0;
+    uint32_t w = image_info.extent.width, h = image_info.extent.height;
+    for(auto mi = 0; mi < image_info.mipLevels; ++mi) {
+        total_size += w * h * vk::blockSize(image_info.format);
+        w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
+    }
+    total_size *= image_info.arrayLayers;
+    return total_size;
+}
+
+texture_process_job::texture_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, texture_info* info)
+    : process_job(dev, cmd_pool), image_info{
+         info->img.vulkan_create_info(vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst)
+    }
+{
+    total_output_size = linear_image_size_in_bytes(image_info);
+
+    img = std::make_unique<gpu_image>(alloc, image_info);
+    init_staging_buffer(alloc, total_output_size);
 
     // copy original data into staging buffer
     memcpy(staging->cpu_mapped(), info->data, info->img.width*info->img.height*vk::blockSize(info->img.format));
@@ -318,27 +343,76 @@ void process_job::submit(vk::Queue queue) {
     queue.submit(vk::SubmitInfo{0, nullptr, nullptr, 1, &cmd_buffer.get()}, fence.get());
 }
 
-void process_job::wait_for_completion() {
+void process_job::wait_for_completion(uint8_t* result_dest) const {
     auto err = device.waitForFences(fence.get(), VK_TRUE, UINT64_MAX);
     if(err != vk::Result::eSuccess)
         throw vulkan_runtime_error("failed to run texture process job", err);
-}
 
-void texture_process_job::copy_to_dest(uint8_t* dest) const {
     auto* src = (uint8_t*)staging->cpu_mapped();
     // since we already directed the GPU to copy the image into the buffer in the right layout, we just need to copy it out of GPU shared memory
-    memcpy(dest, src, total_size);
+    memcpy(result_dest, src, total_output_size);
 }
 
-void texture_processor::recieve_processed_texture(texture_id id, void* destination) {
-    auto job = std::move(jobs.extract(id).mapped());
-    job.wait_for_completion();
-    // copy data out of staging buffer into destination
-    job.copy_to_dest((uint8_t*)destination);
-    // clean up resources used for this texture
-}
-
-environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, environment_info* info) 
+environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, environment_info* info,
+        uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data)
     : process_job(dev, cmd_pool)
 {
+    // create image descriptions
+    vk::ImageCreateInfo src_image_info {
+        {},
+        vk::ImageType::e2D,
+        format_from_channels(src_nchannels),
+        vk::Extent3D{src_width, src_height, 1},
+        1, 1,
+        vk::SampleCountFlagBits::e1,
+        vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst
+    };
+
+    auto sky_image_info = info->skybox.vulkan_create_info(vk::ImageUsageFlagBits::eTransferDst);
+
+    // compute total input/output size of the job
+    auto in_size = linear_image_size_in_bytes(src_image_info);
+    auto out_size = linear_image_size_in_bytes(sky_image_info);
+
+    total_output_size = info->len = out_size;
+
+    // create source GPU objects
+    src = std::make_unique<gpu_image>(alloc, src_image_info);
+    init_staging_buffer(alloc, std::max(in_size, out_size));
+
+    // copy source environment onto GPU
+    memcpy(staging->cpu_mapped(), src_data, in_size);
+
+    // create destination GPU objects
+    skybox = std::make_unique<gpu_image>(alloc, sky_image_info);
+
+    // create shaders, pipelines, descriptors, etc.
+
+    cmd_buffer->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    // transition the source image to transfer destination to prepare to recieve staging buffer data
+    cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
+            {}, {}, {}, {
+            vk::ImageMemoryBarrier {
+                vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eTransferWrite,
+                vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                src->get(),
+                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,1}
+            }
+        });
+
+    // copy source environment map data from staging buffer to the source image
+    cmd_buffer->copyBufferToImage(staging->get(), src->get(),
+            vk::ImageLayout::eTransferDstOptimal,
+            vk::BufferImageCopy {
+                0, 0, 0,
+                vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                vk::Offset3D{0,0,0},
+                src_image_info.extent
+            });
+
+    // run skybox generation shader
+    // copy cubemap into staging buffer
 }
