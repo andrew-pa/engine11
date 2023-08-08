@@ -6,7 +6,8 @@
 /* asset-bundler:
  *  content pipeline & bundling utility
  *  roles:
- *      - load assets (3D models [meshes, materials, textures by reference], textures)
+ *      - load assets (3D models [meshes, materials, textures by reference], textures, environment maps)
+ *      - transform assets into a format suitable for rendering pipeline
  *      - represent them in a uniform way
  *      - bundle them so they can be loaded quickly
  *  usage:
