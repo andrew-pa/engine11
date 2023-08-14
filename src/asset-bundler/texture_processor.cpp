@@ -34,7 +34,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 const vk::ApplicationInfo APP_INFO = vk::ApplicationInfo{
     "asset-bundler", VK_MAKE_VERSION(0, 0, 0), "egg", VK_MAKE_VERSION(0, 0, 0), VK_API_VERSION_1_3};
 
-texture_processor::texture_processor() {
+texture_processor::texture_processor()
+    : env_res(nullptr)
+{
     std::vector<const char*> extensions;
     //extensions.push_back("VK_KHR_portability_enumeration");
 #ifndef NDEBUG

@@ -3,6 +3,14 @@
 #include <vulkan/vulkan.hpp>
 #include "egg/renderer/memory.h"
 
+struct environment_process_job_resources {
+    vk::UniquePipelineLayout pipeline_layout;
+    vk::UniqueDescriptorSetLayout desc_set_layout;
+    vk::UniquePipeline skybox_pipeline;
+
+    environment_process_job_resources(vk::Device dev);
+};
+
 class texture_processor {
     vk::UniqueInstance instance;
     vk::DebugReportCallbackEXT debug_report_callback;
@@ -17,6 +25,8 @@ class texture_processor {
 
     std::unordered_map<texture_id, struct texture_process_job> jobs;
     std::unordered_map<string_id, struct environment_process_job> env_jobs;
+
+    std::unique_ptr<environment_process_job_resources> env_res;
 public:
     texture_processor();
     ~texture_processor();

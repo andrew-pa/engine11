@@ -1,5 +1,20 @@
 #include "asset-bundler/texture_process_jobs.h"
+#include "asset-bundler/texture_processor.h"
 #include <vulkan/vulkan_format_traits.hpp>
+
+inline vk::Format format_from_channels_f32(int nchannels) {
+    switch(nchannels) {
+        case 1: return vk::Format::eR32Sfloat;
+        case 2: return vk::Format::eR32G32Sfloat;
+        case 3: return vk::Format::eR32G32B32Sfloat;
+        case 4: return vk::Format::eR32G32B32A32Sfloat;
+        default:
+            throw std::runtime_error(
+                "invalid number of channels to convert to Vulkan format: "
+                + std::to_string(nchannels)
+            );
+    }
+}
 
 environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool cmd_pool, const std::shared_ptr<gpu_allocator>& alloc, environment_info* info,
         uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data)
@@ -9,7 +24,7 @@ environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool
     vk::ImageCreateInfo src_image_info {
         {},
         vk::ImageType::e2D,
-        format_from_channels(src_nchannels),
+        format_from_channels_f32(src_nchannels),
         vk::Extent3D{src_width, src_height, 1},
         1, 1,
         vk::SampleCountFlagBits::e1,
@@ -64,3 +79,21 @@ environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool
     // run skybox generation shader
     // copy cubemap into staging buffer
 }
+
+const vk::DescriptorSetLayoutBinding desc_set_bindings[] = {
+    // input environment map texture
+    {0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eCompute},
+    // output skybox cubemap
+    {0, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute},
+};
+
+environment_process_job_resources::environment_process_job_resources(vk::Device dev)
+    : desc_set_layout(dev.createDescriptorSetLayoutUnique(vk::DescriptorSetLayoutCreateInfo{
+        {},
+        sizeof(desc_set_bindings)/sizeof(desc_set_bindings[0]),
+        desc_set_bindings
+    }))
+
+{
+}
+
