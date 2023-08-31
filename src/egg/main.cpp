@@ -115,19 +115,45 @@ int main(int argc, char* argv[]) {
         }
     });
 
+    auto light_query = world->query<comp::light>();
     rndr->imgui()->add_window("Light", [&](bool* open) {
         if(ImGui::Begin("Light", open)) {
-            auto* li = lgh4.get_mut<comp::light>();
-            bool mod = false;
-            if(ImGui::ColorEdit3("Color", &li->info.emmitance[0], ImGuiColorEditFlags_Float|ImGuiColorEditFlags_HDR)) mod = true;
-            if(ImGui::DragFloat3("Position", &li->info.position[0], 0.05f, -1000.f, 1000.f)) mod = true;
-            if(ImGui::DragFloat3("Direction", &li->info.direction[0], 0.05f, -1000.f, 1000.f)) {
-                li->info.direction = glm::normalize(li->info.direction);
-                mod = true;
+            world->defer_begin();
+            light_query.iter([](flecs::iter& it, comp::light* lis) {
+                for(auto i : it) {
+                ImGui::PushID(i);
+                auto* li = &lis[i];
+                bool mod = false;
+                if(ImGui::BeginCombo("Type", comp::light_type_str(li->info.type))) {
+#define X(name, ltype) \
+                    if(ImGui::Selectable(name, li->info.type == comp::light_type::ltype)) { \
+                        li->info.type = comp::light_type::ltype; \
+                        mod = true; \
+                    }
+                    X("Directional", directional);
+                    X("Point", point);
+                    X("Spot", spot);
+#undef X
+                    ImGui::EndCombo();
+                }
+                if(ImGui::ColorEdit3("Color", &li->info.emmitance[0], ImGuiColorEditFlags_Float|ImGuiColorEditFlags_HDR)) mod = true;
+                if(ImGui::DragFloat3("Position", &li->info.position[0], 0.05f, -1000.f, 1000.f)) mod = true;
+                if(ImGui::DragFloat3("Direction", &li->info.direction[0], 0.05f, -1000.f, 1000.f)) {
+                    li->info.direction = glm::normalize(li->info.direction);
+                    mod = true;
+                }
+                if(ImGui::DragFloat("Param 1", &li->info.param1, 0.005f, 0.f, 1000.f)) mod = true;
+                if(ImGui::DragFloat("Param 2", &li->info.param2, 0.005f, 0.f, 1000.f)) mod = true;
+                if(mod) it.entity(i).modified<comp::light>();
+                ImGui::Separator();
+                ImGui::PopID();
+                }
+            });
+            world->defer_end();
+            if(ImGui::Button("Add Light...")) {
+                auto l = world->entity();
+                l.set<comp::light>(comp::light{});
             }
-            if(ImGui::DragFloat("Param 1", &li->info.param1, 0.005f, 0.f, 1000.f)) mod = true;
-            if(ImGui::DragFloat("Param 2", &li->info.param2, 0.005f, 0.f, 1000.f)) mod = true;
-            if(mod) lgh4.modified<comp::light>();
         }
         ImGui::End();
     });

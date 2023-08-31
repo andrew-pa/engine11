@@ -38,6 +38,15 @@ enum class light_type {
     spot = 3
 };
 
+inline const char* light_type_str(light_type t) {
+    switch(t) {
+        case light_type::directional: return "Directional";
+        case light_type::point: return "Point";
+        case light_type::spot: return "Spot";
+        default: return "unknown";
+    }
+}
+
 struct light_info {
     vec3 emmitance; light_type type;
     vec3 position; float param1;

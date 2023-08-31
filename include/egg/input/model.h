@@ -47,7 +47,7 @@ struct mapped_input {
 class interaction_model {
 public:
 	virtual void register_with_distributor(class input_distributor* dist) = 0;
-	virtual void process_input(const mapped_input& input, flecs::entity e) = 0;
+	virtual void process_input(const mapped_input& input, flecs::entity e, float dt) = 0;
 	virtual ~interaction_model() = default;
 };
 

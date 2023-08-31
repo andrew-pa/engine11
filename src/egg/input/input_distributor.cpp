@@ -59,7 +59,7 @@ void input_distributor::init_ecs(flecs::world& world) {
 				auto e = it.entity(i);
 				auto& intr = intrs[i];
 				if (intr.active) {
-					intr.model->process_input(input_state, e);
+					intr.model->process_input(input_state, e, it.delta_time());
 				}
 			}
 			this->after_distribution();

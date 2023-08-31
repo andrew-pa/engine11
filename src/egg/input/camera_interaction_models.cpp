@@ -26,10 +26,9 @@ void fly_camera_interaction_model::register_with_distributor(class input_distrib
 	});
 }
 
-void fly_camera_interaction_model::process_input(const mapped_input& input, flecs::entity e) {
+void fly_camera_interaction_model::process_input(const mapped_input& input, flecs::entity e, float dt) {
 	vec3 pos = e.get<comp::position>()->pos;
 	quat rot = e.get<comp::rotation>()->rot;
-	float dt = e.delta_time();
 
 	glm::mat3 basis = glm::toMat3(rot);
 
