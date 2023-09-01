@@ -1,6 +1,13 @@
 # engine11
 A(nother) modern Vulkan graphics engine, building on lessons learned from [eggv](https://github.com/andrew-pa/eggv).
 
+## Screenshots
+![Screenshot of test objects scene](https://github.com/andrew-pa/engine11/blob/main/screenshots/test-scene-with-lights.jpg)
+![Screenshot of building scene in full view](https://github.com/andrew-pa/engine11/blob/main/screenshots/building-full.jpg)
+![Screenshot of building scene up close](https://github.com/andrew-pa/engine11/blob/main/screenshots/building-close.jpg)
+(Building model from Kitbash3D)
+
+## Architecture
 ```mermaid
 flowchart RL
   renderer
@@ -12,9 +19,10 @@ flowchart RL
   imgui_renderer --o renderer
   scene_renderer --o renderer
   
-  scene_renderer --> world[flecs::world\nECS manages renderable objects, cameras, etc]
-  scene_renderer --> asset_bundle[assent_bundle\nasset data stored on disk]
-  scene_renderer --> rendering_algorithm
+  world[flecs::world\nECS manages renderable objects, cameras, lights, etc] --o scene_renderer
+  asset_bundle[assent_bundle\nasset data stored on disk] --o scene_renderer
+  rendering_algorithm --o scene_renderer
+  gpu_static_scene_data[gpu_static_scene_data\nscene assets on GPU] --o scene_renderer
   subgraph rendering algorithms
     direction BT
     rendering_algorithm
