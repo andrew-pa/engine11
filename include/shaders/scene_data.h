@@ -22,6 +22,8 @@ layout(set = 0, binding = 0) buffer transforms_buffer {
 
 layout(set = 0, binding = 1) uniform sampler2D textures[];
 
+layout(set = 0, binding = 4) uniform samplerCube env_skybox;
+
 mat4 camera_view() { return transforms[camera_view_transform_index]; }
 
 mat4 camera_proj() { return transforms[camera_proj_transform_index]; }

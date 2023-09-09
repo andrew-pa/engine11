@@ -41,11 +41,14 @@ class asset_bundle {
     const asset_bundle_format::texture_header& texture(texture_id id) const;
     const asset_bundle_format::texture_header& texture_by_index(size_t i) const;
 
+    const asset_bundle_format::environment_header& environment_by_index(size_t i) const;
+
     const glm::mat4&                            object_transform(object_id id) const;
     class object_mesh_iterator                  object_meshes(object_id id) const;
     string_id                                   object_name(object_id id) const;
     const asset_bundle_format::material_header& material(size_t index) const;
 
+    string_id group_name(size_t group_index) const;
     class group_object_iterator group_objects(size_t group_index) const;
 };
 

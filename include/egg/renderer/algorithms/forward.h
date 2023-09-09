@@ -21,6 +21,9 @@ class forward_rendering_algorithm : public rendering_algorithm {
     vk::UniquePipelineLayout pipeline_layout;
     vk::UniquePipeline       pipeline;
     vk::UniqueShaderModule   vertex_shader, fragment_shader;
+
+    vk::UniquePipeline       sky_pipeline;
+    vk::UniqueShaderModule   sky_vertex_shader, sky_fragment_shader;
   public:
     void init_with_device(
         vk::Device                            device,
@@ -50,7 +53,8 @@ class forward_rendering_algorithm : public rendering_algorithm {
     void generate_commands(
         vk::CommandBuffer                                          cb,
         vk::DescriptorSet                                          scene_data_desc_set,
-        std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
+        std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds,
+        std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_skybox_cmds
     ) override;
 
     ~forward_rendering_algorithm() override = default;

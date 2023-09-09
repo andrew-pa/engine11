@@ -21,6 +21,13 @@ struct texture {
         : img(std::move(img)), img_view(std::move(iv)), imgui_id(id) {}
 };
 
+struct environment {
+    std::unique_ptr<gpu_image> sky_img;
+    vk::UniqueImageView        sky_preview_img_view;
+    vk::UniqueImageView        skybox_img_view;
+    uint64_t                   imgui_id;
+};
+
 struct per_object_push_constants {
     uint32_t   transform_index;
     texture_id base_color, normals, roughness, metallic;
@@ -37,6 +44,8 @@ struct gpu_static_scene_data {
     // TODO: these texture maps are dubious, maybe we should make the linear ordering of texture ids
     // explicit so things are faster
     std::unordered_map<texture_id, texture> textures;
+    std::unordered_map<string_id, environment> envs;
+    string_id current_env;
 
     vk::UniqueSampler             texture_sampler;
     vk::UniqueDescriptorSetLayout desc_set_layout;
@@ -48,7 +57,9 @@ struct gpu_static_scene_data {
 private:
     void load_geometry_from_bundle(std::shared_ptr<gpu_allocator> allocator, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
     void create_textures_from_bundle(renderer* r, asset_bundle* current_bundle);
+    void create_envs_from_bundle(renderer* r, asset_bundle* current_bundle);
     void generate_upload_commands_for_textures(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
+    void generate_upload_commands_for_envs(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
 
     void texture_window_gui(bool* open, std::shared_ptr<asset_bundle> current_bundle);
 };

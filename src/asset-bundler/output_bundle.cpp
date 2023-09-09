@@ -46,6 +46,8 @@ std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
         total += o.objects.size() * sizeof(object_id);
     for (const auto& e : environments)
         total += e.len;
+    if(!environments.empty()) // add some extra space for padding.
+        total += 16;
     total += sizeof(vertex) * vertices.size();
     total += sizeof(index_type) * indices.size();
     return {header_size, total};
@@ -86,6 +88,10 @@ void output_bundle::write() {
     // TODO: we could easily eliminate this field by just passing `buffer + header_size` as `top` and including it in the offset for each resource
     header->gpu_data_offset = (size_t)(data_ptr - buffer);
     copy_textures(header_ptr, data_ptr, buffer);
+    // add padding to make sure we start aligned in the new section
+    auto env_padding =  (16 - ((size_t)data_ptr % 16)) % 16;
+    data_ptr += env_padding;
+    total_size -= 16 - env_padding;
     copy_environments(header_ptr, data_ptr, buffer);
 
     header->vertex_start_offset = (size_t)(data_ptr - buffer);
@@ -151,6 +157,7 @@ void output_bundle::copy_environments(byte*& header_ptr, byte*& data_ptr, byte* 
         *((asset_bundle_format::environment_header*)header_ptr) = asset_bundle_format::environment_header{
             .name = e.name,
             .skybox = e.skybox.as_image(),
+            .skybox_offset = (size_t)(data_ptr - top),
             .diffuse_irradiance = e.diffuse_irradiance.as_image()
         };
         header_ptr += sizeof(asset_bundle_format::environment_header);

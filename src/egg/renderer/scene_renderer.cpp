@@ -360,6 +360,7 @@ void scene_renderer::render_frame(frame& frame) {
 
         algo->generate_commands(cb, scene_data->desc_set, [&](auto cb, auto pl) {
             this->generate_scene_draw_commands(cb, pl);
+        }, [&](auto cb, auto pl) {
         });
 
         cb.end();

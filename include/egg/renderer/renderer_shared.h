@@ -67,7 +67,8 @@ class rendering_algorithm {
     virtual void generate_commands(
                                      vk::CommandBuffer                                          cb,
                                      vk::DescriptorSet                                          scene_data_desc_set,
-                                     std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
+                                     std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds,
+                                     std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_skybox_cmds
                                  ) = 0;
     virtual ~rendering_algorithm() = default;
 };

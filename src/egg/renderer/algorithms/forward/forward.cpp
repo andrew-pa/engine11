@@ -19,6 +19,17 @@ const uint32_t fragment_shader_bytecode[] = {
 };
 const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, sizeof(fragment_shader_bytecode), fragment_shader_bytecode };
 
+const uint32_t skybox_vertex_shader_bytecode[] = {
+#include "skybox.vert.num"
+};
+const vk::ShaderModuleCreateInfo skybox_vertex_shader_create_info{ {}, sizeof(vertex_shader_bytecode), vertex_shader_bytecode };
+
+const uint32_t skybox_fragment_shader_bytecode[] = {
+#include "skybox.frag.num"
+};
+const vk::ShaderModuleCreateInfo skybox_fragment_shader_create_info{ {}, sizeof(fragment_shader_bytecode), fragment_shader_bytecode };
+
+
 void forward_rendering_algorithm::init_with_device(
     vk::Device                            device,
     std::shared_ptr<gpu_allocator>        allocator,
@@ -135,9 +146,6 @@ void forward_rendering_algorithm::create_pipelines() {
         fragment_shader = device.createShaderModuleUnique(fragment_shader_create_info);
     }
 
-    //std::cout << "create pipelines!\n";
-    //std::cout << "create pipelines!\n";
-
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         {{}, vk::ShaderStageFlagBits::eVertex,   vertex_shader.get(),   "main"},
         {{}, vk::ShaderStageFlagBits::eFragment, fragment_shader.get(), "main"}
@@ -204,6 +212,51 @@ void forward_rendering_algorithm::create_pipelines() {
     if(res.result != vk::Result::eSuccess)
         throw vulkan_runtime_error("failed to create pipeline", res.result);
     pipeline = std::move(res.value);
+
+    if (!sky_vertex_shader) {
+        sky_vertex_shader = device.createShaderModuleUnique(skybox_vertex_shader_create_info);
+    }
+    if (!sky_fragment_shader) {
+        sky_fragment_shader = device.createShaderModuleUnique(skybox_fragment_shader_create_info);
+    }
+
+    vk::PipelineShaderStageCreateInfo sky_shader_stages[] = {
+        {{}, vk::ShaderStageFlagBits::eVertex,   sky_vertex_shader.get(),   "main"},
+        {{}, vk::ShaderStageFlagBits::eFragment, sky_fragment_shader.get(), "main"}
+    };
+
+    auto sky_vertex_binding
+        = vk::VertexInputBindingDescription{0, sizeof(vec3), vk::VertexInputRate::eVertex};
+    const vk::VertexInputAttributeDescription sky_vertex_attrib_desc[] = {
+        {0, 0, vk::Format::eR32G32B32Sfloat, 0 },
+    };
+    auto sky_vertex_input_info = vk::PipelineVertexInputStateCreateInfo{
+        {}, 1, &sky_vertex_binding, 4, sky_vertex_attrib_desc};
+
+    depth_stencil_state.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
+
+    res = device.createGraphicsPipelineUnique(
+        VK_NULL_HANDLE,
+        vk::GraphicsPipelineCreateInfo{
+            {},
+            2,
+            sky_shader_stages,
+            &sky_vertex_input_info,
+            &input_assembly,
+            nullptr,
+            &viewport_state,
+            &rasterizer_state,
+            &multisample_state,
+            &depth_stencil_state,
+            &color_blending_state,
+            &dynamic_state,
+            pipeline_layout.get(),
+            render_pass.get(),
+            0}
+    );
+    if(res.result != vk::Result::eSuccess)
+        throw vulkan_runtime_error("failed to create pipeline", res.result);
+    sky_pipeline = std::move(res.value);
 }
 
 void forward_rendering_algorithm::create_framebuffers(abstract_frame_renderer* fr) {
@@ -243,7 +296,8 @@ vk::RenderPassBeginInfo* forward_rendering_algorithm::get_render_pass_begin_info
 void forward_rendering_algorithm::generate_commands(
     vk::CommandBuffer                                          cb,
     vk::DescriptorSet                                          scene_data_desc_set,
-    std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds
+    std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds,
+    std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_skybox_cmds
 ) {
 
     cb.bindDescriptorSets(
@@ -251,4 +305,7 @@ void forward_rendering_algorithm::generate_commands(
     );
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
     generate_draw_cmds(cb, pipeline_layout.get());
+
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sky_pipeline.get());
+    generate_skybox_cmds(cb, pipeline_layout.get());
 }

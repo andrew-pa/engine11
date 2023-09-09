@@ -113,6 +113,7 @@ const texture_header& asset_bundle::texture(texture_id id) const {
 }
 
 const texture_header& asset_bundle::texture_by_index(size_t i) const { return *(textures + i); }
+const environment_header& asset_bundle::environment_by_index(size_t i) const { return *(environments + i); }
 
 #include <glm/gtx/io.hpp>
 const glm::mat4& asset_bundle::object_transform(object_id id) const {
@@ -130,6 +131,8 @@ string_id asset_bundle::object_name(object_id id) const { return objects[id].nam
 const asset_bundle_format::material_header& asset_bundle::material(size_t index) const {
     return materials[index];
 }
+
+string_id asset_bundle::group_name(size_t group_index) const { return groups[group_index].name; }
 
 group_object_iterator asset_bundle::group_objects(size_t group_index) const {
     return group_object_iterator{

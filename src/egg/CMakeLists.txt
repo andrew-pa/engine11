@@ -20,4 +20,4 @@ target_link_libraries(egg
     glfw
     Vulkan::Vulkan VulkanMemoryAllocator vmalib
     imguilib
-    libzstd_static)
+    libzstd_shared)
