@@ -3,6 +3,7 @@
 #include <error.h>
 #include <iostream>
 #include <vulkan/vulkan_format_traits.hpp>
+#include <vulkan/vk_extension_helper.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugReportFlagsEXT      flags,
@@ -126,11 +127,12 @@ texture_processor::texture_processor()
 
 texture_processor::~texture_processor() {
     assert(jobs.empty());
-    instance->destroyDebugReportCallbackEXT(debug_report_callback, nullptr,
-        vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr));
+    env_res.reset();
     allocator.reset();
     cmd_pool.reset();
     device.reset();
+    instance->destroyDebugReportCallbackEXT(debug_report_callback, nullptr,
+        vk::DispatchLoaderDynamic(instance.get(), vkGetInstanceProcAddr));
     instance.reset();
 }
 
@@ -170,7 +172,18 @@ environment_info texture_processor::submit_environment(string_id name, uint32_t 
         .skybox = image_info {1024, 1024, 1, 6, vk::Format::eR8G8B8A8Unorm}
     };
 
-    environment_process_job s{ device.get(), cmd_pool.get(), allocator, &info, width, height, nchannels, data };
+    if(env_res == nullptr) {
+        env_res = std::make_unique<environment_process_job_resources>(device.get());
+    }
+
+    environment_process_job s{
+        device.get(),
+        cmd_pool.get(),
+        env_res.get(),
+        allocator,
+        &info,
+        width, height, nchannels, data
+    };
 
     // free CPU source data
     free(data);

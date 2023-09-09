@@ -20,8 +20,6 @@ void output_bundle::add_environment(
 ) {
     string_id ns = add_string(std::move(name));
     auto info = tex_proc->submit_environment(ns, width, height, nchannels, data);
-    // no longer need image data because it has been uploaded to GPU
-    free(data);
     environments.emplace_back(info);
 }
 
@@ -70,7 +68,7 @@ void output_bundle::write() {
            .num_meshes         = meshes.size(),
            .num_objects        = objects.size(),
            .num_groups         = groups.size(),
-		   .num_environments = environments.size(),
+           .num_environments   = environments.size(),
            .num_total_vertices = vertices.size(),
            .num_total_indices  = indices.size(),
            .data_offset        = header_size};
@@ -156,6 +154,8 @@ void output_bundle::copy_environments(byte*& header_ptr, byte*& data_ptr, byte* 
             .diffuse_irradiance = e.diffuse_irradiance.as_image()
         };
         header_ptr += sizeof(asset_bundle_format::environment_header);
+        tex_proc->recieve_processed_environment(e.name, data_ptr);
+        data_ptr += e.len;
     }
 }
 

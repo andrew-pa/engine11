@@ -30,11 +30,21 @@ struct texture_process_job : public process_job {
 };
 
 struct environment_process_job : public process_job {
+    vk::UniqueDescriptorSet desc_set;
     std::unique_ptr<gpu_image> src, skybox;
+    vk::UniqueImageView src_view, skybox_view;
 
     environment_process_job(vk::Device dev, vk::CommandPool cmd_pool,
+        struct environment_process_job_resources* res,
         const std::shared_ptr<gpu_allocator>& alloc, environment_info* info,
         uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data);
+private:
+    void build_cmd_buffer(
+        vk::CommandBuffer cmd_buffer,
+        struct environment_process_job_resources* res,
+        const vk::ImageCreateInfo& src_image_info,
+        const vk::ImageCreateInfo& sky_image_info
+    );
 };
 
 size_t linear_image_size_in_bytes(const vk::ImageCreateInfo& image_info);

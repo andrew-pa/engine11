@@ -17,9 +17,9 @@ struct image_info {
     uint32_t width, height, mip_levels, array_layers;
     vk::Format format;
 
-    inline vk::ImageCreateInfo vulkan_create_info(vk::ImageUsageFlags usage) const {
+    inline vk::ImageCreateInfo vulkan_create_info(vk::ImageUsageFlags usage, vk::ImageCreateFlags flags = {}) const {
         return vk::ImageCreateInfo{
-            {},
+            flags,
             vk::ImageType::e2D,
             format,
             vk::Extent3D{width, height, 1},
