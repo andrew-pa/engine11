@@ -41,6 +41,7 @@ struct gpu_static_scene_data {
     gpu_static_scene_data(renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds);
 
     std::unique_ptr<gpu_buffer> vertex_buffer, index_buffer, staging_buffer;
+    std::unique_ptr<gpu_buffer> cube_vertex_buffer, cube_index_buffer;
     // TODO: these texture maps are dubious, maybe we should make the linear ordering of texture ids
     // explicit so things are faster
     std::unordered_map<texture_id, texture> textures;

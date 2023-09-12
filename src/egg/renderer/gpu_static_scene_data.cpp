@@ -2,10 +2,74 @@
 #include "egg/renderer/imgui_renderer.h"
 #include <vulkan/vulkan_format_traits.hpp>
 
+const size_t CUBE_VERTEX_COUNT = 24;
+const size_t CUBE_INDEX_COUNT = 36;
+const size_t CUBE_TOTAL_SIZE = sizeof(vec3) * CUBE_VERTEX_COUNT + sizeof(uint8_t) * CUBE_INDEX_COUNT;
+void generate_cube(
+        float width, float height, float depth,
+        std::function<void(vec3, vec3, vec3, vec2)> vertex,
+        std::function<void(size_t)> index)
+{
+    // this is an antique at this point.
+
+    float w2 = 0.5f*width;
+    float h2 = 0.5f*height;
+    float d2 = 0.5f*depth;
+
+    vertex({ -w2, -h2, -d2 }, { 0.0f, 0.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f });
+    vertex({-w2, +h2, -d2},{ 0.0f, 0.0f, -1.0f},{ 1.0f, 0.0f, 0.0f}, {0.0f, 0.0f});
+    vertex({+w2, +h2, -d2},{ 0.0f, 0.0f, -1.0f},{ 1.0f, 0.0f, 0.0f}, {1.0f, 0.0f});
+    vertex({+w2, -h2, -d2},{ 0.0f, 0.0f, -1.0f},{ 1.0f, 0.0f, 0.0f}, {1.0f, 1.0f});
+
+    vertex({-w2, -h2, +d2},{ 0.0f, 0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f});
+    vertex({+w2, -h2, +d2},{ 0.0f, 0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f});
+    vertex({+w2, +h2, +d2},{ 0.0f, 0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f});
+    vertex({-w2, +h2, +d2},{ 0.0f, 0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f});
+
+    vertex({-w2, +h2, -d2},{ 0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f,}, {0.0f, 1.0f});
+    vertex({-w2, +h2, +d2},{ 0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f,}, {0.0f, 0.0f});
+    vertex({+w2, +h2, +d2},{ 0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f,}, {1.0f, 0.0f});
+    vertex({+w2, +h2, -d2},{ 0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f,}, {1.0f, 1.0f});
+
+    vertex({-w2, -h2, -d2},{ 0.0f, -1.0f, 0.0f},{ -1.0f, 0.0f, 0.0f},{ 1.0f, 1.0f});
+    vertex({+w2, -h2, -d2},{ 0.0f, -1.0f, 0.0f},{ -1.0f, 0.0f, 0.0f},{ 0.0f, 1.0f});
+    vertex({+w2, -h2, +d2},{ 0.0f, -1.0f, 0.0f},{ -1.0f, 0.0f, 0.0f},{ 0.0f, 0.0f});
+    vertex({-w2, -h2, +d2},{ 0.0f, -1.0f, 0.0f},{ -1.0f, 0.0f, 0.0f},{ 1.0f, 0.0f});
+
+    vertex({-w2, -h2, +d2},{ -1.0f, 0.0f, 0.0f},{ 0.0f, 0.0f, -1.0f},{ 0.0f, 1.0f});
+    vertex({-w2, +h2, +d2},{ -1.0f, 0.0f, 0.0f},{ 0.0f, 0.0f, -1.0f},{ 0.0f, 0.0f});
+    vertex({-w2, +h2, -d2},{ -1.0f, 0.0f, 0.0f},{ 0.0f, 0.0f, -1.0f},{ 1.0f, 0.0f});
+    vertex({-w2, -h2, -d2},{ -1.0f, 0.0f, 0.0f},{ 0.0f, 0.0f, -1.0f},{ 1.0f, 1.0f});
+
+    vertex({+w2, -h2, -d2},{ 1.0f, 0.0f, 0.0f,}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f});
+    vertex({+w2, +h2, -d2},{ 1.0f, 0.0f, 0.0f,}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f});
+    vertex({+w2, +h2, +d2},{ 1.0f, 0.0f, 0.0f,}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f});
+    vertex({+w2, -h2, +d2},{ 1.0f, 0.0f, 0.0f,}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f});
+
+
+    index(0); index(1); index(2);
+    index(0); index(2); index(3);
+
+    index(4); index(5); index(6);
+    index(4); index(6); index(7);
+
+    index(8); index(9); index(10);
+    index(8); index(10); index(11);
+
+    index(12); index(13); index(14);
+    index(12); index(14); index(15);
+
+    index(16); index(17); index(18);
+    index(16); index(18); index(19);
+
+    index(20); index(21); index(22);
+    index(20); index(22); index(23);
+}
+
 gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds) {
     staging_buffer = std::make_unique<gpu_buffer>(
         r->gpu_alloc(),
-        vk::BufferCreateInfo{{}, bundle->gpu_data_size(), vk::BufferUsageFlagBits::eTransferSrc},
+        vk::BufferCreateInfo{{}, bundle->gpu_data_size()+CUBE_TOTAL_SIZE, vk::BufferUsageFlagBits::eTransferSrc},
         VmaAllocationCreateInfo{
             .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
                      | VMA_ALLOCATION_CREATE_MAPPED_BIT,
@@ -13,6 +77,12 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
     );
 
     bundle->take_gpu_data((uint8_t*)staging_buffer->cpu_mapped());
+
+    // generate skybox geometry
+    uint8_t* cube_ptr = (uint8_t*)staging_buffer->cpu_mapped() + bundle->gpu_data_size();
+    generate_cube(1.f, 1.f, 1.f,
+            [&](vec3 p, auto, auto, auto) { *((vec3*)cube_ptr) = p; cube_ptr += sizeof(vec3); },
+            [&](size_t i) { *((uint16_t*)cube_ptr) = i; cube_ptr += sizeof(uint16_t); });
 
     load_geometry_from_bundle(r->gpu_alloc(), bundle.get(), upload_cmds);
     create_textures_from_bundle(r, bundle.get());
@@ -34,8 +104,7 @@ void gpu_static_scene_data::load_geometry_from_bundle(
     auto        vertex_size = bh.num_total_vertices * sizeof(vertex);
     vertex_buffer           = std::make_unique<gpu_buffer>(
         allocator,
-        vk::BufferCreateInfo{
-                      {},
+        vk::BufferCreateInfo{ {},
             vertex_size,
             vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst},
         VmaAllocationCreateInfo{
@@ -51,8 +120,7 @@ void gpu_static_scene_data::load_geometry_from_bundle(
     auto index_size = bh.num_total_indices * sizeof(index_type);
     index_buffer    = std::make_unique<gpu_buffer>(
         allocator,
-        vk::BufferCreateInfo{
-               {},
+        vk::BufferCreateInfo{ {},
             index_size,
             vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst},
         VmaAllocationCreateInfo{
@@ -63,6 +131,36 @@ void gpu_static_scene_data::load_geometry_from_bundle(
         staging_buffer->get(),
         index_buffer->get(),
         vk::BufferCopy{bh.index_start_offset - bh.gpu_data_offset, 0, index_size}
+    );
+
+    cube_vertex_buffer = std::make_unique<gpu_buffer>(
+        allocator,
+        vk::BufferCreateInfo{
+            {},
+            CUBE_VERTEX_COUNT * sizeof(vec3),
+            vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst
+        },
+        VmaAllocationCreateInfo{ .usage = VMA_MEMORY_USAGE_AUTO, }
+    );
+    upload_cmds.copyBuffer(
+        staging_buffer->get(),
+        cube_vertex_buffer->get(),
+        vk::BufferCopy{current_bundle->gpu_data_size(), 0, CUBE_VERTEX_COUNT * sizeof(vec3)}
+    );
+
+    cube_index_buffer = std::make_unique<gpu_buffer>(
+        allocator,
+        vk::BufferCreateInfo{
+            {},
+            CUBE_INDEX_COUNT * sizeof(uint16_t),
+            vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst
+        },
+        VmaAllocationCreateInfo{ .usage = VMA_MEMORY_USAGE_AUTO, }
+    );
+    upload_cmds.copyBuffer(
+        staging_buffer->get(),
+        cube_index_buffer->get(),
+        vk::BufferCopy{current_bundle->gpu_data_size() + CUBE_VERTEX_COUNT*sizeof(vec3), 0, CUBE_INDEX_COUNT * sizeof(uint16_t)}
     );
 }
 

@@ -8,7 +8,7 @@ layout(binding = 1, rgba8) uniform writeonly imageCube output_map;
 vec3 compute_cart_coords_from_texel_index(uvec3 i) {
     float ns = (i.z % 2 == 0) ? 1.0 : -1.0;
     // assume we run 1 shader per texel.
-    vec3 s = vec3(vec2(i.xy) / vec2(imageSize(output_map)), ns);
+    vec3 s = normalize(vec3((vec2(i.xy) / vec2(imageSize(output_map))) * 2.0 - 1.0, ns));
     switch(i.z / 2) {
         // ±X
         case 0: return s.zxy;
@@ -22,7 +22,7 @@ vec3 compute_cart_coords_from_texel_index(uvec3 i) {
 vec2 compute_spherical_coords_from_texel_index(uvec3 i) {
     vec3 v = compute_cart_coords_from_texel_index(i);
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
-    uv *= vec2(0.1591, 0.3183);
+    uv *= vec2(0.1591, 0.3183); // (1 / 2π, 1 / π)
     uv += 0.5;
     return uv;
 }
@@ -30,5 +30,5 @@ vec2 compute_spherical_coords_from_texel_index(uvec3 i) {
 void main() {
     vec2 coordsS = compute_spherical_coords_from_texel_index(gl_GlobalInvocationID.xyz);
     vec4 result = texture(input_map, coordsS);
-    imageStore(output_map, ivec3(gl_GlobalInvocationID.xyz), result);
+    imageStore(output_map, ivec3(gl_GlobalInvocationID.xyz), vec4(vec3(gl_GlobalInvocationID.xyz) / 1024.0, 1.0));
 }

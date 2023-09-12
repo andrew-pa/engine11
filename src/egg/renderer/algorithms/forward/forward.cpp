@@ -22,12 +22,12 @@ const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, sizeof(fragmen
 const uint32_t skybox_vertex_shader_bytecode[] = {
 #include "skybox.vert.num"
 };
-const vk::ShaderModuleCreateInfo skybox_vertex_shader_create_info{ {}, sizeof(vertex_shader_bytecode), vertex_shader_bytecode };
+const vk::ShaderModuleCreateInfo skybox_vertex_shader_create_info{ {}, sizeof(skybox_vertex_shader_bytecode), skybox_vertex_shader_bytecode };
 
 const uint32_t skybox_fragment_shader_bytecode[] = {
 #include "skybox.frag.num"
 };
-const vk::ShaderModuleCreateInfo skybox_fragment_shader_create_info{ {}, sizeof(fragment_shader_bytecode), fragment_shader_bytecode };
+const vk::ShaderModuleCreateInfo skybox_fragment_shader_create_info{ {}, sizeof(skybox_fragment_shader_bytecode), skybox_fragment_shader_bytecode };
 
 
 void forward_rendering_algorithm::init_with_device(
@@ -231,9 +231,10 @@ void forward_rendering_algorithm::create_pipelines() {
         {0, 0, vk::Format::eR32G32B32Sfloat, 0 },
     };
     auto sky_vertex_input_info = vk::PipelineVertexInputStateCreateInfo{
-        {}, 1, &sky_vertex_binding, 4, sky_vertex_attrib_desc};
+        {}, 1, &sky_vertex_binding, 1, sky_vertex_attrib_desc};
 
     depth_stencil_state.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
+    rasterizer_state.setCullMode(vk::CullModeFlagBits::eFront);
 
     res = device.createGraphicsPipelineUnique(
         VK_NULL_HANDLE,

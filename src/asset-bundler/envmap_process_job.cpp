@@ -173,7 +173,7 @@ void environment_process_job::build_cmd_buffer(
     for(uint32_t i = 0; i < sky_image_info.arrayLayers; ++i) {
         regions.emplace_back(vk::BufferImageCopy{
                 offset,
-                0, 0, // tightly pack texels
+                0, 0, // tightly packex
                 vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, i, 1},
                 vk::Offset3D{0,0,0},
                 vk::Extent3D{w,h,1}

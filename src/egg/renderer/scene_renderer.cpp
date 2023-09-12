@@ -360,7 +360,12 @@ void scene_renderer::render_frame(frame& frame) {
 
         algo->generate_commands(cb, scene_data->desc_set, [&](auto cb, auto pl) {
             this->generate_scene_draw_commands(cb, pl);
-        }, [&](auto cb, auto pl) {
+        }, [&](vk::CommandBuffer cb, auto pl) {
+            // assume that generate_scene_draw_commands() has already been called
+            // cb.bindVertexBuffers(0, scene_data->cube_vertex_buffer->get(), {0});
+            // cb.bindIndexBuffer(scene_data->cube_index_buffer->get(), 0, vk::IndexType::eUint16);
+            // cb.drawIndexed(36, 1, 0, 0, 0);
+            cb.draw(3, 1, 0, 0);
         });
 
         cb.end();

@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     cam.set<comp::camera>({});
     auto cam_inter = std::dynamic_pointer_cast<interaction_model>(std::make_shared<fly_camera_interaction_model>(5.0f));
     cam_inter->register_with_distributor(inp);
-    cam.set<comp::interactable>(comp::interactable{ .active = false, .model = cam_inter });
+    cam.set<comp::interactable>(comp::interactable{ .active = true, .model = cam_inter });
 
     rndr->imgui()->add_window("Camera", [&](bool* open) {
         ImGui::Begin("Camera", open);
