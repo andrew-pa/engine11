@@ -146,7 +146,7 @@ void environment_process_job::build_cmd_buffer(
     // run skybox generation shader
     cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, res->pipeline_layout.get(), 0, desc_set.get(), {});
     cmd_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, res->skybox_pipeline.get());
-    const uint32_t SKYBOX_SHADER_LOCAL_SIZE = 64;
+    const uint32_t SKYBOX_SHADER_LOCAL_SIZE = 32;
     cmd_buffer.dispatch(
             sky_image_info.extent.width  / SKYBOX_SHADER_LOCAL_SIZE,
             sky_image_info.extent.height / SKYBOX_SHADER_LOCAL_SIZE,
