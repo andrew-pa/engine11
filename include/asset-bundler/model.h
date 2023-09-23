@@ -31,6 +31,17 @@ struct image_info {
         };
     }
 
+    inline vk::ImageViewCreateInfo vulkan_full_image_view(vk::Image img, vk::ImageViewType type) const {
+        return vk::ImageViewCreateInfo {
+            {},
+            img,
+            type,
+            format,
+            vk::ComponentMapping{},
+            vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, mip_levels, 0, array_layers}
+        };
+    }
+
     inline asset_bundle_format::image as_image() const {
         return asset_bundle_format::image{
             .width = width,
@@ -67,6 +78,7 @@ struct environment_info {
     image_info skybox;
     // diffuse irradiance cubemap
     image_info diffuse_irradiance;
+    size_t diffuse_irradiance_offset;
 
     // total length of all data
     size_t len;

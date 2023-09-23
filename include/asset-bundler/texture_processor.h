@@ -7,7 +7,7 @@ struct environment_process_job_resources {
     vk::UniquePipelineLayout pipeline_layout;
     vk::UniqueDescriptorSetLayout desc_set_layout;
     vk::UniqueDescriptorPool desc_pool;
-    vk::UniquePipeline skybox_pipeline;
+    vk::UniquePipeline skybox_pipeline, diffuse_map_pipeline;
     vk::UniqueSampler sampler;
 
     environment_process_job_resources(vk::Device dev);

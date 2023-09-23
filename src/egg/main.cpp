@@ -61,8 +61,11 @@ int main(int argc, char* argv[]) {
         if(ImGui::DragFloat3("Position", &pos[0], 0.05f, -1000.f, 1000.f))
             cam.set<comp::position>({pos});
         quat rot = cam.get<comp::rotation>()->rot;
-        if(ImGui::DragFloat4("Rotation", &rot[0], 0.05f, -1.f, 1.f))
+        if(ImGui::DragFloat4("Rotation (qut)", &rot[0], 0.05f, -1.f, 1.f))
             cam.set<comp::rotation>({glm::normalize(rot)});
+        vec3 a = glm::eulerAngles(rot);
+        if(ImGui::DragFloat3("Rotation (eul)", &a[0], 0.05f, 0.f, 2*glm::pi<float>()))
+            cam.set<comp::rotation>({glm::quat(a)});
         ImGui::End();
     });
 

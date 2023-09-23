@@ -4,7 +4,7 @@
 #include <vulkan/vulkan_format_traits.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
-const size_t max_concurrent_jobs = 8;
+const size_t max_concurrent_jobs = 16;
 
 inline vk::Format format_from_channels_f32(int nchannels) {
     switch(nchannels) {
@@ -27,7 +27,7 @@ environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool
     : process_job(dev, cmd_pool)
 {
     // create image descriptions
-    vk::ImageCreateInfo src_image_info {
+    src_image_info = vk::ImageCreateInfo {
         {},
         vk::ImageType::e2D,
         format_from_channels_f32(src_nchannels),
@@ -38,14 +38,22 @@ environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool
         vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled
     };
 
-    auto sky_image_info = info->skybox.vulkan_create_info(
+    sky_image_info = info->skybox.vulkan_create_info(
+        vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+        vk::ImageCreateFlagBits::eCubeCompatible
+    );
+
+    diffuse_map_image_info = info->diffuse_irradiance.vulkan_create_info(
         vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
         vk::ImageCreateFlagBits::eCubeCompatible
     );
 
     // compute total input/output size of the job
     auto in_size = linear_image_size_in_bytes(src_image_info);
-    auto out_size = linear_image_size_in_bytes(sky_image_info);
+    auto skybox_size = linear_image_size_in_bytes(sky_image_info);
+    auto out_size = skybox_size + linear_image_size_in_bytes(diffuse_map_image_info);
+
+    info->diffuse_irradiance_offset = skybox_size;
 
     total_output_size = info->len = out_size;
 
@@ -67,37 +75,41 @@ environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool
 
     // create destination GPU objects
     skybox = std::make_unique<gpu_image>(alloc, sky_image_info);
-    skybox_view = dev.createImageViewUnique(vk::ImageViewCreateInfo {
-        {},
-        skybox->get(),
-        vk::ImageViewType::eCube,
-        sky_image_info.format,
-        vk::ComponentMapping{},
-        vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, sky_image_info.arrayLayers}
-    });
+    skybox_view = dev.createImageViewUnique(info->skybox.vulkan_full_image_view(skybox->get(), vk::ImageViewType::eCube));
+
+    diffuse_map = std::make_unique<gpu_image>(alloc, diffuse_map_image_info);
+    diffuse_map_view = dev.createImageViewUnique(info->diffuse_irradiance.vulkan_full_image_view(diffuse_map->get(), vk::ImageViewType::eCube));
 
     // create descriptor for resources
-    desc_set = std::move(dev.allocateDescriptorSetsUnique(vk::DescriptorSetAllocateInfo {
-        res->desc_pool.get(), res->desc_set_layout.get()
-    })[0]);
+    vk::DescriptorSetLayout desc_set_layouts[] = {
+        res->desc_set_layout.get(),
+        res->desc_set_layout.get(),
+    };
+    desc_sets = dev.allocateDescriptorSetsUnique(vk::DescriptorSetAllocateInfo {
+        res->desc_pool.get(), 2, desc_set_layouts
+    });
 
 
     vk::DescriptorImageInfo src_desc_info { res->sampler.get(), src_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal };
     vk::DescriptorImageInfo sky_desc_info { VK_NULL_HANDLE, skybox_view.get(), vk::ImageLayout::eGeneral };
-    dev.updateDescriptorSets({
-        vk::WriteDescriptorSet{desc_set.get(), 0, 0, 1, vk::DescriptorType::eCombinedImageSampler, &src_desc_info},
-        vk::WriteDescriptorSet{desc_set.get(), 1, 0, 1, vk::DescriptorType::eStorageImage, &sky_desc_info}
-    }, {});
+    vk::DescriptorImageInfo diffuse_map_desc_info { VK_NULL_HANDLE, diffuse_map_view.get(), vk::ImageLayout::eGeneral };
+    // set output for each compute job differently
+    auto writes = std::vector<vk::WriteDescriptorSet>{
+        vk::WriteDescriptorSet{desc_sets[0].get(), 1, 0, 1, vk::DescriptorType::eStorageImage, &sky_desc_info},
+        vk::WriteDescriptorSet{desc_sets[1].get(), 1, 0, 1, vk::DescriptorType::eStorageImage, &diffuse_map_desc_info}
+    };
+    // input for all compute jobs is the same
+    for(const auto& d : desc_sets) {
+        writes.emplace_back(d.get(), 0, 0, 1, vk::DescriptorType::eCombinedImageSampler, &src_desc_info);
+    }
+    dev.updateDescriptorSets(writes, {});
 
-    this->build_cmd_buffer(cmd_buffer.get(), res, src_image_info, sky_image_info);
+    this->build_cmd_buffer(cmd_buffer.get(), res);
 }
 
 void environment_process_job::build_cmd_buffer(
         vk::CommandBuffer cmd_buffer,
-        environment_process_job_resources* res,
-        // TODO: should these just be fields in the job struct?
-        const vk::ImageCreateInfo& src_image_info,
-        const vk::ImageCreateInfo& sky_image_info
+        environment_process_job_resources* res
 ) {
     cmd_buffer.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
@@ -124,27 +136,29 @@ void environment_process_job::build_cmd_buffer(
             });
 
     // wait for the copy to finish and then transition the source image so we can read from it in the shader
-    // also move the output cubemap into general layout so we can write to it from the shader
-    cmd_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eComputeShader,
-            {}, {}, {}, {
-            vk::ImageMemoryBarrier {
-                vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
-                vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
-                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                src->get(),
-                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,1}
-            },
-            vk::ImageMemoryBarrier {
-                {}, vk::AccessFlagBits::eShaderWrite,
+    std::vector<vk::ImageMemoryBarrier> barriers {
+        vk::ImageMemoryBarrier {
+            vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
+            vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
+            VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+            src->get(),
+            vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,1}
+        }
+    };
+    // also move the output cubemaps into general layout so we can write to it from the shader
+    for(auto i : {skybox->get(), diffuse_map->get()}) {
+        barriers.emplace_back(vk::ImageMemoryBarrier {
+            {}, vk::AccessFlagBits::eShaderWrite,
                 vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral,
                 VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                skybox->get(),
-                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,sky_image_info.arrayLayers}
-            }
+                i,
+                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,6}
         });
+    }
+    cmd_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eComputeShader, {}, {}, {}, barriers);
 
     // run skybox generation shader
-    cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, res->pipeline_layout.get(), 0, desc_set.get(), {});
+    cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, res->pipeline_layout.get(), 0, desc_sets[0].get(), {});
     cmd_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, res->skybox_pipeline.get());
     const uint32_t SKYBOX_SHADER_LOCAL_SIZE = 32;
     cmd_buffer.dispatch(
@@ -152,46 +166,57 @@ void environment_process_job::build_cmd_buffer(
             sky_image_info.extent.height / SKYBOX_SHADER_LOCAL_SIZE,
             sky_image_info.arrayLayers);
 
+    // run diffuse irradiance map generation shader
+    cmd_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, res->pipeline_layout.get(), 0, desc_sets[1].get(), {});
+    cmd_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, res->diffuse_map_pipeline.get());
+    const uint32_t DIFFUSE_MAP_SHADER_LOCAL_SIZE = 32;
+    cmd_buffer.dispatch(
+            diffuse_map_image_info.extent.width  / DIFFUSE_MAP_SHADER_LOCAL_SIZE,
+            diffuse_map_image_info.extent.height / DIFFUSE_MAP_SHADER_LOCAL_SIZE,
+            diffuse_map_image_info.arrayLayers);
+
     // TODO: generate mipmaps for cubemaps
 
     // transition skybox to transfer src so we can copy it out
-    cmd_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer,
-            {}, {}, { }, {
-                vk::ImageMemoryBarrier {
-                    vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eTransferRead,
-                    vk::ImageLayout::eGeneral, vk::ImageLayout::eTransferSrcOptimal,
-                    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                    skybox->get(),
-                    vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,sky_image_info.arrayLayers}
-                }
+    barriers.clear();
+    for(auto i : {skybox->get(), diffuse_map->get()}) {
+        barriers.emplace_back(vk::ImageMemoryBarrier {
+            vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eTransferRead,
+                vk::ImageLayout::eGeneral, vk::ImageLayout::eTransferSrcOptimal,
+                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                i,
+                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor,0,1,0,6}
         });
+    }
+    cmd_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer, {}, {}, { }, barriers);
 
     // copy cubemap into staging buffer
-    std::vector<vk::BufferImageCopy> regions;
-    uint32_t w = sky_image_info.extent.width, h = sky_image_info.extent.height;
     size_t offset = 0;
-    for(uint32_t i = 0; i < sky_image_info.arrayLayers; ++i) {
-        regions.emplace_back(vk::BufferImageCopy{
-                offset,
-                0, 0, // tightly packex
-                vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, i, 1},
-                vk::Offset3D{0,0,0},
-                vk::Extent3D{w,h,1}
-            });
-        offset += w * h * vk::blockSize(sky_image_info.format);
-    }
+    auto regions = copy_regions_for_linear_image2d(
+            sky_image_info.extent.width, sky_image_info.extent.height,
+            sky_image_info.mipLevels, sky_image_info.arrayLayers, sky_image_info.format, offset);
     cmd_buffer.copyImageToBuffer(
             skybox->get(),
             vk::ImageLayout::eTransferSrcOptimal,
             staging->get(),
             regions);
 
+    regions = copy_regions_for_linear_image2d(
+            diffuse_map_image_info.extent.width, sky_image_info.extent.height,
+            diffuse_map_image_info.mipLevels, sky_image_info.arrayLayers, sky_image_info.format, offset);
+    cmd_buffer.copyImageToBuffer(
+            diffuse_map->get(),
+            vk::ImageLayout::eTransferSrcOptimal,
+            staging->get(),
+            regions);
+
+
 }
 
 const vk::DescriptorSetLayoutBinding desc_set_bindings[] = {
     // input environment map texture
     {0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eCompute},
-    // output skybox cubemap
+    // output cubemap
     {1, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute},
 };
 
@@ -199,6 +224,23 @@ const uint32_t skybox_shader_bytecode[] = {
 #include "skybox.comp.num"
 };
 const vk::ShaderModuleCreateInfo skybox_shader_create_info{ {}, sizeof(skybox_shader_bytecode), skybox_shader_bytecode };
+
+const uint32_t diffuse_map_shader_bytecode[] = {
+#include "diffuse_irradiance_map.comp.num"
+};
+const vk::ShaderModuleCreateInfo diffuse_map_shader_create_info{ {}, sizeof(diffuse_map_shader_bytecode), diffuse_map_shader_bytecode };
+
+
+vk::UniquePipeline create_compute_pipeline(vk::Device dev, vk::PipelineLayout pipeline_layout, vk::ShaderModule shader) {
+    auto res = dev.createComputePipelineUnique(VK_NULL_HANDLE, vk::ComputePipelineCreateInfo {
+            {},
+            vk::PipelineShaderStageCreateInfo {{}, vk::ShaderStageFlagBits::eCompute, shader, "main"},
+            pipeline_layout,
+            });
+    if(res.result != vk::Result::eSuccess)
+        throw vulkan_runtime_error("failed to create skybox pipeline", res.result);
+    return std::move(res.value);
+}
 
 environment_process_job_resources::environment_process_job_resources(vk::Device dev) {
     desc_set_layout = dev.createDescriptorSetLayoutUnique(vk::DescriptorSetLayoutCreateInfo{
@@ -222,15 +264,10 @@ environment_process_job_resources::environment_process_job_resources(vk::Device 
     });
 
     auto skybox_shader_module = dev.createShaderModuleUnique(skybox_shader_create_info);
+    skybox_pipeline = create_compute_pipeline(dev, pipeline_layout.get(), skybox_shader_module.get());
 
-    auto res = dev.createComputePipelineUnique(VK_NULL_HANDLE, vk::ComputePipelineCreateInfo {
-            {},
-            vk::PipelineShaderStageCreateInfo {{}, vk::ShaderStageFlagBits::eCompute, skybox_shader_module.get(), "main"},
-            pipeline_layout.get(),
-    });
-    if(res.result != vk::Result::eSuccess)
-        throw vulkan_runtime_error("failed to create skybox pipeline", res.result);
-    skybox_pipeline = std::move(res.value);
+    auto diffuse_map_shader_module = dev.createShaderModuleUnique(diffuse_map_shader_create_info);
+    diffuse_map_pipeline = create_compute_pipeline(dev, pipeline_layout.get(), diffuse_map_shader_module.get());
 
     sampler = dev.createSamplerUnique(vk::SamplerCreateInfo{{}, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear});
 }

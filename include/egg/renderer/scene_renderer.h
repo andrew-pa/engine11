@@ -17,15 +17,11 @@ struct texture {
     vk::UniqueImageView        img_view;
     uint64_t                   imgui_id;
 
-    texture(std::unique_ptr<gpu_image> img, vk::UniqueImageView&& iv, uint64_t id)
-        : img(std::move(img)), img_view(std::move(iv)), imgui_id(id) {}
+    texture(renderer* r, const asset_bundle_format::image& img_info, vk::ImageViewType type, vk::ImageCreateFlags flags = {});
 };
 
 struct environment {
-    std::unique_ptr<gpu_image> sky_img;
-    vk::UniqueImageView        sky_preview_img_view;
-    vk::UniqueImageView        skybox_img_view;
-    uint64_t                   imgui_id;
+    texture sky, diffuse_irradiance;
 };
 
 struct per_object_push_constants {
@@ -55,10 +51,12 @@ struct gpu_static_scene_data {
 
     std::vector<vk::DescriptorImageInfo> setup_descriptors(renderer* r, asset_bundle* bundle, std::vector<vk::WriteDescriptorSet>& writes);
     void resource_upload_cleanup();
+
 private:
     void load_geometry_from_bundle(std::shared_ptr<gpu_allocator> allocator, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
     void create_textures_from_bundle(renderer* r, asset_bundle* current_bundle);
     void create_envs_from_bundle(renderer* r, asset_bundle* current_bundle);
+    void generate_upload_commands_for_texture(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds, const texture& t, const asset_bundle_format::image& img, size_t bundle_offset) const;
     void generate_upload_commands_for_textures(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
     void generate_upload_commands_for_envs(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
 

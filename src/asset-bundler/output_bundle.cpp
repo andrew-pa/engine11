@@ -158,7 +158,8 @@ void output_bundle::copy_environments(byte*& header_ptr, byte*& data_ptr, byte* 
             .name = e.name,
             .skybox = e.skybox.as_image(),
             .skybox_offset = (size_t)(data_ptr - top),
-            .diffuse_irradiance = e.diffuse_irradiance.as_image()
+            .diffuse_irradiance = e.diffuse_irradiance.as_image(),
+            .diffuse_irradiance_offset = (size_t)(data_ptr - top) + e.diffuse_irradiance_offset,
         };
         header_ptr += sizeof(asset_bundle_format::environment_header);
         tex_proc->recieve_processed_environment(e.name, data_ptr);

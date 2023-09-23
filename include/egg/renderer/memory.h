@@ -75,6 +75,12 @@ class gpu_image {
     void* cpu_mapped() const;
 };
 
+std::vector<vk::BufferImageCopy> copy_regions_for_linear_image2d(
+        uint32_t width, uint32_t height,
+        uint32_t mip_levels, uint32_t array_layers,
+        vk::Format format,
+        size_t& offset);
+
 template<typename T>
 class gpu_shared_value : public gpu_buffer {
 public:

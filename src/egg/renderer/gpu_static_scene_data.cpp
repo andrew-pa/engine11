@@ -178,85 +178,81 @@ vk::ImageCreateInfo create_info_for_image(const asset_bundle_format::image& img,
     };
 }
 
-void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundle* current_bundle) {
-    for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
-        const auto& th = current_bundle->texture_by_index(i);
-        auto img = std::make_unique<gpu_image>(
-            r->gpu_alloc(),
-            create_info_for_image(th.img, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled),
-            VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
-        );
+texture::texture(renderer* r, const asset_bundle_format::image& img_info, vk::ImageViewType type, vk::ImageCreateFlags flags) {
+    if(type == vk::ImageViewType::eCube) {
+        flags = flags | vk::ImageCreateFlagBits::eCubeCompatible;
+    }
 
-        auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, th.img.mip_levels, 0, th.img.array_layers);
+    img = std::make_unique<gpu_image>(
+        r->gpu_alloc(),
+        create_info_for_image(img_info, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, flags),
+        VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
+    );
 
-        auto img_view = r->device().createImageViewUnique(vk::ImageViewCreateInfo{
+    auto subres_range = vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, img_info.mip_levels, 0, img_info.array_layers);
+
+    img_view = r->device().createImageViewUnique(vk::ImageViewCreateInfo{
             {},
             img->get(),
-            vk::ImageViewType::e2D,
-            vk::Format(th.img.format),
+            type,
+            vk::Format(img_info.format),
             vk::ComponentMapping{},
             subres_range});
 
-        auto imgui_id = r->imgui()->add_texture(img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal);
+    imgui_id = r->imgui()->add_texture(img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal);
+}
 
-        textures.emplace(th.id, texture{std::move(img), std::move(img_view), imgui_id});
+void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundle* current_bundle) {
+    for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
+        const auto& th = current_bundle->texture_by_index(i);
+        textures.emplace(th.id, texture{r, th.img, vk::ImageViewType::e2D});
     }
 }
 
-std::vector<vk::BufferImageCopy> make_copy_regions_for_image(
-        asset_bundle* current_bundle,
-        size_t offset,
-        const asset_bundle_format::image& img)
+void gen_transfer_barriers(const texture& t, std::vector<vk::ImageMemoryBarrier>& undef_to_transfer_barriers,
+        std::vector<vk::ImageMemoryBarrier>& transfer_to_shader_read_barriers)
 {
-    // copy each mip level from the buffer
-    std::vector<vk::BufferImageCopy> regions;
-    regions.reserve(img.mip_levels * img.array_layers);
-    size_t internal_offset = 0;
-    for(uint32_t layer_index = 0; layer_index < img.array_layers; ++layer_index) {
-        uint32_t w = img.width, h = img.height;
-        for(uint32_t mip_level = 0; mip_level < img.mip_levels; ++mip_level) {
-            std::cout << "L" << layer_index << " M" << mip_level << " " << std::hex << internal_offset << std::dec << "\n";
-            regions.emplace_back(
-                    vk::BufferImageCopy{
-                    offset - current_bundle->bundle_header().gpu_data_offset + internal_offset,
-                    0, 0,
-                    vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, mip_level, layer_index, 1},
-                    vk::Offset3D{0, 0, 0},
-                    vk::Extent3D{w, h, 1},
-                    }
-                    );
-            internal_offset += w * h * vk::blockSize(vk::Format(img.format));
-            w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
-        }
-    }
-    return regions;
+    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS);
+    undef_to_transfer_barriers.emplace_back(
+        vk::AccessFlags(),
+        vk::AccessFlagBits::eTransferWrite,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eTransferDstOptimal,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        t.img->get(),
+        subres_range
+    );
+    transfer_to_shader_read_barriers.emplace_back(
+        vk::AccessFlagBits::eTransferWrite,
+        vk::AccessFlagBits::eShaderRead,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        t.img->get(),
+        subres_range
+    );
+}
+
+void gpu_static_scene_data::generate_upload_commands_for_texture(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds, const texture& t, const asset_bundle_format::image& img, size_t bundle_offset) const {
+    size_t offset = bundle_offset - current_bundle->bundle_header().gpu_data_offset;
+    auto regions = copy_regions_for_linear_image2d(img.width, img.height, img.mip_levels, img.array_layers, (vk::Format)img.format, offset);
+
+    upload_cmds.copyBufferToImage(
+            staging_buffer->get(),
+            t.img->get(),
+            vk::ImageLayout::eTransferDstOptimal,
+            regions);
+
 }
 
 void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds) {
-    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, VK_REMAINING_MIP_LEVELS, 0, 1);
     std::vector<vk::ImageMemoryBarrier> undef_to_transfer_barriers,
         transfer_to_shader_read_barriers;
     for(const auto& [id, tx] : textures) {
-        undef_to_transfer_barriers.emplace_back(
-            vk::AccessFlags(),
-            vk::AccessFlagBits::eTransferWrite,
-            vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eTransferDstOptimal,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            tx.img->get(),
-            subres_range
-        );
-        transfer_to_shader_read_barriers.emplace_back(
-            vk::AccessFlagBits::eTransferWrite,
-            vk::AccessFlagBits::eShaderRead,
-            vk::ImageLayout::eTransferDstOptimal,
-            vk::ImageLayout::eShaderReadOnlyOptimal,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            tx.img->get(),
-            subres_range
-        );
+        gen_transfer_barriers(tx, undef_to_transfer_barriers, transfer_to_shader_read_barriers);
     }
 
     upload_cmds.pipelineBarrier(
@@ -271,13 +267,7 @@ void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* 
     for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
         const auto& th = current_bundle->texture_by_index(i);
 
-        std::vector<vk::BufferImageCopy> regions = make_copy_regions_for_image(current_bundle, th.offset, th.img);
-
-        upload_cmds.copyBufferToImage(
-                staging_buffer->get(),
-                textures.at(th.id).img->get(),
-                vk::ImageLayout::eTransferDstOptimal,
-                regions);
+        generate_upload_commands_for_texture(current_bundle, upload_cmds, textures.at(th.id), th.img, th.offset);
     }
 
     upload_cmds.pipelineBarrier(
@@ -293,74 +283,20 @@ void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* 
 void gpu_static_scene_data::create_envs_from_bundle(renderer* r, asset_bundle* current_bundle) {
     for(size_t i = 0; i < current_bundle->bundle_header().num_environments; ++i) {
         const auto& ev = current_bundle->environment_by_index(i);
-        auto img = std::make_unique<gpu_image>(
-            r->gpu_alloc(),
-            create_info_for_image(
-                ev.skybox,
-                vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-                vk::ImageCreateFlagBits::eCubeCompatible),
-            VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO}
-        );
-
-        auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, ev.skybox.mip_levels, 0, 1);
-
-        auto img_view = r->device().createImageViewUnique(vk::ImageViewCreateInfo{
-            {},
-            img->get(),
-            vk::ImageViewType::e2D,
-            vk::Format(ev.skybox.format),
-            vk::ComponentMapping{},
-            subres_range
-        });
-
-        subres_range.setLayerCount(6);
-        auto sky_cube_view = r->device().createImageViewUnique(vk::ImageViewCreateInfo{
-            {},
-            img->get(),
-            vk::ImageViewType::eCube,
-            vk::Format(ev.skybox.format),
-            vk::ComponentMapping{},
-            subres_range
-        });
-
-        auto imgui_id = r->imgui()->add_texture(img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal);
-
         envs.emplace(ev.name, environment{
-            .sky_img = std::move(img),
-            .sky_preview_img_view = std::move(img_view),
-            .skybox_img_view = std::move(sky_cube_view),
-            .imgui_id = imgui_id
+            .sky = texture{r, ev.skybox, vk::ImageViewType::eCube},
+            .diffuse_irradiance = texture{r, ev.diffuse_irradiance, vk::ImageViewType::eCube}
         });
         current_env = ev.name;
     }
 }
 
 void gpu_static_scene_data::generate_upload_commands_for_envs(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds) {
-    auto subres_range = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor,
-            0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS);
     std::vector<vk::ImageMemoryBarrier> undef_to_transfer_barriers,
         transfer_to_shader_read_barriers;
     for(const auto& [_, ev] : envs) {
-        undef_to_transfer_barriers.emplace_back(
-            vk::AccessFlags(),
-            vk::AccessFlagBits::eTransferWrite,
-            vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eTransferDstOptimal,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            ev.sky_img->get(),
-            subres_range
-        );
-        transfer_to_shader_read_barriers.emplace_back(
-            vk::AccessFlagBits::eTransferWrite,
-            vk::AccessFlagBits::eShaderRead,
-            vk::ImageLayout::eTransferDstOptimal,
-            vk::ImageLayout::eShaderReadOnlyOptimal,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            ev.sky_img->get(),
-            subres_range
-        );
+        gen_transfer_barriers(ev.sky, undef_to_transfer_barriers, transfer_to_shader_read_barriers);
+        gen_transfer_barriers(ev.diffuse_irradiance, undef_to_transfer_barriers, transfer_to_shader_read_barriers);
     }
 
     upload_cmds.pipelineBarrier(
@@ -375,13 +311,8 @@ void gpu_static_scene_data::generate_upload_commands_for_envs(asset_bundle* curr
     for(size_t i = 0; i < current_bundle->bundle_header().num_environments; ++i) {
         const auto& ev = current_bundle->environment_by_index(i);
 
-        auto regions = make_copy_regions_for_image(current_bundle, ev.skybox_offset, ev.skybox);
-
-        upload_cmds.copyBufferToImage(
-                staging_buffer->get(),
-                envs.at(ev.name).sky_img->get(),
-                vk::ImageLayout::eTransferDstOptimal,
-                regions);
+        generate_upload_commands_for_texture(current_bundle, upload_cmds, envs.at(ev.name).sky, ev.skybox, ev.skybox_offset);
+        generate_upload_commands_for_texture(current_bundle, upload_cmds, envs.at(ev.name).diffuse_irradiance, ev.diffuse_irradiance, ev.diffuse_irradiance_offset);
     }
 
     upload_cmds.pipelineBarrier(
@@ -469,7 +400,7 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
         texture_infos.data() + i
     );
     texture_infos.emplace_back(
-        texture_sampler.get(), envs.at(current_env).skybox_img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal
+        texture_sampler.get(), envs.at(current_env).diffuse_irradiance.img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal
     );
 
     return texture_infos;
@@ -571,9 +502,10 @@ void gpu_static_scene_data::texture_window_gui(bool* open, std::shared_ptr<asset
         }
 
         if(ImGui::BeginTabItem("Environments")) {
-            if(ImGui::BeginTable("#env-table", 2)) {
+            if(ImGui::BeginTable("#env-table", 3)) {
                 ImGui::TableSetupColumn("Name");
                 ImGui::TableSetupColumn("Skybox");
+                ImGui::TableSetupColumn("Diffuse Irradiance Map");
                 ImGui::TableHeadersRow();
                 for(const auto&[name, ev] : envs) {
                     ImGui::TableNextRow();
@@ -581,7 +513,9 @@ void gpu_static_scene_data::texture_window_gui(bool* open, std::shared_ptr<asset
                     auto name_s = std::string(current_bundle->string(name));
                     ImGui::Text("%s", name_s.c_str());
                     ImGui::TableNextColumn();
-                    ImGui::Image((ImTextureID)ev.imgui_id, ImVec2(256, 256));
+                    ImGui::Image((ImTextureID)ev.sky.imgui_id, ImVec2(256, 256));
+                    ImGui::TableNextColumn();
+                    ImGui::Image((ImTextureID)ev.diffuse_irradiance.imgui_id, ImVec2(256, 256));
                 }
                 ImGui::EndTable();
             }

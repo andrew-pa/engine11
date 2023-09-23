@@ -9,6 +9,7 @@ add_shaders(asset-bundler
     ENV vulkan1.3
     FORMAT num
     SOURCES
-        skybox.comp)
+        skybox.comp
+        diffuse_irradiance_map.comp)
 target_link_libraries(asset-bundler glm libzstd_static assimp stblib
     Vulkan::Vulkan VulkanMemoryAllocator vmalib)

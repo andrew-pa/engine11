@@ -9,6 +9,6 @@ layout(location = 0) out vec4 final_color;
 
 void main() {
     vec3 sky = texture(env_skybox, finput.view_dir).xyz;
-    sky = pow(sky, vec3(1.0 / 2.2));
+    sky = pow(sky/10.0, vec3(1.0 / 2.2));
     final_color = vec4(sky, 1.0);
 }

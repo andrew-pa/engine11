@@ -19,10 +19,12 @@ void fly_camera_interaction_model::register_with_distributor(class input_distrib
 		.key = key_axis_mapping{GLFW_KEY_S, GLFW_KEY_W}
 	});
 	yaw = dist->register_axis_mapping("Rotate Camera Y", axis_mapping{
-		.mouse = mouse_axis_mapping{.axis=0, .mode=mouse_mapping_mode::delta}
+		.mouse = mouse_axis_mapping{.axis=0, .mode=mouse_mapping_mode::delta},
+		// .key = key_axis_mapping{GLFW_KEY_LEFT, GLFW_KEY_RIGHT}
 	});
 	pitch = dist->register_axis_mapping("Rotate Camera X", axis_mapping{
-		.mouse = mouse_axis_mapping{.axis=1, .mode=mouse_mapping_mode::delta}
+		.mouse = mouse_axis_mapping{.axis=1, .mode=mouse_mapping_mode::delta},
+		// .key = key_axis_mapping{GLFW_KEY_DOWN, GLFW_KEY_UP}
 	});
 }
 
@@ -38,10 +40,9 @@ void fly_camera_interaction_model::process_input(const mapped_input& input, flec
 		-input.axis_states.at(move_z)
 	) * speed * dt;
 
-	vec2 np = vec2(-input.axis_states.at(yaw), input.axis_states.at(pitch)) * glm::pi<float>();
-	rot = rot * glm::angleAxis(np.x, vec3(0.f, 1.f, 0.f));
-	rot = rot * glm::angleAxis(np.y, vec3(1.f, 0.f, 0.f));
-	rot = glm::normalize(rot);
+	vec2 np = vec2( input.axis_states.at(pitch), -input.axis_states.at(yaw) ) * glm::pi<float>();
+    vec3 angs = glm::eulerAngles(rot);
+    rot = glm::quat(vec3(angs.x + np.x, 0.f, angs.z - np.y));
 
 	e.set<comp::position>({ pos });
 	e.set<comp::rotation>({ rot });

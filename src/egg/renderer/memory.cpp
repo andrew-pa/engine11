@@ -45,6 +45,35 @@ gpu_image::~gpu_image() {
     allocation = nullptr;
 }
 
+#include <vulkan/vulkan_format_traits.hpp>
+std::vector<vk::BufferImageCopy> copy_regions_for_linear_image2d(
+        uint32_t width, uint32_t height,
+        uint32_t mip_levels, uint32_t array_layers,
+        vk::Format format,
+        size_t& offset)
+{
+    std::vector<vk::BufferImageCopy> regions;
+    regions.reserve(mip_levels * array_layers);
+    for(uint32_t layer_index = 0; layer_index < array_layers; ++layer_index) {
+        uint32_t w = width, h = height;
+        for(uint32_t mip_level = 0; mip_level < mip_levels; ++mip_level) {
+            //std::cout << "L" << layer_index << " M" << mip_level << " " << std::hex << internal_offset << std::dec << "\n";
+            regions.emplace_back(
+                vk::BufferImageCopy{
+                    offset,
+                    0, 0, // texels are tightly packed
+                    vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, mip_level, layer_index, 1},
+                    vk::Offset3D{0, 0, 0},
+                    vk::Extent3D{w, h, 1},
+                }
+            );
+            offset += w * h * vk::blockSize(format);
+            w = std::max(w/2, 1u); h = std::max(h/2, 1u);
+        }
+    }
+    return regions;
+}
+
 struct vma_gpu_allocator : public gpu_allocator {
     VmaAllocator allocator;
     vma_gpu_allocator(const VmaAllocatorCreateInfo& cfo) {

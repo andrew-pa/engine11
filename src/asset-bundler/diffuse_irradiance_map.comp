@@ -1,0 +1,24 @@
+#version 450core
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+#define OUTPUT_MAP_FORMAT rgba16
+#include "shader_common.h"
+
+const float num_samples = 50.0; // number of samples along one axis
+const float sample_delta = 1.0 / num_samples;
+
+void main() {
+    vec2 normalS = compute_spherical_coords_from_texel_index(gl_GlobalInvocationID.xyz);
+
+    vec3 irradiance = vec3(0.0);
+    for(float phi = 0.0; phi < 2.0 * PI; phi += sample_delta) {
+        for(float theta = 0.0; theta < PI/2; theta += sample_delta) {
+            irradiance += texture(input_map, normalS + vec2(phi, theta)).rgb * cos(theta) * sin(theta);
+        }
+    }
+
+    irradiance *= PI / (num_samples * num_samples);
+
+    imageStore(output_map, ivec3(gl_GlobalInvocationID.xyz), vec4(irradiance, 1.0));
+}

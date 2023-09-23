@@ -100,20 +100,10 @@ void texture_process_job::generate_mipmaps() {
     cmd_buffer->pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
             {}, {}, {}, { barrierDstToSrc });
 
-    std::vector<vk::BufferImageCopy> regions;
-    uint32_t w = image_info.extent.width, h = image_info.extent.height;
     size_t offset = 0;
-    for(uint32_t mip_level = 0; mip_level < image_info.mipLevels; ++mip_level) {
-        regions.emplace_back(vk::BufferImageCopy{
-                offset,
-                0, 0, // tightly pack texels
-                vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, mip_level, 0, 1},
-                vk::Offset3D{0,0,0},
-                vk::Extent3D{w,h,1}
-            });
-        offset += w * h * vk::blockSize(image_info.format);
-        w = glm::max(w/2, 1u); h = glm::max(h/2, 1u);
-    }
+    auto regions = copy_regions_for_linear_image2d(
+            image_info.extent.width, image_info.extent.height,
+            image_info.mipLevels, image_info.arrayLayers, image_info.format, offset);
     cmd_buffer->copyImageToBuffer(
             img->get(),
             vk::ImageLayout::eTransferSrcOptimal,
