@@ -5,9 +5,8 @@
 const std::unordered_set<std::string> texture_exts = {".png", ".jpg", ".bmp"};
 const std::unordered_set<std::string> environment_exts = {".hdr"};
 
-importer::importer(output_bundle& out, int argc, char* argv[]) : out(out) {
-    for(size_t i = 2; i < argc; ++i) {
-        path input = argv[i];
+importer::importer(output_bundle& out, const std::vector<std::filesystem::path>& input_paths) : out(out) {
+    for(const auto& input : input_paths) {
         auto ext = path_to_string(input.extension());
         if (aimp.IsExtensionSupported(ext.c_str()))
             models.emplace_back(input);
@@ -212,13 +211,13 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
 void importer::load_env(const path& ip) {
     std::cout << "\t" << ip << "\n";
     int width, height, channels;
-    auto* data = stbi_loadf(path_to_string(ip).c_str(), &width, &height, &channels, STBI_default);
-	if(data == nullptr) {
+    auto* data = stbi_loadf(path_to_string(ip).c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    if(data == nullptr) {
         std::cout << "\t\tfailed to load environment map " << ip << ": "
                   << stbi_failure_reason() << "\n";
         return;
     }
-    out.add_environment(path_to_string(ip.filename()), width, height, channels, data);
+    out.add_environment(path_to_string(ip.filename()), width, height, 4, data);
 }
 
 void importer::load() {

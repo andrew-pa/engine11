@@ -29,8 +29,10 @@ class texture_processor {
     std::unordered_map<string_id, struct environment_process_job> env_jobs;
 
     std::unique_ptr<environment_process_job_resources> env_res;
+
+    options opts;
 public:
-    texture_processor();
+    texture_processor(options opts);
     ~texture_processor();
 
     void submit_texture(texture_id id, texture_info* info);

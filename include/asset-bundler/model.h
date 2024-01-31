@@ -140,3 +140,7 @@ struct group_info {
     string_id              name;
     std::vector<object_id> objects;
 };
+
+struct options {
+    bool enable_ibl_precomputation = false;
+};

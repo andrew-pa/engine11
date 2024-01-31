@@ -88,11 +88,14 @@ void output_bundle::write() {
     // TODO: we could easily eliminate this field by just passing `buffer + header_size` as `top` and including it in the offset for each resource
     header->gpu_data_offset = (size_t)(data_ptr - buffer);
     copy_textures(header_ptr, data_ptr, buffer);
-    // add padding to make sure we start aligned in the new section
-    auto env_padding =  (16 - ((size_t)data_ptr % 16)) % 16;
-    data_ptr += env_padding;
-    total_size -= 16 - env_padding;
-    copy_environments(header_ptr, data_ptr, buffer);
+
+    if(!environments.empty()) {
+        // add padding to make sure we start aligned in the new section
+        auto env_padding =  (16 - ((size_t)data_ptr % 16)) % 16;
+        data_ptr += env_padding;
+        total_size -= 16 - env_padding;
+        copy_environments(header_ptr, data_ptr, buffer);
+    }
 
     header->vertex_start_offset = (size_t)(data_ptr - buffer);
     memcpy(data_ptr, vertices.data(), vertices.size() * sizeof(vertex));
@@ -102,6 +105,7 @@ void output_bundle::write() {
     memcpy(data_ptr, indices.data(), indices.size() * sizeof(index_type));
     data_ptr += indices.size() * sizeof(index_type);
 
+    std::cout << (data_ptr - buffer) << " == " << total_size << " " << ((data_ptr - buffer) - total_size) << "\n";
     assert((data_ptr - buffer) == total_size);
 
     // compress data and write it to file

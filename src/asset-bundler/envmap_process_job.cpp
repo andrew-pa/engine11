@@ -23,7 +23,7 @@ inline vk::Format format_from_channels_f32(int nchannels) {
 environment_process_job::environment_process_job(vk::Device dev, vk::CommandPool cmd_pool,
         environment_process_job_resources* res,
         const std::shared_ptr<gpu_allocator>& alloc, environment_info* info,
-        uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data)
+        uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data, bool enable_ibl_precomp)
     : process_job(dev, cmd_pool)
 {
     // create image descriptions
@@ -202,8 +202,8 @@ void environment_process_job::build_cmd_buffer(
             regions);
 
     regions = copy_regions_for_linear_image2d(
-            diffuse_map_image_info.extent.width, sky_image_info.extent.height,
-            diffuse_map_image_info.mipLevels, sky_image_info.arrayLayers, sky_image_info.format, offset);
+            diffuse_map_image_info.extent.width, diffuse_map_image_info.extent.height,
+            diffuse_map_image_info.mipLevels, diffuse_map_image_info.arrayLayers, diffuse_map_image_info.format, offset);
     cmd_buffer.copyImageToBuffer(
             diffuse_map->get(),
             vk::ImageLayout::eTransferSrcOptimal,

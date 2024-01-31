@@ -38,7 +38,8 @@ struct environment_process_job : public process_job {
     environment_process_job(vk::Device dev, vk::CommandPool cmd_pool,
         struct environment_process_job_resources* res,
         const std::shared_ptr<gpu_allocator>& alloc, environment_info* info,
-        uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data);
+        uint32_t src_width, uint32_t src_height, int src_nchannels, float* src_data,
+        bool enable_ibl_precomp);
 private:
 
     vk::ImageCreateInfo src_image_info;

@@ -400,7 +400,7 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
         texture_infos.data() + i
     );
     texture_infos.emplace_back(
-        texture_sampler.get(), envs.at(current_env).diffuse_irradiance.img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal
+        texture_sampler.get(), envs.at(current_env).sky.img_view.get(), vk::ImageLayout::eShaderReadOnlyOptimal
     );
 
     return texture_infos;

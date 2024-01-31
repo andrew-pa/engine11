@@ -19,9 +19,24 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    texture_processor tex_proc;
-    output_bundle out{argv[1], &tex_proc};
-    importer      imp{out, argc, argv};
+    std::filesystem::path output_path;
+    std::vector<std::filesystem::path> input_paths;
+    options opts;
+
+    for(int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if(arg == "--no-ibl-precomp") {
+            opts.enable_ibl_precomputation = false;
+        } else if(output_path.empty()) {
+            output_path = arg;
+        } else {
+            input_paths.emplace_back(arg);
+        }
+    }
+
+    texture_processor tex_proc{opts};
+    output_bundle out{output_path, &tex_proc};
+    importer      imp{out, input_paths};
     imp.load();
     out.write();
     return 0;

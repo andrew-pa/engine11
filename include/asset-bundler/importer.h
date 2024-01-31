@@ -32,7 +32,7 @@ class importer {
 
     void load_env(const path& ip);
   public:
-    importer(output_bundle& out, int argc, char* argv[]);
+    importer(output_bundle& out, const std::vector<std::filesystem::path>& input_paths);
 
     void load();
 };

@@ -3,7 +3,7 @@
 #include <error.h>
 #include <iostream>
 #include <vulkan/vulkan_format_traits.hpp>
-#include <vulkan/vk_extension_helper.h>
+// #include <vulkan/vk_extension_helper.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     VkDebugReportFlagsEXT      flags,
@@ -35,8 +35,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 const vk::ApplicationInfo APP_INFO = vk::ApplicationInfo{
     "asset-bundler", VK_MAKE_VERSION(0, 0, 0), "egg", VK_MAKE_VERSION(0, 0, 0), VK_API_VERSION_1_3};
 
-texture_processor::texture_processor()
-    : env_res(nullptr)
+texture_processor::texture_processor(options opts)
+    : env_res(nullptr), opts(opts)
 {
     std::vector<const char*> extensions;
     //extensions.push_back("VK_KHR_portability_enumeration");
@@ -67,6 +67,8 @@ texture_processor::texture_processor()
 
     auto physical_devices = instance->enumeratePhysicalDevices();
     for(auto pd : physical_devices) {
+        if(pd.getProperties().deviceType != vk::PhysicalDeviceType::eDiscreteGpu) continue;
+
         auto qufams = pd.getQueueFamilyProperties();
         for(uint32_t i = 0; i < qufams.size(); ++i) {
             // TODO: right now we only support a single queue with graphcs and compute support
@@ -177,13 +179,16 @@ environment_info texture_processor::submit_environment(string_id name, uint32_t 
         env_res = std::make_unique<environment_process_job_resources>(device.get());
     }
 
+    std::cout << "processing environment " << name << " " << width << "x" << height << " " << nchannels << "\n";
+
     environment_process_job s{
         device.get(),
         cmd_pool.get(),
         env_res.get(),
         allocator,
         &info,
-        width, height, nchannels, data
+        width, height, nchannels, data,
+        opts.enable_ibl_precomputation
     };
 
     // free CPU source data
