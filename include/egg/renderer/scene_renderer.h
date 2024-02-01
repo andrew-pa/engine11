@@ -53,7 +53,7 @@ struct gpu_static_scene_data {
     void resource_upload_cleanup();
 
 private:
-    void load_geometry_from_bundle(std::shared_ptr<gpu_allocator> allocator, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
+    void load_geometry_from_bundle(renderer* r, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds);
     void create_textures_from_bundle(renderer* r, asset_bundle* current_bundle);
     void create_envs_from_bundle(renderer* r, asset_bundle* current_bundle);
     void generate_upload_commands_for_texture(asset_bundle* current_bundle, vk::CommandBuffer upload_cmds, const texture& t, const asset_bundle_format::image& img, size_t bundle_offset) const;

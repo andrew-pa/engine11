@@ -22,7 +22,7 @@
 */
 class renderer {
     vk::UniqueInstance         instance;
-    vk::DebugReportCallbackEXT debug_report_callback;
+    vk::DebugUtilsMessengerEXT debug_report_callback;
 
     vk::UniqueSurfaceKHR window_surface;
     vk::SurfaceFormatKHR surface_format;
@@ -60,6 +60,7 @@ class renderer {
 
     void render_frame();
 
+    inline vk::Instance vulkan_instance() const { return instance.get(); }
     inline vk::Device device() const { return dev.get(); }
     inline std::shared_ptr<gpu_allocator> gpu_alloc() const { return allocator; }
 

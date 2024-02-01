@@ -4,7 +4,7 @@
 
 const size_t CUBE_VERTEX_COUNT = 24;
 const size_t CUBE_INDEX_COUNT = 36;
-const size_t CUBE_TOTAL_SIZE = sizeof(vec3) * CUBE_VERTEX_COUNT + sizeof(uint8_t) * CUBE_INDEX_COUNT;
+const size_t CUBE_TOTAL_SIZE = sizeof(vec3) * CUBE_VERTEX_COUNT + sizeof(uint16_t) * CUBE_INDEX_COUNT;
 void generate_cube(
         float width, float height, float depth,
         std::function<void(vec3, vec3, vec3, vec2)> vertex,
@@ -75,6 +75,7 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
                      | VMA_ALLOCATION_CREATE_MAPPED_BIT,
             .usage = VMA_MEMORY_USAGE_AUTO}
     );
+    staging_buffer->set_debug_name(r->vulkan_instance(), r->device(), "staging buffer");
 
     bundle->take_gpu_data((uint8_t*)staging_buffer->cpu_mapped());
 
@@ -84,7 +85,7 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
             [&](vec3 p, auto, auto, auto) { *((vec3*)cube_ptr) = p; cube_ptr += sizeof(vec3); },
             [&](size_t i) { *((uint16_t*)cube_ptr) = i; cube_ptr += sizeof(uint16_t); });
 
-    load_geometry_from_bundle(r->gpu_alloc(), bundle.get(), upload_cmds);
+    load_geometry_from_bundle(r, bundle.get(), upload_cmds);
     create_textures_from_bundle(r, bundle.get());
     generate_upload_commands_for_textures(bundle.get(), upload_cmds);
     create_envs_from_bundle(r, bundle.get());
@@ -96,10 +97,12 @@ gpu_static_scene_data::gpu_static_scene_data(renderer* r, std::shared_ptr<asset_
 }
 
 void gpu_static_scene_data::load_geometry_from_bundle(
-    std::shared_ptr<gpu_allocator> allocator,
+    renderer* r,
     asset_bundle* current_bundle,
     vk::CommandBuffer upload_cmds
 ) {
+    auto allocator = r->gpu_alloc();
+
     const auto& bh          = current_bundle->bundle_header();
     auto        vertex_size = bh.num_total_vertices * sizeof(vertex);
     vertex_buffer           = std::make_unique<gpu_buffer>(
@@ -111,6 +114,7 @@ void gpu_static_scene_data::load_geometry_from_bundle(
                       .usage = VMA_MEMORY_USAGE_AUTO,
         }
     );
+    vertex_buffer->set_debug_name(r->vulkan_instance(), r->device(), "scene static vertex buffer");
     upload_cmds.copyBuffer(
         staging_buffer->get(),
         vertex_buffer->get(),
@@ -127,6 +131,8 @@ void gpu_static_scene_data::load_geometry_from_bundle(
                .usage = VMA_MEMORY_USAGE_AUTO,
         }
     );
+    index_buffer->set_debug_name(r->vulkan_instance(), r->device(), "scene static index buffer");
+
     upload_cmds.copyBuffer(
         staging_buffer->get(),
         index_buffer->get(),
@@ -142,6 +148,8 @@ void gpu_static_scene_data::load_geometry_from_bundle(
         },
         VmaAllocationCreateInfo{ .usage = VMA_MEMORY_USAGE_AUTO, }
     );
+    cube_vertex_buffer->set_debug_name(r->vulkan_instance(), r->device(), "cube vertex buffer");
+
     upload_cmds.copyBuffer(
         staging_buffer->get(),
         cube_vertex_buffer->get(),
@@ -157,6 +165,8 @@ void gpu_static_scene_data::load_geometry_from_bundle(
         },
         VmaAllocationCreateInfo{ .usage = VMA_MEMORY_USAGE_AUTO, }
     );
+    cube_index_buffer->set_debug_name(r->vulkan_instance(), r->device(), "cube index buffer");
+
     upload_cmds.copyBuffer(
         staging_buffer->get(),
         cube_index_buffer->get(),
@@ -204,7 +214,7 @@ texture::texture(renderer* r, const asset_bundle_format::image& img_info, vk::Im
 }
 
 void gpu_static_scene_data::create_textures_from_bundle(renderer* r, asset_bundle* current_bundle) {
-    for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
+    for(texture_id i = 0; i < current_bundle->num_textures(); ++i) {
         const auto& th = current_bundle->texture_by_index(i);
         textures.emplace(th.id, texture{r, th.img, vk::ImageViewType::e2D});
     }
@@ -264,7 +274,7 @@ void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* 
         undef_to_transfer_barriers
     );
 
-    for(texture_id i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
+    for(texture_id i = 0; i < current_bundle->num_textures(); ++i) {
         const auto& th = current_bundle->texture_by_index(i);
 
         generate_upload_commands_for_texture(current_bundle, upload_cmds, textures.at(th.id), th.img, th.offset);
@@ -281,7 +291,7 @@ void gpu_static_scene_data::generate_upload_commands_for_textures(asset_bundle* 
 }
 
 void gpu_static_scene_data::create_envs_from_bundle(renderer* r, asset_bundle* current_bundle) {
-    for(size_t i = 0; i < current_bundle->bundle_header().num_environments; ++i) {
+    for(size_t i = 0; i < current_bundle->num_environments(); ++i) {
         const auto& ev = current_bundle->environment_by_index(i);
         envs.emplace(ev.name, environment{
             .sky = texture{r, ev.skybox, vk::ImageViewType::eCube},
@@ -308,7 +318,7 @@ void gpu_static_scene_data::generate_upload_commands_for_envs(asset_bundle* curr
         undef_to_transfer_barriers
     );
 
-    for(size_t i = 0; i < current_bundle->bundle_header().num_environments; ++i) {
+    for(size_t i = 0; i < current_bundle->num_environments(); ++i) {
         const auto& ev = current_bundle->environment_by_index(i);
 
         generate_upload_commands_for_texture(current_bundle, upload_cmds, envs.at(ev.name).sky, ev.skybox, ev.skybox_offset);
@@ -345,7 +355,7 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
 		// scene textures
         {1,
          vk::DescriptorType::eCombinedImageSampler,
-         (uint32_t)current_bundle->bundle_header().num_textures,
+         (uint32_t)current_bundle->num_textures(),
          vk::ShaderStageFlagBits::eAll                                                        },
         // per-frame shader uniforms
         {2, vk::DescriptorType::eUniformBuffer,     1,           vk::ShaderStageFlagBits::eAll},
@@ -363,7 +373,7 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
         {vk::DescriptorType::eStorageBuffer,        2          },
         {vk::DescriptorType::eUniformBuffer,        1          },
         {vk::DescriptorType::eCombinedImageSampler,
-         (uint32_t)current_bundle->bundle_header().num_textures + 1},
+         (uint32_t)current_bundle->num_textures() + 1},
     };
     desc_set_pool = r->device().createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{
         {}, 1, sizeof(pool_sizes) / sizeof(pool_sizes[0]), pool_sizes});
@@ -372,9 +382,9 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(re
         desc_set_pool.get(), desc_set_layout.get()})[0];
 
     std::vector<vk::DescriptorImageInfo> texture_infos;
-    texture_infos.reserve(current_bundle->bundle_header().num_textures + 1);
+    texture_infos.reserve(current_bundle->num_textures() + 1);
     size_t i;
-    for(i = 0; i < current_bundle->bundle_header().num_textures; ++i) {
+    for(i = 0; i < current_bundle->num_textures(); ++i) {
         // TODO: again the assumption is that texture IDs are contiguous from 1
         const auto& tx = textures.at(i + 1);
         writes.emplace_back(
@@ -448,7 +458,7 @@ void gpu_static_scene_data::texture_window_gui(bool* open, std::shared_ptr<asset
                 ImGui::TableSetupColumn("Roughness");
                 ImGui::TableSetupColumn("Metallic");
                 ImGui::TableHeadersRow();
-                for(size_t i = 0; i < current_bundle->bundle_header().num_materials; ++i) {
+                for(size_t i = 0; i < current_bundle->num_materials(); ++i) {
                     const auto& m = current_bundle->material(i);
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
@@ -472,7 +482,7 @@ void gpu_static_scene_data::texture_window_gui(bool* open, std::shared_ptr<asset
         }
 
         if(ImGui::BeginTabItem("Geometry")) {
-            for(size_t gi = 0; gi < current_bundle->bundle_header().num_groups; ++gi) {
+            for(size_t gi = 0; gi < current_bundle->num_groups(); ++gi) {
                 auto name = std::string(current_bundle->string(current_bundle->group_name(gi)));
                 ImGui::PushID(gi);
                 if(ImGui::TreeNodeEx("#",

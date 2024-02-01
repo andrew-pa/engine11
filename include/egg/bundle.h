@@ -37,17 +37,25 @@ class asset_bundle {
 
     inline size_t gpu_data_size() const { return total_size - bundle_header().gpu_data_offset; }
 
+    inline size_t num_strings() const { return header->num_strings; }
     std::string_view                           string(string_id id) const;
+
+    inline size_t num_textures() const { return header->num_textures; }
     const asset_bundle_format::texture_header& texture(texture_id id) const;
     const asset_bundle_format::texture_header& texture_by_index(size_t i) const;
 
+    inline size_t num_environments() const { return header->num_environments; }
     const asset_bundle_format::environment_header& environment_by_index(size_t i) const;
 
+    inline size_t num_objects() const { return header->num_objects; }
     const glm::mat4&                            object_transform(object_id id) const;
     class object_mesh_iterator                  object_meshes(object_id id) const;
     string_id                                   object_name(object_id id) const;
+
+    inline size_t num_materials() const { return header->num_materials; }
     const asset_bundle_format::material_header& material(size_t index) const;
 
+    inline size_t num_groups() const { return header->num_groups; }
     string_id group_name(size_t group_index) const;
     class group_object_iterator group_objects(size_t group_index) const;
 };

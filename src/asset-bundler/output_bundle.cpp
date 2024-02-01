@@ -74,6 +74,14 @@ void output_bundle::write() {
            .num_total_vertices = vertices.size(),
            .num_total_indices  = indices.size(),
            .data_offset        = header_size};
+    std::cout << "creating a bundle with\n"
+        << "\t# strings = " << header->num_strings << "\n"
+        << "\t# textures = " << header->num_textures << "\n"
+        << "\t# materials = " << header->num_materials << "\n"
+        << "\t# meshes = " << header->num_meshes << "\n"
+        << "\t# objects = " << header->num_objects << "\n"
+        << "\t# groups = " << header->num_groups << "\n"
+        << "\t# environments = " << header->num_environments << "\n";
 
     byte* header_ptr = buffer + sizeof(asset_bundle_format::header);
     byte* data_ptr   = buffer + header_size;

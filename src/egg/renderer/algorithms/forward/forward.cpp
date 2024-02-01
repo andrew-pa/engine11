@@ -273,7 +273,7 @@ void forward_rendering_algorithm::create_framebuffers(abstract_frame_renderer* f
         depth_buffer_create_info.format,
         vk::ComponentMapping{},
         vk::ImageSubresourceRange{
-         vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil, 0, 1, 0, 1}
+         vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1}
     });
 
     framebuffers = fr->create_framebuffers(

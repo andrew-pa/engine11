@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
     auto* rndr = new renderer{window, world, argv[2]};
 
     auto bndl = std::make_shared<asset_bundle>(argv[1]);
+    std::cout << "# groups = " << bndl->num_groups() << " " << "# objects = " << bndl->num_objects() << "\n";
     rndr->start_resource_upload(bndl);
 
     auto* inp = new input_distributor(window, rndr, *world);

@@ -21,6 +21,15 @@ gpu_buffer::~gpu_buffer() {
     allocation = nullptr;
 }
 
+void gpu_buffer::set_debug_name(vk::Instance inst, vk::Device dev, std::string&& debug_name) {
+    this->debug_name = debug_name;
+    dev.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT {
+            vk::ObjectType::eBuffer,
+            (uint64_t)this->buf,
+            this->debug_name.value().c_str()
+    }, vk::DispatchLoaderDynamic(inst, vkGetInstanceProcAddr));
+}
+
 gpu_image::gpu_image(
     std::shared_ptr<gpu_allocator> allocator,
     const vk::ImageCreateInfo&     image_cfo,
@@ -34,16 +43,27 @@ gpu_image::gpu_image(
     if(res != vk::Result::eSuccess) throw vulkan_runtime_error("failed to allocate image", res);
 }
 
-void* gpu_image::cpu_mapped() const {
-    auto info = allocator->get_allocation_info(allocation);
-    return info.pMappedData;
-}
-
 gpu_image::~gpu_image() {
     allocator->destroy_image(img, allocation);
     img        = VK_NULL_HANDLE;
     allocation = nullptr;
 }
+
+void* gpu_image::cpu_mapped() const {
+    auto info = allocator->get_allocation_info(allocation);
+    return info.pMappedData;
+}
+
+void gpu_image::set_debug_name(vk::Instance inst, vk::Device dev, std::string&& debug_name) {
+    this->debug_name = debug_name;
+    dev.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT {
+            vk::ObjectType::eBuffer,
+            (uint64_t)this->img,
+            this->debug_name.value().c_str()
+    }, vk::DispatchLoaderDynamic(inst, vkGetInstanceProcAddr));
+}
+
+
 
 #include <vulkan/vulkan_format_traits.hpp>
 std::vector<vk::BufferImageCopy> copy_regions_for_linear_image2d(

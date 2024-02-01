@@ -2,6 +2,8 @@
 #include <iostream>
 #include <list>
 #include <memory>
+#include <optional>
+#include <string>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
@@ -37,6 +39,7 @@ class gpu_buffer {
     VkBuffer      buf;
     VmaAllocation allocation;
     void*         mapping;
+    std::optional<std::string> debug_name;
 
   public:
     gpu_buffer(
@@ -51,6 +54,8 @@ class gpu_buffer {
 
     inline vk::Buffer get() { return buf; }
 
+    void set_debug_name(vk::Instance inst, vk::Device dev, std::string&& debug_name);
+
     inline void* cpu_mapped() { return mapping; }
 };
 
@@ -58,6 +63,7 @@ class gpu_image {
     std::shared_ptr<gpu_allocator>  allocator;
     VkImage       img;
     VmaAllocation allocation;
+    std::optional<std::string> debug_name;
 
   public:
     gpu_image(
@@ -71,6 +77,8 @@ class gpu_image {
     gpu_image& operator=(const gpu_image&) = delete;
 
     inline vk::Image get() { return img; }
+
+    void set_debug_name(vk::Instance inst, vk::Device dev, std::string&& debug_name);
 
     void* cpu_mapped() const;
 };
