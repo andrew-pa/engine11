@@ -5,6 +5,7 @@
 #include <assimp/postprocess.h>
 #include <optional>
 #include <stb_image.h>
+#include <utility>
 
 class importer {
     Assimp::Importer                                            aimp;
@@ -20,9 +21,9 @@ class importer {
         return id;
     }
 
-    void      load_graph(const aiNode* node);
-    object_id load_object(const aiNode* node);
-    void      load_group(const aiNode* node);
+    void      load_graph(const aiNode* node, aiMesh** meshInfos);
+    std::pair<object_id, aabb> load_object(const aiNode* node, aiMesh** meshInfos);
+    void      load_group(const aiNode* node, aiMesh** meshInfos);
 
     void load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset);
 

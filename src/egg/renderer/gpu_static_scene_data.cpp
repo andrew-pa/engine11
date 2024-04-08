@@ -484,20 +484,29 @@ void gpu_static_scene_data::texture_window_gui(bool* open, std::shared_ptr<asset
         if(ImGui::BeginTabItem("Geometry")) {
             for(size_t gi = 0; gi < current_bundle->num_groups(); ++gi) {
                 auto name = std::string(current_bundle->string(current_bundle->group_name(gi)));
+                auto g_bounds = current_bundle->group_bounds(gi);
                 ImGui::PushID(gi);
                 if(ImGui::TreeNodeEx("#",
                             ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick,
-                            "%lu %s", gi, name.c_str())) {
+                            "%lu %s (%f,%f,%f):(%f,%f,%f)", gi, name.c_str(),
+                            g_bounds.min.x, g_bounds.min.y, g_bounds.min.z,
+                            g_bounds.max.x, g_bounds.max.y, g_bounds.max.z)) {
                     for(auto ob = current_bundle->group_objects(gi); ob.has_more(); ++ob) {
                         auto ob_id = *ob;
                         auto name = std::string(current_bundle->string(current_bundle->object_name(ob_id)));
-                        if(ImGui::TreeNode((void*)ob_id, "%u %s", ob_id, name.c_str())) {
+                        auto ob_bounds = current_bundle->object_bounds(ob_id);
+                        if(ImGui::TreeNode((void*)ob_id, "%u %s (%f,%f,%f):(%f,%f,%f)", ob_id, name.c_str(),
+                                    ob_bounds.min.x, ob_bounds.min.y, ob_bounds.min.z,
+                                    ob_bounds.max.x, ob_bounds.max.y, ob_bounds.max.z)) {
                             size_t id = 0;
                             for(auto m = current_bundle->object_meshes(ob_id); m.has_more(); ++m) {
                                 if(ImGui::TreeNodeEx((void*)id,
                                             ImGuiTreeNodeFlags_Leaf,
-                                            "mesh [V@%lx I@%lx:%lx M%lu]",
-                                            m->vertex_offset, m->index_offset, m->index_count, m->material_index))
+                                            "mesh [V@%lx I@%lx:%lx M%lu, (%f,%f,%f):(%f,%f,%f)]",
+                                            m->vertex_offset, m->index_offset, m->index_count, m->material_index,
+                                            m->bounds.min.x, m->bounds.min.y, m->bounds.min.z,
+                                            m->bounds.max.x, m->bounds.max.y, m->bounds.max.z
+                                            ))
                                     ImGui::TreePop();
                                 id++;
                             }

@@ -51,12 +51,14 @@ class asset_bundle {
     const glm::mat4&                            object_transform(object_id id) const;
     class object_mesh_iterator                  object_meshes(object_id id) const;
     string_id                                   object_name(object_id id) const;
+    const aabb&                                 object_bounds(object_id id) const;
 
     inline size_t num_materials() const { return header->num_materials; }
     const asset_bundle_format::material_header& material(size_t index) const;
 
     inline size_t num_groups() const { return header->num_groups; }
     string_id group_name(size_t group_index) const;
+    const aabb& group_bounds(size_t group_index) const;
     class group_object_iterator group_objects(size_t group_index) const;
 };
 

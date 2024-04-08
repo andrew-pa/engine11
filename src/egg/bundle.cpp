@@ -128,11 +128,17 @@ object_mesh_iterator asset_bundle::object_meshes(object_id id) const {
 
 string_id asset_bundle::object_name(object_id id) const { return objects[id].name; }
 
+const aabb& asset_bundle::object_bounds(object_id id) const {
+    return objects[id].bounds;
+}
+
 const asset_bundle_format::material_header& asset_bundle::material(size_t index) const {
     return materials[index];
 }
 
 string_id asset_bundle::group_name(size_t group_index) const { return groups[group_index].name; }
+
+const aabb& asset_bundle::group_bounds(size_t group_index) const { return groups[group_index].bounds; }
 
 group_object_iterator asset_bundle::group_objects(size_t group_index) const {
     return group_object_iterator{

@@ -1,6 +1,9 @@
 #include "asset-bundler/importer.h"
+#include "asset-bundler/format.h"
 #include "asset-bundler/texture_processor.h"
 #include "fs-shim.h"
+#include "glm/common.hpp"
+#include <limits>
 
 const std::unordered_set<std::string> texture_exts = {".png", ".jpg", ".bmp"};
 const std::unordered_set<std::string> environment_exts = {".hdr"};
@@ -20,6 +23,23 @@ importer::importer(output_bundle& out, const std::vector<std::filesystem::path>&
 }
 
 glm::vec3 from_a(const aiVector3D& a) { return {a.x, a.y, a.z}; }
+
+mat4 from_a(const aiMatrix4x4& t) {
+    // assimp uses row major matrices but GLSL/the engine is column major
+    return {
+        vec4(t.a1, t.b1, t.c1, t.d1),
+        vec4(t.a2, t.b2, t.c2, t.d2),
+        vec4(t.a3, t.b3, t.c3, t.d3),
+        vec4(t.a4, t.b4, t.c4, t.d4)
+    };
+}
+
+inline aabb aabb_from_ai(const aiAABB& bb) {
+    return aabb {
+        .min = from_a(bb.mMin),
+        .max = from_a(bb.mMax),
+    };
+}
 
 void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset) {
     std::cout << "\t\t " << m->mName.C_Str() << " ("
@@ -45,45 +65,67 @@ void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index
         .vertex_offset  = vertex_offset,
         .index_offset   = index_offset,
         .index_count    = index_count,
-        .material_index = m->mMaterialIndex + mat_index_offset});
+        .material_index = m->mMaterialIndex + mat_index_offset,
+        .bounds = aabb_from_ai(m->mAABB)
+    });
 }
 
 // only support two levels: groups and objects? makes scene graphs simpler but ECS probably won't be
 // a scene graph itself????
-void importer::load_graph(const aiNode* node) {
+void importer::load_graph(const aiNode* node, aiMesh**const meshInfos) {
     for(size_t i = 0; i < node->mNumChildren; ++i) {
         auto* c = node->mChildren[i];
         if(c->mNumMeshes > 0 && c->mNumChildren == 0)
-            load_object(c);
+            load_object(c, meshInfos);
         else
-            load_group(c);
+            load_group(c, meshInfos);
     }
 }
 
-void importer::load_group(const aiNode* node) {
+void importer::load_group(const aiNode* node, aiMesh**const meshInfos) {
     std::cout << "\t\t\t group: " << node->mName.C_Str() << "\n";
     std::vector<object_id> members;
     members.reserve(node->mNumChildren);
+    aabb bounds{vec3(std::numeric_limits<float>::max()), vec3(std::numeric_limits<float>::min()) };
     for(size_t i = 0; i < node->mNumChildren; ++i) {
         auto* c = node->mChildren[i];
-        if(c->mNumMeshes > 0 && c->mNumChildren == 0)
-            members.emplace_back(load_object(c));
-        else
+        if(c->mNumMeshes > 0 && c->mNumChildren == 0) {
+            auto[id, bb] = load_object(c, meshInfos);
+            bounds.extend(bb);
+            members.emplace_back(id);
+        } else {
             std::cout << "\t\t\t\t invalid subgroup " << c->mNumChildren << "\n";
+        }
     }
-    out.add_group({out.add_string(node->mName.C_Str()), members});
+    out.add_group(group_info{
+            .name = out.add_string(node->mName.C_Str()),
+            .objects = members,
+            .bounds = bounds
+        });
 }
 
-object_id importer::load_object(const aiNode* node) {
+std::pair<object_id, aabb> importer::load_object(const aiNode* node, aiMesh**const meshInfos) {
     std::cout << "\t\t\t\t object: " << node->mName.C_Str() << " " << node->mNumMeshes
               << " meshes \n";
     // if(!node->mTransformation.IsIdentity()) std::cout << "\t\t\t\t\t transform != identity\n";
     std::vector<uint32_t> meshes;
     meshes.reserve(node->mNumMeshes);
-    for(size_t i = 0; i < node->mNumMeshes; ++i)
+    vec3 bound_min = vec3(std::numeric_limits<float>::max()), bound_max = vec3(std::numeric_limits<float>::min());
+    for(size_t i = 0; i < node->mNumMeshes; ++i) {
         // !!! Assume that we load meshes after we load the graph
         meshes.emplace_back(node->mMeshes[i] + out.num_meshes());
-    return out.add_object({out.add_string(node->mName.C_Str()), meshes, node->mTransformation});
+        const auto& b = meshInfos[node->mMeshes[i]]->mAABB;
+        bound_min = glm::min(bound_min, from_a(b.mMin));
+        bound_max = glm::max(bound_max, from_a(b.mMax));
+    }
+    aabb bounds{bound_min, bound_max};
+    mat4 t = from_a(node->mTransformation);
+    return {out.add_object(object_info {
+            .name = out.add_string(node->mName.C_Str()),
+            .mesh_indices = meshes,
+            .transform = t,
+            .bounds = bounds
+    }), bounds.transformed(t)};
 }
 
 path path_from_assimp(const aiString& tpath) {
@@ -98,11 +140,11 @@ void importer::load_model(const path& ip) {
     // TODO: why does aiProcessPreset_TargetRealtime_MaxQuality seg fault because it doesn't
     // generate tangents??
     const aiScene* scene
-        = aimp.ReadFile(path_to_string(ip), aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs);
+        = aimp.ReadFile(path_to_string(ip), aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes);
     std::cout << "\t\t" << scene->mNumMeshes << " meshes, " << scene->mNumMaterials
               << " materials\n";
 
-    load_graph(scene->mRootNode);
+    load_graph(scene->mRootNode, scene->mMeshes);
 
     size_t start_mat_index = out.num_materials();
     for(size_t i = 0; i < scene->mNumMeshes; ++i)

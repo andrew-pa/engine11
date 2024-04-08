@@ -104,9 +104,11 @@ inline vk::Format format_from_channels(int nchannels) {
 // };
 
 // TODO these are duplicate of mesh_header and material_header
-struct mesh_info {
+/*struct mesh_info {
     size_t vertex_offset, index_offset, index_count, material_index;
-};
+    aabb bounds;
+};*/
+using mesh_info = asset_bundle_format::mesh_header;
 
 struct material_info {
     string_id  name;
@@ -133,12 +135,14 @@ struct material_info {
 struct object_info {
     string_id             name;
     std::vector<uint32_t> mesh_indices;
-    aiMatrix4x4           transform;
+    mat4           transform;
+    aabb bounds;
 };
 
 struct group_info {
     string_id              name;
     std::vector<object_id> objects;
+    aabb bounds;
 };
 
 struct options {

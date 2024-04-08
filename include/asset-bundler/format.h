@@ -55,8 +55,10 @@ struct environment_header {
     size_t diffuse_irradiance_offset;
 };
 
+
 struct mesh_header {
     size_t vertex_offset, index_offset, index_count, material_index;
+    aabb bounds;
 };
 
 struct material_header {
@@ -73,11 +75,13 @@ struct object_header {
     uint32_t  num_meshes;
     size_t    offset;
     glm::mat4 transform_matrix;
+    aabb bounds;
 };
 
 struct group_header {
     string_id name;
     uint32_t  num_objects;
     size_t    offset;
+    aabb bounds;
 };
 };  // namespace asset_bundle_format
