@@ -19,12 +19,11 @@ vec3 compute_cart_coords_from_texel_index(uvec3 i) {
 }
 
 vec2 compute_spherical_coords_from_texel_index(uvec3 i) {
-    vec3 v = compute_cart_coords_from_texel_index(i);
+    vec3 v  = compute_cart_coords_from_texel_index(i);
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
-    uv *= vec2(0.1591, 0.3183); // (1 / 2π, 1 / π)
+    uv *= vec2(0.1591, 0.3183);  // (1 / 2π, 1 / π)
     uv += 0.5;
     return uv;
 }
 
 #define PI 3.14159265359
-

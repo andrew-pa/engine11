@@ -14,10 +14,12 @@
 using std::filesystem::path;
 
 struct image_info {
-    uint32_t width, height, mip_levels, array_layers;
+    uint32_t   width, height, mip_levels, array_layers;
     vk::Format format;
 
-    inline vk::ImageCreateInfo vulkan_create_info(vk::ImageUsageFlags usage, vk::ImageCreateFlags flags = {}) const {
+    inline vk::ImageCreateInfo vulkan_create_info(
+        vk::ImageUsageFlags usage, vk::ImageCreateFlags flags = {}
+    ) const {
         return vk::ImageCreateInfo{
             flags,
             vk::ImageType::e2D,
@@ -31,43 +33,43 @@ struct image_info {
         };
     }
 
-    inline vk::ImageViewCreateInfo vulkan_full_image_view(vk::Image img, vk::ImageViewType type) const {
-        return vk::ImageViewCreateInfo {
+    inline vk::ImageViewCreateInfo vulkan_full_image_view(vk::Image img, vk::ImageViewType type)
+        const {
+        return vk::ImageViewCreateInfo{
             {},
             img,
             type,
             format,
             vk::ComponentMapping{},
-            vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, mip_levels, 0, array_layers}
+            vk::ImageSubresourceRange{
+             vk::ImageAspectFlagBits::eColor, 0, mip_levels, 0, array_layers
+            }
         };
     }
 
     inline asset_bundle_format::image as_image() const {
         return asset_bundle_format::image{
-            .width = width,
-            .height = height,
-            .mip_levels = mip_levels,
+            .width        = width,
+            .height       = height,
+            .mip_levels   = mip_levels,
             .array_layers = array_layers,
-            .format = (VkFormat)format
+            .format       = (VkFormat)format
         };
     }
 };
 
 struct texture_info {
-    texture_info(
-        string_id  name,
-        uint32_t   width,
-        uint32_t   height,
-        vk::Format format,
-        stbi_uc*   data
-    )
-        : name(name), img{ .width = width, .height = height, .mip_levels = 0, .array_layers = 1, .format = format }, data(data){}
+    texture_info(string_id name, uint32_t width, uint32_t height, vk::Format format, stbi_uc* data)
+        : name(name),
+          img{.width = width, .height = height, .mip_levels = 0, .array_layers = 1, .format = format
+          },
+          data(data) {}
 
     string_id  name;
     image_info img;
     // TODO: we can remove this since now it is on the GPU
-    stbi_uc*   data;
-    size_t     len;
+    stbi_uc* data;
+    size_t   len;
 };
 
 struct environment_info {
@@ -78,7 +80,7 @@ struct environment_info {
     image_info skybox;
     // diffuse irradiance cubemap
     image_info diffuse_irradiance;
-    size_t diffuse_irradiance_offset;
+    size_t     diffuse_irradiance_offset;
 
     // total length of all data
     size_t len;
@@ -135,14 +137,14 @@ struct material_info {
 struct object_info {
     string_id             name;
     std::vector<uint32_t> mesh_indices;
-    mat4           transform;
-    aabb bounds;
+    mat4                  transform;
+    aabb                  bounds;
 };
 
 struct group_info {
     string_id              name;
     std::vector<object_id> objects;
-    aabb bounds;
+    aabb                   bounds;
 };
 
 struct options {

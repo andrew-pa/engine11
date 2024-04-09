@@ -5,17 +5,18 @@
 #include "glm/common.hpp"
 #include <limits>
 
-const std::unordered_set<std::string> texture_exts = {".png", ".jpg", ".bmp"};
+const std::unordered_set<std::string> texture_exts     = {".png", ".jpg", ".bmp"};
 const std::unordered_set<std::string> environment_exts = {".hdr"};
 
-importer::importer(output_bundle& out, const std::vector<std::filesystem::path>& input_paths) : out(out) {
+importer::importer(output_bundle& out, const std::vector<std::filesystem::path>& input_paths)
+    : out(out) {
     for(const auto& input : input_paths) {
         auto ext = path_to_string(input.extension());
-        if (aimp.IsExtensionSupported(ext.c_str()))
+        if(aimp.IsExtensionSupported(ext.c_str()))
             models.emplace_back(input);
-        else if (texture_exts.find(ext) != texture_exts.end())
+        else if(texture_exts.find(ext) != texture_exts.end())
             add_texture_path(input);
-        else if (environment_exts.find(ext) != environment_exts.end())
+        else if(environment_exts.find(ext) != environment_exts.end())
             environments.emplace_back(input);
         else
             std::cout << "unknown file type: " << input.extension() << "\n";
@@ -35,7 +36,7 @@ mat4 from_a(const aiMatrix4x4& t) {
 }
 
 inline aabb aabb_from_ai(const aiAABB& bb) {
-    return aabb {
+    return aabb{
         .min = from_a(bb.mMin),
         .max = from_a(bb.mMax),
     };
@@ -52,7 +53,8 @@ void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index
             .position  = from_a(m->mVertices[i]),
             .normal    = from_a(m->mNormals[i]),
             .tangent   = from_a(m->mTangents[i]),
-            .tex_coord = glm::vec2(m->mTextureCoords[0][i].x, m->mTextureCoords[0][i].y)});
+            .tex_coord = glm::vec2(m->mTextureCoords[0][i].x, m->mTextureCoords[0][i].y)
+        });
     }
     auto   index_count  = m->mNumFaces * 3;
     size_t index_offset = out.start_index_gather(index_count);
@@ -66,13 +68,13 @@ void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index
         .index_offset   = index_offset,
         .index_count    = index_count,
         .material_index = m->mMaterialIndex + mat_index_offset,
-        .bounds = aabb_from_ai(m->mAABB)
+        .bounds         = aabb_from_ai(m->mAABB)
     });
 }
 
 // only support two levels: groups and objects? makes scene graphs simpler but ECS probably won't be
 // a scene graph itself????
-void importer::load_graph(const aiNode* node, aiMesh**const meshInfos) {
+void importer::load_graph(const aiNode* node, aiMesh** const meshInfos) {
     for(size_t i = 0; i < node->mNumChildren; ++i) {
         auto* c = node->mChildren[i];
         if(c->mNumMeshes > 0 && c->mNumChildren == 0)
@@ -82,15 +84,15 @@ void importer::load_graph(const aiNode* node, aiMesh**const meshInfos) {
     }
 }
 
-void importer::load_group(const aiNode* node, aiMesh**const meshInfos) {
+void importer::load_group(const aiNode* node, aiMesh** const meshInfos) {
     std::cout << "\t\t\t group: " << node->mName.C_Str() << "\n";
     std::vector<object_id> members;
     members.reserve(node->mNumChildren);
-    aabb bounds{vec3(std::numeric_limits<float>::max()), vec3(std::numeric_limits<float>::min()) };
+    aabb bounds{vec3(std::numeric_limits<float>::max()), vec3(std::numeric_limits<float>::min())};
     for(size_t i = 0; i < node->mNumChildren; ++i) {
         auto* c = node->mChildren[i];
         if(c->mNumMeshes > 0 && c->mNumChildren == 0) {
-            auto[id, bb] = load_object(c, meshInfos);
+            auto [id, bb] = load_object(c, meshInfos);
             bounds.extend(bb);
             members.emplace_back(id);
         } else {
@@ -98,34 +100,36 @@ void importer::load_group(const aiNode* node, aiMesh**const meshInfos) {
         }
     }
     out.add_group(group_info{
-            .name = out.add_string(node->mName.C_Str()),
-            .objects = members,
-            .bounds = bounds
-        });
+        .name = out.add_string(node->mName.C_Str()), .objects = members, .bounds = bounds
+    });
 }
 
-std::pair<object_id, aabb> importer::load_object(const aiNode* node, aiMesh**const meshInfos) {
+std::pair<object_id, aabb> importer::load_object(const aiNode* node, aiMesh** const meshInfos) {
     std::cout << "\t\t\t\t object: " << node->mName.C_Str() << " " << node->mNumMeshes
               << " meshes \n";
     // if(!node->mTransformation.IsIdentity()) std::cout << "\t\t\t\t\t transform != identity\n";
     std::vector<uint32_t> meshes;
     meshes.reserve(node->mNumMeshes);
-    vec3 bound_min = vec3(std::numeric_limits<float>::max()), bound_max = vec3(std::numeric_limits<float>::min());
+    vec3 bound_min = vec3(std::numeric_limits<float>::max()),
+         bound_max = vec3(std::numeric_limits<float>::min());
     for(size_t i = 0; i < node->mNumMeshes; ++i) {
         // !!! Assume that we load meshes after we load the graph
         meshes.emplace_back(node->mMeshes[i] + out.num_meshes());
         const auto& b = meshInfos[node->mMeshes[i]]->mAABB;
-        bound_min = glm::min(bound_min, from_a(b.mMin));
-        bound_max = glm::max(bound_max, from_a(b.mMax));
+        bound_min     = glm::min(bound_min, from_a(b.mMin));
+        bound_max     = glm::max(bound_max, from_a(b.mMax));
     }
     aabb bounds{bound_min, bound_max};
     mat4 t = from_a(node->mTransformation);
-    return {out.add_object(object_info {
-            .name = out.add_string(node->mName.C_Str()),
+    return {
+        out.add_object(object_info{
+            .name         = out.add_string(node->mName.C_Str()),
             .mesh_indices = meshes,
-            .transform = t,
-            .bounds = bounds
-    }), bounds.transformed(t)};
+            .transform    = t,
+            .bounds       = bounds
+        }),
+        bounds.transformed(t)
+    };
 }
 
 path path_from_assimp(const aiString& tpath) {
@@ -139,8 +143,10 @@ void importer::load_model(const path& ip) {
     std::cout << "\t" << ip << "\n";
     // TODO: why does aiProcessPreset_TargetRealtime_MaxQuality seg fault because it doesn't
     // generate tangents??
-    const aiScene* scene
-        = aimp.ReadFile(path_to_string(ip), aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes);
+    const aiScene* scene = aimp.ReadFile(
+        path_to_string(ip),
+        aiProcessPreset_TargetRealtime_Fast | aiProcess_FlipUVs | aiProcess_GenBoundingBoxes
+    );
     std::cout << "\t\t" << scene->mNumMeshes << " meshes, " << scene->mNumMaterials
               << " materials\n";
 
@@ -203,7 +209,9 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
     const auto& [main_texture_path, opacity_texture_path] = ip;
     std::cout << "\t" << main_texture_path << " (" << id << ") \n";
     int   width, height, channels;
-    auto* data = stbi_load(path_to_string(main_texture_path).c_str(), &width, &height, &channels, STBI_default);
+    auto* data = stbi_load(
+        path_to_string(main_texture_path).c_str(), &width, &height, &channels, STBI_default
+    );
     if(data == nullptr) {
         std::cout << "\t\tfailed to load texture " << main_texture_path << ": "
                   << stbi_failure_reason() << "\n";
@@ -216,8 +224,9 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
                       << ") for texture with " << channels << " channels, which is unsupported\n";
         }
         int ax, ay;
-        opacity_data
-            = stbi_load(path_to_string(opacity_texture_path.value()).c_str(), &ax, &ay, nullptr, STBI_grey);
+        opacity_data = stbi_load(
+            path_to_string(opacity_texture_path.value()).c_str(), &ax, &ay, nullptr, STBI_grey
+        );
         if(opacity_data == nullptr) {
             std::cout << "\t\tfailed to load texture " << opacity_texture_path.value() << ": "
                       << stbi_failure_reason() << "\n";
@@ -247,16 +256,18 @@ void importer::load_texture(texture_id id, const std::tuple<path, std::optional<
         channels = 4;
     }
     // TODO: possibly we could also apply compression with stb_dxt and save more VRAM
-    out.add_texture(id, path_to_string(main_texture_path.filename()), width, height, channels, data);
+    out.add_texture(
+        id, path_to_string(main_texture_path.filename()), width, height, channels, data
+    );
 }
 
 void importer::load_env(const path& ip) {
     std::cout << "\t" << ip << "\n";
-    int width, height, channels;
+    int   width, height, channels;
     auto* data = stbi_loadf(path_to_string(ip).c_str(), &width, &height, &channels, STBI_rgb_alpha);
     if(data == nullptr) {
-        std::cout << "\t\tfailed to load environment map " << ip << ": "
-                  << stbi_failure_reason() << "\n";
+        std::cout << "\t\tfailed to load environment map " << ip << ": " << stbi_failure_reason()
+                  << "\n";
         return;
     }
     out.add_environment(path_to_string(ip.filename()), width, height, 4, data);
@@ -272,6 +283,6 @@ void importer::load() {
         load_texture(id, ip);
 
     std::cout << "loading environments:\n";
-    for (const auto& ip : environments)
+    for(const auto& ip : environments)
         load_env(ip);
 }

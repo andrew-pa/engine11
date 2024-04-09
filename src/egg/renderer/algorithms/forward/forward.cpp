@@ -1,34 +1,41 @@
 #include "egg/renderer/algorithms/forward.h"
+#include "asset-bundler/format.h"
 #include "egg/renderer/memory.h"
 #include "error.h"
+#include <fs-shim.h>
 #include <fstream>
 #include <iostream>
 #include <vulkan/vulkan_format_traits.hpp>
-#include <fs-shim.h>
-#include "asset-bundler/format.h"
 
-#define arraysize(A) (sizeof(A)/sizeof(A[0]))
+#define arraysize(A) (sizeof(A) / sizeof(A[0]))
 
 const uint32_t vertex_shader_bytecode[] = {
 #include "forward.vert.num"
 };
-const vk::ShaderModuleCreateInfo vertex_shader_create_info{ {}, sizeof(vertex_shader_bytecode), vertex_shader_bytecode };
+const vk::ShaderModuleCreateInfo vertex_shader_create_info{
+    {}, sizeof(vertex_shader_bytecode), vertex_shader_bytecode
+};
 
 const uint32_t fragment_shader_bytecode[] = {
 #include "forward.frag.num"
 };
-const vk::ShaderModuleCreateInfo fragment_shader_create_info{ {}, sizeof(fragment_shader_bytecode), fragment_shader_bytecode };
+const vk::ShaderModuleCreateInfo fragment_shader_create_info{
+    {}, sizeof(fragment_shader_bytecode), fragment_shader_bytecode
+};
 
 const uint32_t skybox_vertex_shader_bytecode[] = {
 #include "skybox.vert.num"
 };
-const vk::ShaderModuleCreateInfo skybox_vertex_shader_create_info{ {}, sizeof(skybox_vertex_shader_bytecode), skybox_vertex_shader_bytecode };
+const vk::ShaderModuleCreateInfo skybox_vertex_shader_create_info{
+    {}, sizeof(skybox_vertex_shader_bytecode), skybox_vertex_shader_bytecode
+};
 
 const uint32_t skybox_fragment_shader_bytecode[] = {
 #include "skybox.frag.num"
 };
-const vk::ShaderModuleCreateInfo skybox_fragment_shader_create_info{ {}, sizeof(skybox_fragment_shader_bytecode), skybox_fragment_shader_bytecode };
-
+const vk::ShaderModuleCreateInfo skybox_fragment_shader_create_info{
+    {}, sizeof(skybox_fragment_shader_bytecode), skybox_fragment_shader_bytecode
+};
 
 void forward_rendering_algorithm::init_with_device(
     vk::Device                            device,
@@ -51,7 +58,8 @@ void forward_rendering_algorithm::init_with_device(
         vk::SharingMode::eExclusive,
         {},
         {},
-        vk::ImageLayout::eUndefined};
+        vk::ImageLayout::eUndefined
+    };
 
     for(auto fmt : supported_depth_formats) {
         // select any 24bit format or any 32bit format w/o stencil
@@ -82,7 +90,8 @@ void forward_rendering_algorithm::create_static_objects(
                                   vk::AttachmentLoadOp::eDontCare,
                                   vk::AttachmentStoreOp::eDontCare,
                                   vk::ImageLayout::eUndefined,
-                                  vk::ImageLayout::eDepthStencilAttachmentOptimal}
+                                  vk::ImageLayout::eDepthStencilAttachmentOptimal
+        }
     };
 
     vk::AttachmentReference refs[]{
@@ -97,7 +106,8 @@ void forward_rendering_algorithm::create_static_objects(
                                vk::PipelineBindPoint::eGraphics,
                                0, nullptr,
                                1, refs,
-                               nullptr, &refs[1]}
+                               nullptr, &refs[1]
+        }
     };
 
     // !!! Helpful:
@@ -116,8 +126,9 @@ void forward_rendering_algorithm::create_static_objects(
              | vk::AccessFlagBits::eDepthStencilAttachmentWrite}
     };
 
-    render_pass = device.createRenderPassUnique(vk::RenderPassCreateInfo{
-        {}, 2, attachments, 1, subpasses, 2, depds});
+    render_pass = device.createRenderPassUnique(
+        vk::RenderPassCreateInfo{{}, 2, attachments, 1, subpasses, 2, depds}
+    );
 
     clear_values = {
         vk::ClearColorValue{std::array<float, 4>{0.f, 0.0f, 0.0f, 1.f}},
@@ -125,7 +136,8 @@ void forward_rendering_algorithm::create_static_objects(
     };
 
     render_pass_begin_info = vk::RenderPassBeginInfo{
-        render_pass.get(), VK_NULL_HANDLE, {}, (uint32_t)clear_values.size(), clear_values.data()};
+        render_pass.get(), VK_NULL_HANDLE, {}, (uint32_t)clear_values.size(), clear_values.data()
+    };
 
     cmd_buf_inherit_info = vk::CommandBufferInheritanceInfo{render_pass.get(), 0, VK_NULL_HANDLE};
 }
@@ -135,16 +147,14 @@ void forward_rendering_algorithm::create_pipeline_layouts(
     vk::PushConstantRange   per_object_push_constants_range
 ) {
     pipeline_layout = device.createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo{
-        {}, 1, &scene_data_desc_set_layout, 1, &per_object_push_constants_range});
+        {}, 1, &scene_data_desc_set_layout, 1, &per_object_push_constants_range
+    });
 }
 
 void forward_rendering_algorithm::create_pipelines() {
-    if (!vertex_shader) {
-        vertex_shader = device.createShaderModuleUnique(vertex_shader_create_info);
-    }
-    if (!fragment_shader) {
+    if(!vertex_shader) vertex_shader = device.createShaderModuleUnique(vertex_shader_create_info);
+    if(!fragment_shader)
         fragment_shader = device.createShaderModuleUnique(fragment_shader_create_info);
-    }
 
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         {{}, vk::ShaderStageFlagBits::eVertex,   vertex_shader.get(),   "main"},
@@ -154,7 +164,8 @@ void forward_rendering_algorithm::create_pipelines() {
     auto vertex_binding
         = vk::VertexInputBindingDescription{0, sizeof(vertex), vk::VertexInputRate::eVertex};
     auto vertex_input_info = vk::PipelineVertexInputStateCreateInfo{
-        {}, 1, &vertex_binding, 4, vertex_attribute_description};
+        {}, 1, &vertex_binding, 4, vertex_attribute_description
+    };
 
     auto input_assembly
         = vk::PipelineInputAssemblyStateCreateInfo{{}, vk::PrimitiveTopology::eTriangleList};
@@ -172,12 +183,14 @@ void forward_rendering_algorithm::create_pipelines() {
         0.f,
         0.f,
         0.f,
-        1.f};
+        1.f
+    };
 
     auto multisample_state = vk::PipelineMultisampleStateCreateInfo{};
 
     auto depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo{
-        {}, VK_TRUE, VK_TRUE, vk::CompareOp::eLess, VK_FALSE, VK_FALSE};
+        {}, VK_TRUE, VK_TRUE, vk::CompareOp::eLess, VK_FALSE, VK_FALSE
+    };
 
     // TODO: so inelegant
     vk::PipelineColorBlendAttachmentState color_blend_att[] = {{}};
@@ -185,7 +198,8 @@ void forward_rendering_algorithm::create_pipelines() {
         i.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
                            | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
     auto color_blending_state = vk::PipelineColorBlendStateCreateInfo{
-        {}, VK_FALSE, vk::LogicOp::eCopy, 1, color_blend_att};
+        {}, VK_FALSE, vk::LogicOp::eCopy, 1, color_blend_att
+    };
 
     vk::DynamicState dynamic_states[]{vk::DynamicState::eViewport, vk::DynamicState::eScissor};
     auto             dynamic_state = vk::PipelineDynamicStateCreateInfo{{}, 2, dynamic_states};
@@ -207,18 +221,17 @@ void forward_rendering_algorithm::create_pipelines() {
             &dynamic_state,
             pipeline_layout.get(),
             render_pass.get(),
-            0}
+            0
+        }
     );
     if(res.result != vk::Result::eSuccess)
         throw vulkan_runtime_error("failed to create pipeline", res.result);
     pipeline = std::move(res.value);
 
-    if (!sky_vertex_shader) {
+    if(!sky_vertex_shader)
         sky_vertex_shader = device.createShaderModuleUnique(skybox_vertex_shader_create_info);
-    }
-    if (!sky_fragment_shader) {
+    if(!sky_fragment_shader)
         sky_fragment_shader = device.createShaderModuleUnique(skybox_fragment_shader_create_info);
-    }
 
     vk::PipelineShaderStageCreateInfo sky_shader_stages[] = {
         {{}, vk::ShaderStageFlagBits::eVertex,   sky_vertex_shader.get(),   "main"},
@@ -228,10 +241,11 @@ void forward_rendering_algorithm::create_pipelines() {
     auto sky_vertex_binding
         = vk::VertexInputBindingDescription{0, sizeof(vec3), vk::VertexInputRate::eVertex};
     const vk::VertexInputAttributeDescription sky_vertex_attrib_desc[] = {
-        {0, 0, vk::Format::eR32G32B32Sfloat, 0 },
+        {0, 0, vk::Format::eR32G32B32Sfloat, 0},
     };
     auto sky_vertex_input_info = vk::PipelineVertexInputStateCreateInfo{
-        {}, 1, &sky_vertex_binding, 1, sky_vertex_attrib_desc};
+        {}, 1, &sky_vertex_binding, 1, sky_vertex_attrib_desc
+    };
 
     depth_stencil_state.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
     rasterizer_state.setCullMode(vk::CullModeFlagBits::eFront);
@@ -253,7 +267,8 @@ void forward_rendering_algorithm::create_pipelines() {
             &dynamic_state,
             pipeline_layout.get(),
             render_pass.get(),
-            0}
+            0
+        }
     );
     if(res.result != vk::Result::eSuccess)
         throw vulkan_runtime_error("failed to create pipeline", res.result);
@@ -272,8 +287,7 @@ void forward_rendering_algorithm::create_framebuffers(abstract_frame_renderer* f
         vk::ImageViewType::e2D,
         depth_buffer_create_info.format,
         vk::ComponentMapping{},
-        vk::ImageSubresourceRange{
-         vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1}
+        vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1}
     });
 
     framebuffers = fr->create_framebuffers(

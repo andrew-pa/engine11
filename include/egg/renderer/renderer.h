@@ -4,13 +4,12 @@
 #include <unordered_set>
 #define GLFW_INCLUDE_VULKAN
 #include "egg/bundle.h"
+#include "egg/renderer/memory.h"
+#include "egg/renderer/renderer_shared.h"
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <memory>
-#include "egg/renderer/memory.h"
 #include <vulkan/vulkan.hpp>
-
-#include "egg/renderer/renderer_shared.h"
 
 /*
  * responsibilities:
@@ -28,12 +27,12 @@ class renderer {
     vk::SurfaceFormatKHR surface_format;
     uint32_t             surface_image_count;
 
-    vk::UniqueDevice   dev;
-    vk::PhysicalDevice phy_dev;
-    uint32_t           graphics_queue_family_index, present_queue_family_index;
-    vk::Queue          graphics_queue, present_queue;
+    vk::UniqueDevice               dev;
+    vk::PhysicalDevice             phy_dev;
+    uint32_t                       graphics_queue_family_index, present_queue_family_index;
+    vk::Queue                      graphics_queue, present_queue;
     std::shared_ptr<gpu_allocator> allocator;
-    void               init_device(vk::Instance instance);
+    void                           init_device(vk::Instance instance);
 
     vk::UniqueCommandPool command_pool;
 
@@ -48,9 +47,9 @@ class renderer {
 
   public:
     renderer(
-        GLFWwindow*                          window,
-        std::shared_ptr<flecs::world>        world,
-        const std::filesystem::path& rendering_algorithm_library_path
+        GLFWwindow*                   window,
+        std::shared_ptr<flecs::world> world,
+        const std::filesystem::path&  rendering_algorithm_library_path
     );
 
     void start_resource_upload(const std::shared_ptr<asset_bundle>& assets);
@@ -61,12 +60,14 @@ class renderer {
     void render_frame();
 
     inline vk::Instance vulkan_instance() const { return instance.get(); }
+
     inline vk::Device device() const { return dev.get(); }
+
     inline std::shared_ptr<gpu_allocator> gpu_alloc() const { return allocator; }
 
     inline abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
 
-    renderer(renderer&) = delete;
+    renderer(renderer&)            = delete;
     renderer& operator=(renderer&) = delete;
 
     ~renderer();

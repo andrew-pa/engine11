@@ -27,11 +27,13 @@ class output_bundle {
     void                      copy_meshes(byte*& header_ptr) const;
     void                      copy_objects(byte*& header_ptr, byte*& data_ptr, byte* top) const;
     void                      copy_groups(byte*& header_ptr, byte*& data_ptr, byte* top) const;
-    void                      copy_environments(byte*& header_ptr, byte*& data_ptr, byte* top) const;
+    void copy_environments(byte*& header_ptr, byte*& data_ptr, byte* top) const;
 
     class texture_processor* tex_proc;
+
   public:
-    output_bundle(path output_path, class texture_processor* tp) : output_path(std::move(output_path)), tex_proc(tp) {}
+    output_bundle(path output_path, class texture_processor* tp)
+        : output_path(std::move(output_path)), tex_proc(tp) {}
 
     string_id add_string(const std::string& s) {
         auto id = next_string_id++;
@@ -42,12 +44,12 @@ class output_bundle {
     texture_id reserve_texture_id() { return next_texture_id++; }
 
     void add_texture(
-        texture_id  id,
+        texture_id         id,
         const std::string& name,
-        uint32_t    width,
-        uint32_t    height,
-        int         nchannels,
-        stbi_uc*    data
+        uint32_t           width,
+        uint32_t           height,
+        int                nchannels,
+        stbi_uc*           data
     );
 
     // returns the current vertex offset
@@ -82,7 +84,9 @@ class output_bundle {
 
     void add_group(group_info&& info) { groups.emplace_back(info); }
 
-    void add_environment(const std::string& name, uint32_t width, uint32_t height, int nchannels, float* data);
+    void add_environment(
+        const std::string& name, uint32_t width, uint32_t height, int nchannels, float* data
+    );
 
     void write();
 

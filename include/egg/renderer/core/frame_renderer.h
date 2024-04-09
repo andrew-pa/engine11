@@ -39,6 +39,7 @@ class frame_renderer : public abstract_frame_renderer {
     void  end_frame(frame&& frame);
 
     inline vk::Extent2D extent() const { return swapchain_extent; }
+
     vk::Extent2D get_current_extent() const override { return swapchain_extent; }
 
     inline float aspect_ratio() const {

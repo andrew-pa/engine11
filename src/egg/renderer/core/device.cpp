@@ -1,9 +1,9 @@
 #include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/renderer.h"
 #include "error.h"
+#include <egg/renderer/memory.h>
 #include <iostream>
 #include <unordered_set>
-#include <egg/renderer/memory.h>
 
 struct queue_family_indices {
     int graphics = -1;
@@ -58,11 +58,13 @@ void renderer::init_device(vk::Instance instance) {
     // create device create info
     VkPhysicalDeviceVulkan12Features v12_features{
         .sType                  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .runtimeDescriptorArray = VK_TRUE};
+        .runtimeDescriptorArray = VK_TRUE
+    };
     VkPhysicalDeviceVulkan11Features v11_features{
         .sType                 = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
         .pNext                 = &v12_features,
-        .storagePushConstant16 = VK_TRUE};
+        .storagePushConstant16 = VK_TRUE
+    };
     vk::PhysicalDeviceFeatures2 device_features{{}, &v11_features};
 
     const char* layer_names[] = {
@@ -93,12 +95,13 @@ void renderer::init_device(vk::Instance instance) {
         1,
         extensions,
         nullptr,
-        &device_features});
+        &device_features
+    });
 
     VmaAllocatorCreateInfo cfo = {
         .physicalDevice = phy_dev,
-        .device = dev.get(),
-        .instance = instance,
+        .device         = dev.get(),
+        .instance       = instance,
     };
     allocator = create_allocator(cfo);
 

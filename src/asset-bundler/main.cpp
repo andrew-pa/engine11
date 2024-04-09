@@ -6,7 +6,8 @@
 /* asset-bundler:
  *  content pipeline & bundling utility
  *  roles:
- *      - load assets (3D models [meshes, materials, textures by reference], textures, environment maps)
+ *      - load assets (3D models [meshes, materials, textures by reference], textures, environment
+ * maps)
  *      - transform assets into a format suitable for rendering pipeline
  *      - represent them in a uniform way
  *      - bundle them so they can be loaded quickly
@@ -19,24 +20,23 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    std::filesystem::path output_path;
+    std::filesystem::path              output_path;
     std::vector<std::filesystem::path> input_paths;
-    options opts;
+    options                            opts;
 
     for(int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if(arg == "--no-ibl-precomp") {
+        if(arg == "--no-ibl-precomp")
             opts.enable_ibl_precomputation = false;
-        } else if(output_path.empty()) {
+        else if(output_path.empty())
             output_path = arg;
-        } else {
+        else
             input_paths.emplace_back(arg);
-        }
     }
 
     texture_processor tex_proc{opts};
-    output_bundle out{output_path, &tex_proc};
-    importer      imp{out, input_paths};
+    output_bundle     out{output_path, &tex_proc};
+    importer          imp{out, input_paths};
     imp.load();
     out.write();
     return 0;

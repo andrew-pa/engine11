@@ -23,13 +23,11 @@ struct aabb {
     }
 
     aabb transformed(const mat4& t) const {
-        return aabb {
+        return aabb{
             .min = (t * vec4(this->min, 1.f)).xyz(),
             .max = (t * vec4(this->max, 1.f)).xyz(),
         };
     }
 
-    vec3 extents() const {
-        return (this->max - this->min) / 2.f;
-    }
+    vec3 extents() const { return (this->max - this->min) / 2.f; }
 };

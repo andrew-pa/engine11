@@ -11,7 +11,7 @@ class importer {
     Assimp::Importer                                            aimp;
     std::vector<path>                                           models;
     std::map<texture_id, std::tuple<path, std::optional<path>>> textures;
-    std::vector<path> environments;
+    std::vector<path>                                           environments;
 
     output_bundle& out;
 
@@ -21,9 +21,9 @@ class importer {
         return id;
     }
 
-    void      load_graph(const aiNode* node, aiMesh** meshInfos);
+    void                       load_graph(const aiNode* node, aiMesh** meshInfos);
     std::pair<object_id, aabb> load_object(const aiNode* node, aiMesh** meshInfos);
-    void      load_group(const aiNode* node, aiMesh** meshInfos);
+    void                       load_group(const aiNode* node, aiMesh** meshInfos);
 
     void load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset);
 
@@ -32,6 +32,7 @@ class importer {
     void load_texture(texture_id id, const std::tuple<path, std::optional<path>>& ip);
 
     void load_env(const path& ip);
+
   public:
     importer(output_bundle& out, const std::vector<std::filesystem::path>& input_paths);
 

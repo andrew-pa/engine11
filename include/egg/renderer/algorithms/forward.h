@@ -4,7 +4,7 @@
 #include <utility>
 
 class forward_rendering_algorithm : public rendering_algorithm {
-    vk::Device   device;
+    vk::Device                     device;
     std::shared_ptr<gpu_allocator> allocator;
 
     vk::UniqueRenderPass             render_pass;
@@ -22,8 +22,9 @@ class forward_rendering_algorithm : public rendering_algorithm {
     vk::UniquePipeline       pipeline;
     vk::UniqueShaderModule   vertex_shader, fragment_shader;
 
-    vk::UniquePipeline       sky_pipeline;
-    vk::UniqueShaderModule   sky_vertex_shader, sky_fragment_shader;
+    vk::UniquePipeline     sky_pipeline;
+    vk::UniqueShaderModule sky_vertex_shader, sky_fragment_shader;
+
   public:
     void init_with_device(
         vk::Device                            device,

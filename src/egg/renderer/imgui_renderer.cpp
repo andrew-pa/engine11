@@ -13,7 +13,8 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
         = {vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 256)};
 
     desc_pool = r->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{
-        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1024, 1, pool_sizes});
+        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1024, 1, pool_sizes
+    });
 
     image_sampler = r->dev->createSamplerUnique(vk::SamplerCreateInfo{
         {},
@@ -25,7 +26,8 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
         vk::SamplerAddressMode::eClampToEdge,
         0.f,
         VK_FALSE,
-        16.f});
+        16.f
+    });
 
     // create swapchain independent create info for render pass
     vk::AttachmentDescription attachments[]{
@@ -62,7 +64,8 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
 
     // create render pass
     render_pass       = r->dev->createRenderPassUnique(vk::RenderPassCreateInfo{
-        vk::RenderPassCreateFlags(), 1, attachments, 1, subpasses, 1, depds});
+        vk::RenderPassCreateFlags(), 1, attachments, 1, subpasses, 1, depds
+    });
     start_render_pass = vk::RenderPassBeginInfo{render_pass.get()};
 
     ImGui_ImplGlfw_InitForVulkan(window, false);

@@ -31,7 +31,8 @@ void frame_renderer::init_swapchain() {
         r->surface_format.colorSpace,
         swapchain_extent,
         1,
-        vk::ImageUsageFlagBits::eColorAttachment};
+        vk::ImageUsageFlagBits::eColorAttachment
+    };
 
     if(r->graphics_queue_family_index != r->present_queue_family_index) {
         cfo.imageSharingMode      = vk::SharingMode::eConcurrent;
@@ -42,16 +43,18 @@ void frame_renderer::init_swapchain() {
         cfo.imageSharingMode = vk::SharingMode::eExclusive;
     }
 
-    auto surface_caps  = r->phy_dev.getSurfaceCapabilitiesKHR(r->window_surface.get());
-    cfo.preTransform   = surface_caps.currentTransform;
-    std::unordered_set<vk::CompositeAlphaFlagBitsKHR> supported_alpha {
+    auto surface_caps = r->phy_dev.getSurfaceCapabilitiesKHR(r->window_surface.get());
+    cfo.preTransform  = surface_caps.currentTransform;
+    std::unordered_set<vk::CompositeAlphaFlagBitsKHR> supported_alpha{
         vk::CompositeAlphaFlagBitsKHR::eInherit,
         vk::CompositeAlphaFlagBitsKHR::eOpaque,
     };
-    std::cout << "surface supported composite alpha = " << vk::to_string(surface_caps.supportedCompositeAlpha) << "\n";
-    for (auto i = supported_alpha.begin(); i != supported_alpha.end();) {
-		if((*i & surface_caps.supportedCompositeAlpha) == vk::CompositeAlphaFlagBitsKHR{}) {
-            std::cout << vk::to_string(*i) << " " << vk::to_string(*i & surface_caps.supportedCompositeAlpha) << "\n";
+    std::cout << "surface supported composite alpha = "
+              << vk::to_string(surface_caps.supportedCompositeAlpha) << "\n";
+    for(auto i = supported_alpha.begin(); i != supported_alpha.end();) {
+        if((*i & surface_caps.supportedCompositeAlpha) == vk::CompositeAlphaFlagBitsKHR{}) {
+            std::cout << vk::to_string(*i) << " "
+                      << vk::to_string(*i & surface_caps.supportedCompositeAlpha) << "\n";
             i = supported_alpha.erase(i);
         } else {
             i++;
@@ -59,8 +62,8 @@ void frame_renderer::init_swapchain() {
     }
     cfo.compositeAlpha = *supported_alpha.begin();
     std::cout << "selecting compositeAlpha = " << vk::to_string(cfo.compositeAlpha) << "\n";
-    cfo.presentMode    = vk::PresentModeKHR::eFifo;
-    cfo.clipped        = VK_TRUE;
+    cfo.presentMode = vk::PresentModeKHR::eFifo;
+    cfo.clipped     = VK_TRUE;
 
     swapchain        = r->dev->createSwapchainKHRUnique(cfo);
     swapchain_images = r->dev->getSwapchainImagesKHR(swapchain.get());
@@ -85,7 +88,8 @@ void frame_renderer::init_swapchain() {
         command_buffers = r->dev->allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{
             r->command_pool.get(),
             vk::CommandBufferLevel::ePrimary,
-            (uint32_t)swapchain_images.size()});
+            (uint32_t)swapchain_images.size()
+        });
         command_buffer_ready_fences.clear();
         // command buffers always start ready
         vk::FenceCreateInfo fence_cfo{vk::FenceCreateFlagBits::eSignaled};
@@ -107,7 +111,8 @@ std::vector<vk::UniqueFramebuffer> frame_renderer::create_framebuffers(
         nullptr,
         swapchain_extent.width,
         swapchain_extent.height,
-        1};
+        1
+    };
     std::vector<vk::ImageView> att;
     for(size_t i = 0; i < swapchain_image_views.size(); ++i) {
         att.clear();
@@ -155,10 +160,12 @@ void frame_renderer::end_frame(frame&& frame) {
             1,
             &command_buffers[frame.frame_index].get(),
             1,
-            &render_finished.get()},
+            &render_finished.get()
+        },
         command_buffer_ready_fences[frame.frame_index].get()
     );
-    auto err = r->present_queue.presentKHR(vk::PresentInfoKHR{
-        1, &render_finished.get(), 1, &swapchain.get(), &frame.frame_index});
+    auto err = r->present_queue.presentKHR(
+        vk::PresentInfoKHR{1, &render_finished.get(), 1, &swapchain.get(), &frame.frame_index}
+    );
     if(err != vk::Result::eSuccess) throw vulkan_runtime_error("failed to present frame", err);
 }

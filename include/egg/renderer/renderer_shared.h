@@ -1,38 +1,41 @@
 #pragma once
+#include "egg/renderer/memory.h"
 #include <filesystem>
 #include <functional>
-#include <unordered_set>
 #include <memory>
-#include "egg/renderer/memory.h"
+#include <unordered_set>
 #include <vulkan/vulkan.hpp>
 
 #ifdef _MSC_VER
-#define SHARED_EXPORT __declspec(dllexport) 
+#    define SHARED_EXPORT __declspec(dllexport)
 #else
-#define SHARED_EXPORT
+#    define SHARED_EXPORT
 #endif
 
 /// creates & manages swap chains, framebuffers, per-frame command buffer
-class frame_renderer; //the actual implementation of frame_renderer_abstract
+class frame_renderer;  // the actual implementation of frame_renderer_abstract
+
 class abstract_frame_renderer {
     // provided so that rendering_algorithms can be in a shared library
-public:
-    virtual vk::Extent2D get_current_extent() const = 0;
+  public:
+    virtual vk::Extent2D                       get_current_extent() const = 0;
     virtual std::vector<vk::UniqueFramebuffer> create_framebuffers(
         vk::RenderPass                                                  render_pass,
         const std::function<void(size_t, std::vector<vk::ImageView>&)>& custom_image_views
         = [](auto, auto) {}
-    ) = 0;
+    )                                  = 0;
     virtual ~abstract_frame_renderer() = default;
 };
 
 /// initializes and renders ImGUI layer
 class imgui_renderer;
+
 class abstract_imgui_renderer {
-public:
-    // TODO: have a clean way to remove windows so they don't persist after their parent object has been destroyed
+  public:
+    // TODO: have a clean way to remove windows so they don't persist after their parent object has
+    // been destroyed
     virtual void add_window(const std::string& name, const std::function<void(bool*)>& draw) = 0;
-    virtual uint64_t add_texture(vk::ImageView image_view, vk::ImageLayout image_layout) = 0;
+    virtual uint64_t add_texture(vk::ImageView image_view, vk::ImageLayout image_layout)     = 0;
     virtual ~abstract_imgui_renderer() = default;
 };
 
@@ -64,7 +67,7 @@ class rendering_algorithm {
     virtual void create_framebuffers(abstract_frame_renderer* fr) = 0;
     // generate command buffers
     virtual vk::CommandBufferInheritanceInfo* get_command_buffer_inheritance_info() = 0;
-    virtual void generate_commands(
+    virtual void                              generate_commands(
                                      vk::CommandBuffer                                          cb,
                                      vk::DescriptorSet                                          scene_data_desc_set,
                                      std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds,
@@ -72,5 +75,3 @@ class rendering_algorithm {
                                  ) = 0;
     virtual ~rendering_algorithm() = default;
 };
-
-
