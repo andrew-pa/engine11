@@ -2,9 +2,7 @@
 #include "asset-bundler/format.h"
 #include "glm.h"
 #include <filesystem>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include <optional>
 
 class asset_bundle {
     // std::unordered_map<string_id, std::string> strings;
@@ -60,6 +58,7 @@ class asset_bundle {
     string_id group_name(size_t group_index) const;
     const aabb& group_bounds(size_t group_index) const;
     class group_object_iterator group_objects(size_t group_index) const;
+    std::optional<size_t> group_by_name(std::string_view name) const;
 };
 
 class object_mesh_iterator {

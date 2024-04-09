@@ -7,11 +7,15 @@ namespace comp {
 
 struct position {
     vec3 pos;
+
+    position(): pos(0) {}
+    position(float x, float y, float z) : pos(x,y,z) {}
+    position(vec3 v) : pos(v) {}
 };
 
 struct rotation {
     quat rot;
-    rotation(quat r = quat(0.f, 0.f, 0.f, 0.f)) : rot(r) {}
+    rotation(quat r = quat{1.f, 0.f, 0.f, 0.f}) : rot(r) {}
 };
 
 struct gpu_transform {
@@ -64,4 +68,5 @@ struct light {
 
 namespace tag {
 struct active_camera {};
+struct tumble {};
 }  // namespace tag

@@ -3,6 +3,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 #include <fs-shim.h>
@@ -117,7 +118,7 @@ const environment_header& asset_bundle::environment_by_index(size_t i) const { r
 
 #include <glm/gtx/io.hpp>
 const glm::mat4& asset_bundle::object_transform(object_id id) const {
-    std::cout << "static transform for " << id << ": " << objects[id].transform_matrix << "\n";
+    // std::cout << "static transform for " << id << ": " << objects[id].transform_matrix << "\n";
     return objects[id].transform_matrix;
 }
 
@@ -143,4 +144,11 @@ const aabb& asset_bundle::group_bounds(size_t group_index) const { return groups
 group_object_iterator asset_bundle::group_objects(size_t group_index) const {
     return group_object_iterator{
         (uint32_t*)(bundle_data + groups[group_index].offset), groups[group_index].num_objects};
+}
+
+std::optional<size_t> asset_bundle::group_by_name(std::string_view name) const {
+    for(size_t i = 0; i < header->num_groups; ++i) {
+        if(string(groups[i].name) == name) return i;
+    }
+    return std::nullopt;
 }
