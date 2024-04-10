@@ -4,6 +4,27 @@
 #include <flecs.h>
 #include <optional>
 
+enum class light_type { invalid = 0, directional = 1, point = 2, spot = 3 };
+
+inline const char* light_type_str(light_type t) {
+    switch(t) {
+        case light_type::directional: return "Directional";
+        case light_type::point: return "Point";
+        case light_type::spot: return "Spot";
+        default: return "unknown";
+    }
+}
+
+// TODO: not a component, this is for the GPU
+struct light_info {
+    vec3       emittance;
+    light_type type;
+    vec3       position;
+    float      param1;
+    vec3       direction;
+    float      param2;
+};
+
 namespace comp {
 
 struct position {
@@ -40,38 +61,22 @@ struct renderable {
     object_id object;
 };
 
-enum class light_type { directional = 1, point = 2, spot = 3 };
-
-inline const char* light_type_str(light_type t) {
-    switch(t) {
-        case light_type::directional: return "Directional";
-        case light_type::point: return "Point";
-        case light_type::spot: return "Spot";
-        default: return "unknown";
-    }
-}
-
-struct light_info {
-    vec3       emmitance;
-    light_type type;
-    vec3       position;
-    float      param1;
-    vec3       direction;
-    float      param2;
-};
-
 struct light {
     std::pair<light_info*, size_t> gpu_info;
-    light_type                     type;
-    vec3                           emmitance;
-    float                          param1, param2;
+    vec3                           emittance;
 
-    light(
-        light_type t = light_type::directional, vec3 e = vec3(0.f), float p1 = 0.f, float p2 = 0.f
-    )
-        : gpu_info{nullptr, 0}, type(t), emmitance(e), param1(p1), param2(p2) {}
+    light(vec3 e = vec3(0.f)) : gpu_info{nullptr, 0}, emittance(e) {}
+};
 
-    void update(flecs::entity e) const;
+struct directional_light {};
+
+struct point_light {
+    /// Quadradic (K_q) attinuation coeffecient.
+    float attenuation;
+};
+
+struct spot_light {
+    float inner_cutoff, outer_cutoff;
 };
 
 struct tumble {

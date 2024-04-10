@@ -127,20 +127,15 @@ scene_renderer::~scene_renderer() {
 void scene_renderer::setup_ecs() {
     observers.emplace_back(
         world->observer<comp::position, comp::rotation>()
+            .term<comp::light>()
+            .not_()
             .event(flecs::OnAdd)
             .event(flecs::OnRemove)
             .each([&](flecs::iter& it, size_t i, const comp::position& p, const comp::rotation& r) {
                 if(it.event() == flecs::OnAdd) {
-                    std::cout << "add transform\n";
+                    // std::cout << "add transform\n";
                     auto [t, bi] = transforms.alloc();
                     comp::gpu_transform gt{.transform = t, .gpu_index = bi};
-                    /*std::optional<mat4> s;
-                    const auto*         obj = it.entity(i).get<comp::renderable>();
-                    if(obj != nullptr)
-                        s = current_bundle->object_transform(obj->object);
-                    gt.update(p, r, s);
-                    if(it.entity(i).has<tag::active_camera>()) *gt.transform =
-                    inverse(*gt.transform);*/
                     it.entity(i).set<comp::gpu_transform>(gt);
                 } else if(it.event() == flecs::OnRemove) {
                     transforms.free(it.entity(i).get<comp::gpu_transform>()->gpu_index);
@@ -166,15 +161,10 @@ void scene_renderer::setup_ecs() {
                                    }
                                }));
     observers.emplace_back(world->observer<comp::camera>()
-                               .event(flecs::OnAdd)
                                .event(flecs::OnSet)
                                .event(flecs::OnRemove)
                                .each([&](flecs::iter& it, size_t i, comp::camera& cam) {
-                                   if(it.event() == flecs::OnAdd) {
-                                       std::cout << "add camera\n";
-                                       // cam.update(r->fr->aspect_ratio());
-                                   } else if(it.event() == flecs::OnSet) {
-                                       std::cout << "set camera\n";
+                                   if(it.event() == flecs::OnSet) {
                                        if(cam.proj_transform.first == nullptr)
                                            cam.proj_transform = transforms.alloc();
                                        cam.update(r->fr->aspect_ratio());
@@ -190,21 +180,60 @@ void scene_renderer::setup_ecs() {
                                    should_regenerate_command_buffer = true;
                                }));
     observers.emplace_back(world->observer<comp::light>()
-                               .event(flecs::OnAdd)
-                               .event(flecs::OnSet)
                                .event(flecs::OnRemove)
                                .each([&](flecs::iter& it, size_t i, comp::light& lgh) {
-                                   if(it.event() == flecs::OnAdd) {
-                                       // lgh.gpu_info = gpu_lights.alloc();
-                                   } else if(it.event() == flecs::OnSet) {
-                                       if(lgh.gpu_info.first == nullptr)
-                                           lgh.gpu_info = gpu_lights.alloc();
-                                       lgh.update(it.entity(i));
-                                   } else if(it.event() == flecs::OnRemove) {
-                                       lgh.gpu_info.first->type = (comp::light_type)0;
-                                       gpu_lights.free(lgh.gpu_info.second);
-                                   }
+                                   lgh.gpu_info.first->type = light_type::invalid;
+                                   gpu_lights.free(lgh.gpu_info.second);
                                }));
+    observers.emplace_back(
+        world->observer<comp::light, const comp::directional_light, const comp::rotation>()
+            .event(flecs::OnSet)
+            .each([&](comp::light& lgh, const comp::directional_light& _, const comp::rotation& rot
+                  ) {
+                if(lgh.gpu_info.first == nullptr) lgh.gpu_info = gpu_lights.alloc();
+                *lgh.gpu_info.first = light_info{
+                    .emittance = lgh.emittance,
+                    .type      = light_type::directional,
+                    .direction = glm::rotate(rot.rot, vec3(0.f, 0.f, 1.f))
+                };
+            })
+    );
+    observers.emplace_back(world
+                               ->observer<
+                                   comp::light,
+                                   const comp::spot_light,
+                                   const comp::position,
+                                   const comp::rotation>()
+                               .event(flecs::OnSet)
+                               .each([&](comp::light&            lgh,
+                                         const comp::spot_light& params,
+                                         const comp::position&   pos,
+                                         const comp::rotation&   rot) {
+                                   if(lgh.gpu_info.first == nullptr)
+                                       lgh.gpu_info = gpu_lights.alloc();
+                                   *lgh.gpu_info.first = light_info{
+                                       .emittance = lgh.emittance,
+                                       .type      = light_type::spot,
+                                       .position  = pos.pos,
+                                       .param1    = params.inner_cutoff,
+                                       .direction = glm::rotate(rot.rot, vec3(0.f, 0.f, 1.f)),
+                                       .param2    = params.outer_cutoff,
+                                   };
+                               }));
+    observers.emplace_back(
+        world->observer<comp::light, const comp::point_light, const comp::position>()
+            .event(flecs::OnSet)
+            .each([&](comp::light& lgh, const comp::point_light& params, const comp::position& pos
+                  ) {
+                if(lgh.gpu_info.first == nullptr) lgh.gpu_info = gpu_lights.alloc();
+                *lgh.gpu_info.first = light_info{
+                    .emittance = lgh.emittance,
+                    .type      = light_type::point,
+                    .position  = pos.pos,
+                    .param1    = params.attenuation,
+                };
+            })
+    );
     active_camera_q = world->query<tag::active_camera, comp::gpu_transform, comp::camera>();
     renderable_q    = world->query<comp::gpu_transform, comp::renderable>();
 }

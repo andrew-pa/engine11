@@ -40,40 +40,6 @@ class component_gui {
     }
 };
 
-class light_gui : public component_gui<comp::light> {
-    // returns true if the light was modified
-    bool editor(comp::light* li, flecs::entity _e) override {
-        bool mod = false;
-        if(ImGui::BeginCombo("Type", comp::light_type_str(li->type))) {
-#define X(name, ltype)                                                                             \
-    if(ImGui::Selectable(name, li->type == comp::light_type::ltype)) {                             \
-        li->type = comp::light_type::ltype;                                                        \
-        mod      = true;                                                                           \
-    }
-            X("Directional", directional);
-            X("Point", point);
-            X("Spot", spot);
-#undef X
-            ImGui::EndCombo();
-        }
-        if(ImGui::ColorEdit3(
-               "Color", &li->emmitance[0], ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR
-           ))
-            mod = true;
-        // if(ImGui::DragFloat3("Position", &li->position[0], 0.05f, -1000.f, 1000.f)) mod = true;
-        // if(ImGui::DragFloat3("Direction", &li->info.direction[0], 0.05f, -1000.f, 1000.f)) {
-        // li->info.direction = glm::normalize(li->info.direction);
-        // mod                = true;
-        // }
-        if(ImGui::DragFloat("Param 1", &li->param1, 0.005f, 0.f, 1000.f)) mod = true;
-        if(ImGui::DragFloat("Param 2", &li->param2, 0.005f, 0.f, 1000.f)) mod = true;
-        return mod;
-    }
-
-  public:
-    light_gui(const std::shared_ptr<flecs::world>& world) : component_gui(world, "Lights") {}
-};
-
 class camera_gui : public component_gui<comp::camera> {
     bool editor(comp::camera* cam_comp, flecs::entity cam) override {
         // TODO: just make a {positions,rotations}_gui?
@@ -148,23 +114,21 @@ void create_scene(asset_bundle* bndl, flecs::world* world, input_distributor* in
         vec3(0.8f, 1.f, 1.1f) * 0.7f,
         vec3(1.1f, 0.8f, 1.f) * 0.7f,
     };
+
     for(size_t i = 0; i < 3; ++i) {
         float t = (float)i / 3.f;
         auto  l = world->entity();
         l.set<comp::rotation>({quat{vec3{0.f, t * 2.f * glm::pi<float>(), 0.f}}});
-        l.set<comp::light>({
-            comp::light_type::directional,
-            light_colors[i],
-        });
+        l.add<comp::directional_light>();
+        l.set<comp::light>({light_colors[i]});
     }
 
     for(size_t i = 0; i < 3; ++i) {
         auto l = world->entity();
         l.set<comp::position>({vec3{glm::linearRand(world_bounds.min, world_bounds.max)}});
-        l.set<comp::light>(
-            {comp::light_type::point, glm::linearRand(vec3(0.3f), vec3(1.f)) * 3.f, 0.3f}
-        );
-        l.set<wander>({world_bounds, 20.f});
+        l.set<comp::point_light>({0.8f});
+        l.set<comp::light>({glm::linearRand(vec3(0.3f), vec3(1.f)) * 30.f});
+        l.set<wander>({world_bounds, 20.f, 4.f});
     }
 
     // create the camera
@@ -234,9 +198,6 @@ int main(int argc, char* argv[]) {
 
     auto cg = camera_gui(world);
     rndr->imgui()->add_window("Cameras", [&](bool* open) { cg.window(open); });
-
-    auto lg = light_gui(world);
-    rndr->imgui()->add_window("Lights", [&](bool* open) { lg.window(open); });
 
     world->progress();
 

@@ -124,8 +124,9 @@ void output_bundle::write() {
     std::cout << "compressing bundle...\n";
     size_t compressed_buffer_size = ZSTD_compressBound(total_size);
     byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
+    // TODO: make compression level configurable
     size_t actual_compressed_size = ZSTD_compress(
-        compressed_buffer, compressed_buffer_size, buffer, total_size, ZSTD_defaultCLevel()
+        compressed_buffer, compressed_buffer_size, buffer, total_size, ZSTD_minCLevel() + 2
     );
     free(buffer);
     auto percent_compressed = ((double)(actual_compressed_size) / (double)(total_size)) * 100.0;

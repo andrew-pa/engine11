@@ -27,11 +27,14 @@ mat4 camera_proj() { return transforms[camera_proj_transform_index]; }
 mat4 object_model_to_world() { return transforms[object.transform_index]; }
 
 struct light_info {
-    vec3  emmitance;
-    uint  type;
-    vec3  position;
+    vec3 emmitance;
+    uint type;
+    vec3 position;
+    // for point lights: attenuation
+    // for spot lights: inner cutoff
     float param1;
     vec3  direction;
+    // for spot lights: outer cutoff
     float param2;
 };
 
