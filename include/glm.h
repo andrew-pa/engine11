@@ -17,6 +17,11 @@ using glm::vec4;
 struct aabb {
     vec3 min, max;
 
+    bool contains(vec3 p) const {
+        return p.x >= min.x && p.y >= min.y && p.z >= min.z && p.x <= max.x && p.y <= max.y
+               && p.z <= max.z;
+    }
+
     void extend(const aabb& other) {
         this->min = glm::min(this->min, other.min);
         this->max = glm::max(this->max, other.max);

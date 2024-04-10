@@ -2,6 +2,9 @@
 #include "egg/input/camera_interaction_models.h"
 #include "egg/input/input_distributor.h"
 #include "egg/renderer/renderer.h"
+#include "glm.h"
+#include "glm/ext/scalar_constants.hpp"
+#include "glm/gtc/random.hpp"
 #include "imgui.h"
 #include <GLFW/glfw3.h>
 #include <flecs.h>
@@ -32,10 +35,6 @@ class component_gui {
                 }
             });
             world->defer_end();
-            if(ImGui::Button("Add...")) {
-                auto l = world->entity();
-                l.set<C>(C{});
-            }
         }
         ImGui::End();
     }
@@ -45,11 +44,11 @@ class light_gui : public component_gui<comp::light> {
     // returns true if the light was modified
     bool editor(comp::light* li, flecs::entity _e) override {
         bool mod = false;
-        if(ImGui::BeginCombo("Type", comp::light_type_str(li->info.type))) {
+        if(ImGui::BeginCombo("Type", comp::light_type_str(li->type))) {
 #define X(name, ltype)                                                                             \
-    if(ImGui::Selectable(name, li->info.type == comp::light_type::ltype)) {                        \
-        li->info.type = comp::light_type::ltype;                                                   \
-        mod           = true;                                                                      \
+    if(ImGui::Selectable(name, li->type == comp::light_type::ltype)) {                             \
+        li->type = comp::light_type::ltype;                                                        \
+        mod      = true;                                                                           \
     }
             X("Directional", directional);
             X("Point", point);
@@ -58,16 +57,16 @@ class light_gui : public component_gui<comp::light> {
             ImGui::EndCombo();
         }
         if(ImGui::ColorEdit3(
-               "Color", &li->info.emmitance[0], ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR
+               "Color", &li->emmitance[0], ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR
            ))
             mod = true;
-        if(ImGui::DragFloat3("Position", &li->info.position[0], 0.05f, -1000.f, 1000.f)) mod = true;
-        if(ImGui::DragFloat3("Direction", &li->info.direction[0], 0.05f, -1000.f, 1000.f)) {
-            li->info.direction = glm::normalize(li->info.direction);
-            mod                = true;
-        }
-        if(ImGui::DragFloat("Param 1", &li->info.param1, 0.005f, 0.f, 1000.f)) mod = true;
-        if(ImGui::DragFloat("Param 2", &li->info.param2, 0.005f, 0.f, 1000.f)) mod = true;
+        // if(ImGui::DragFloat3("Position", &li->position[0], 0.05f, -1000.f, 1000.f)) mod = true;
+        // if(ImGui::DragFloat3("Direction", &li->info.direction[0], 0.05f, -1000.f, 1000.f)) {
+        // li->info.direction = glm::normalize(li->info.direction);
+        // mod                = true;
+        // }
+        if(ImGui::DragFloat("Param 1", &li->param1, 0.005f, 0.f, 1000.f)) mod = true;
+        if(ImGui::DragFloat("Param 2", &li->param2, 0.005f, 0.f, 1000.f)) mod = true;
         return mod;
     }
 
@@ -97,9 +96,21 @@ class camera_gui : public component_gui<comp::camera> {
     camera_gui(const std::shared_ptr<flecs::world>& world) : component_gui(world, "Cameras") {}
 };
 
+struct wander {
+    aabb  bounds;
+    vec3  vel;
+    float time_to_next_direction_change, timer, speed;
+
+    wander(aabb bounds = {}, float ttndc = 0.f, float speed = 5.f)
+        : bounds(bounds), vel(glm::sphericalRand(speed)), time_to_next_direction_change(ttndc),
+          timer(ttndc), speed(speed) {}
+};
+
 void create_scene(asset_bundle* bndl, flecs::world* world, input_distributor* inp) {
     auto building_group = bndl->group_by_name("building").value();
     auto obs_group      = bndl->group_by_name("obs").value();
+
+    aabb world_bounds = bndl->group_bounds(building_group);
 
     // instantiate the building group
     for(auto oi = bndl->group_objects(building_group); oi.has_more(); ++oi) {
@@ -132,18 +143,29 @@ void create_scene(asset_bundle* bndl, flecs::world* world, input_distributor* in
     }
 
     // add lights
-    auto lgh1 = world->entity();
-    auto lgh  = comp::light{
-        comp::light_info{
-                         .emmitance = vec3(1.1f, 1.f, 0.9f) * 2.f,
-                         .type      = comp::light_type::directional,
-                         .position  = vec3(0.f),
-                         .param1    = 0.f,
-                         .direction = normalize(vec3(0.1f, 0.45f, 1.f)),
-                         .param2    = 0.f
-        }
+    std::array<vec3, 3> light_colors = {
+        vec3(1.1f, 1.f, 0.8f) * 2.5f,
+        vec3(0.8f, 1.f, 1.1f) * 0.7f,
+        vec3(1.1f, 0.8f, 1.f) * 0.7f,
     };
-    lgh1.set<comp::light>(lgh);
+    for(size_t i = 0; i < 3; ++i) {
+        float t = (float)i / 3.f;
+        auto  l = world->entity();
+        l.set<comp::rotation>({quat{vec3{0.f, t * 2.f * glm::pi<float>(), 0.f}}});
+        l.set<comp::light>({
+            comp::light_type::directional,
+            light_colors[i],
+        });
+    }
+
+    for(size_t i = 0; i < 3; ++i) {
+        auto l = world->entity();
+        l.set<comp::position>({vec3{glm::linearRand(world_bounds.min, world_bounds.max)}});
+        l.set<comp::light>(
+            {comp::light_type::point, glm::linearRand(vec3(0.3f), vec3(1.f)) * 3.f, 0.3f}
+        );
+        l.set<wander>({world_bounds, 20.f});
+    }
 
     // create the camera
     auto cam = world->entity();
@@ -184,6 +206,18 @@ int main(int argc, char* argv[]) {
                 * t.speed * it.delta_time()
             };
             it.entity(row).modified<comp::rotation>();
+        }
+    );
+    world->system<comp::position, wander>("wander").each(
+        [](flecs::iter& it, size_t row, comp::position& p, wander& w) {
+            if(!w.bounds.contains(p.pos)) w.vel *= -1.f;
+            p.pos += w.vel * it.delta_time();
+            w.timer -= it.delta_time();
+            if(w.timer <= 0) {
+                w.timer = w.time_to_next_direction_change;
+                w.vel   = glm::sphericalRand(w.speed);
+            }
+            it.entity(row).modified<comp::position>();
         }
     );
 

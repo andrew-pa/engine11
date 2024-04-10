@@ -1,6 +1,7 @@
 #pragma once
 #include "asset-bundler/format.h"
 #include "glm.h"
+#include <flecs.h>
 #include <optional>
 
 namespace comp {
@@ -60,10 +61,17 @@ struct light_info {
 };
 
 struct light {
-    light_info                     info;
     std::pair<light_info*, size_t> gpu_info;
+    light_type                     type;
+    vec3                           emmitance;
+    float                          param1, param2;
 
-    void update() const;
+    light(
+        light_type t = light_type::directional, vec3 e = vec3(0.f), float p1 = 0.f, float p2 = 0.f
+    )
+        : gpu_info{nullptr, 0}, type(t), emmitance(e), param1(p1), param2(p2) {}
+
+    void update(flecs::entity e) const;
 };
 
 struct tumble {

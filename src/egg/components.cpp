@@ -19,6 +19,23 @@ void comp::camera::update(float aspect_ratio) const {
     // std::cout << *proj_transform.first << "\n";
 }
 
-void comp::light::update() const {
-    if(gpu_info.first != nullptr) *gpu_info.first = info;
+void comp::light::update(flecs::entity e) const {
+    vec3 pos, dir;
+
+    if(type == light_type::point || type == light_type::spot) pos = e.get<comp::position>()->pos;
+
+    if(type == light_type::directional || type == light_type::spot) {
+        auto r = e.get<comp::rotation>()->rot;
+        dir    = glm::rotate(r, vec3(0.f, 0.f, 1.f));
+    }
+
+    if(gpu_info.first != nullptr)
+        *gpu_info.first = light_info{
+            .emmitance = this->emmitance,
+            .type      = this->type,
+            .position  = pos,
+            .param1    = this->param1,
+            .direction = dir,
+            .param2    = this->param2,
+        };
 }

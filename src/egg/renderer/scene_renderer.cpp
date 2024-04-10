@@ -199,7 +199,7 @@ void scene_renderer::setup_ecs() {
                                    } else if(it.event() == flecs::OnSet) {
                                        if(lgh.gpu_info.first == nullptr)
                                            lgh.gpu_info = gpu_lights.alloc();
-                                       lgh.update();
+                                       lgh.update(it.entity(i));
                                    } else if(it.event() == flecs::OnRemove) {
                                        lgh.gpu_info.first->type = (comp::light_type)0;
                                        gpu_lights.free(lgh.gpu_info.second);
