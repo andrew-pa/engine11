@@ -194,9 +194,10 @@ void forward_rendering_algorithm::create_pipelines() {
 
     // TODO: so inelegant
     vk::PipelineColorBlendAttachmentState color_blend_att[] = {{}};
-    for(auto& i : color_blend_att)
+    for(auto& i : color_blend_att) {
         i.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
                            | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    }
     auto color_blending_state = vk::PipelineColorBlendStateCreateInfo{
         {}, VK_FALSE, vk::LogicOp::eCopy, 1, color_blend_att
     };

@@ -110,9 +110,9 @@ void create_scene(asset_bundle* bndl, flecs::world* world, input_distributor* in
 
     // add lights
     std::array<vec3, 3> light_colors = {
-        vec3(1.1f, 1.f, 0.8f) * 2.5f,
-        vec3(0.8f, 1.f, 1.1f) * 0.7f,
-        vec3(1.1f, 0.8f, 1.f) * 0.7f,
+        vec3(1.1f, 1.f, 0.8f) * 0.8f,
+        vec3(0.8f, 1.f, 1.1f) * 0.1f,
+        vec3(1.1f, 0.8f, 1.f) * 0.1f,
     };
 
     for(size_t i = 0; i < 3; ++i) {
@@ -123,11 +123,11 @@ void create_scene(asset_bundle* bndl, flecs::world* world, input_distributor* in
         l.set<comp::light>({light_colors[i]});
     }
 
-    for(size_t i = 0; i < 3; ++i) {
+    for(size_t i = 0; i < 2; ++i) {
         auto l = world->entity();
         l.set<comp::position>({vec3{glm::linearRand(world_bounds.min, world_bounds.max)}});
-        l.set<comp::point_light>({0.8f});
-        l.set<comp::light>({glm::linearRand(vec3(0.3f), vec3(1.f)) * 30.f});
+        l.set<comp::point_light>({8.0f});
+        l.set<comp::light>({glm::linearRand(vec3(0.3f), vec3(6.f)) * 10.f});
         l.set<wander>({world_bounds, 20.f, 4.f});
     }
 

@@ -126,6 +126,9 @@ renderer::renderer(
                   << vk::to_string(fmt.colorSpace) << "\n";
     surface_format = fmts[0];
 
+    std::cout << "using format " << vk::to_string(surface_format.format) << " / "
+              << vk::to_string(surface_format.colorSpace) << "\n";
+
     auto* init_lib = rendering_algo_lib_loader->initial_load();
     auto  crafn = (create_rendering_algorithm_f)load_symbol(init_lib, "create_rendering_algorithm");
 

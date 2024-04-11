@@ -51,7 +51,7 @@ struct gpu_transform {
 };
 
 struct camera {
-    float                    fov = glm::pi<float>() / 4.f;
+    float                    fov = 1.342f;
     std::pair<mat4*, size_t> proj_transform;
 
     void update(float aspect_ratio) const;

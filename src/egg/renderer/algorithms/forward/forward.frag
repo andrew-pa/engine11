@@ -10,9 +10,22 @@ layout(location = 0) in VertexOutput {
 
 layout(location = 0) out vec4 final_color;
 
+vec3 linearToSrgb(vec3 linearColor) {
+    vec3 srgbColor;
+    for(int i = 0; i < 3; ++i) {
+        float linearValue = linearColor[i];
+        if (linearValue <= 0.0031308) {
+            srgbColor[i] = linearValue * 12.92;
+        } else {
+            srgbColor[i] = 1.055 * pow(linearValue, 1.0 / 2.4) - 0.055;
+        }
+    }
+    return srgbColor;
+}
+
 void main() {
     if(uint(object.base_color) == 65535) {
-        final_color = vec4(0.1, 0.1, 0.1, 1.0);
+        final_color = vec4(0.01, 0.01, 0.01, 0.5);
         return;
     }
 
@@ -29,8 +42,8 @@ void main() {
 
     vec3 F0 = compute_F0(base_color.xyz, metallic);
 
-    vec3 color = vec3(0.003) * base_color.xyz;
-    
+    vec3 color = vec3(0.0003) * base_color.xyz;
+
     vec3 L = vec3(1.0, 0.0, 0.0), radiance = vec3(100.0, 0.0, 100.0);
     for(uint i = lights.min_index; i < lights.max_index; ++i) {
     //for(uint i = 15; i < 16; ++i) {
@@ -51,7 +64,7 @@ void main() {
     }
 
     color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
+    //color = pow(color, vec3(1.0 / 2.2));
 
-    final_color = vec4(color, 1.0);
+    final_color = vec4(linearToSrgb(color), 1.0);
 }
