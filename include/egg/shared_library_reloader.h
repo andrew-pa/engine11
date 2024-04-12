@@ -25,5 +25,5 @@ class shared_library_reloader {
 
     void* initial_load();
 
-    void poll(std::function<void(void*)> on_reload);
+    void poll(const std::function<void(void*)>& on_reload);
 };
