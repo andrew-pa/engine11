@@ -40,7 +40,10 @@ struct shader_uniform_values {
 
 struct gpu_static_scene_data {
     gpu_static_scene_data(
-        renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
+        renderer*                            r,
+        const std::shared_ptr<asset_bundle>& bundle,
+        vk::CommandBuffer                    upload_cmds,
+        const renderer_features&             features
     );
 
     std::unique_ptr<gpu_buffer> vertex_buffer, index_buffer, staging_buffer;
@@ -55,6 +58,9 @@ struct gpu_static_scene_data {
     vk::UniqueDescriptorSetLayout desc_set_layout;
     vk::UniqueDescriptorPool      desc_set_pool;
     vk::DescriptorSet             desc_set;  // lifetime is tied to pool
+
+    std::unique_ptr<gpu_buffer>                     object_accel_struct_storage, accel_scratch;
+    std::vector<vk::UniqueAccelerationStructureKHR> object_accel_structs;
 
     std::vector<vk::DescriptorImageInfo> setup_descriptors(
         renderer* r, asset_bundle* bundle, std::vector<vk::WriteDescriptorSet>& writes
@@ -80,6 +86,9 @@ struct gpu_static_scene_data {
     void generate_upload_commands_for_envs(
         asset_bundle* current_bundle, vk::CommandBuffer upload_cmds
     );
+    void build_object_accel_structs(
+        renderer* r, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds
+    );
 
     void texture_window_gui(bool* open, std::shared_ptr<asset_bundle> current_bundle);
 };
@@ -92,6 +101,7 @@ class scene_renderer {
     std::unordered_set<vk::Format> supported_depth_formats;
     vk::AttachmentDescription      surface_color_attachment;
     rendering_algorithm*           algo;
+    renderer_features              features;
 
     std::unique_ptr<gpu_static_scene_data> scene_data;
 
@@ -116,7 +126,9 @@ class scene_renderer {
 
     rendering_algorithm* swap_rendering_algorithm(rendering_algorithm* new_algo);
 
-    void start_resource_upload(std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds);
+    void start_resource_upload(
+        const std::shared_ptr<asset_bundle>& bundle, vk::CommandBuffer upload_cmds
+    );
     void setup_scene_post_upload();
     void resource_upload_cleanup();
 

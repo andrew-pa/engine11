@@ -43,10 +43,10 @@ inline aabb aabb_from_ai(const aiAABB& bb) {
 }
 
 void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index_offset) {
-    std::cout << "\t\t " << m->mName.C_Str() << " ("
+    std::cout << "\t\t" << m->mName.C_Str() << " ("
               << scene->mMaterials[m->mMaterialIndex]->GetName().C_Str() << ") " << m->mNumVertices
               << " vertices, " << m->mNumFaces << " faces"
-              << " \n";
+              << "\n";
     size_t vertex_offset = out.start_vertex_gather(m->mNumVertices);
     for(size_t i = 0; i < m->mNumVertices; ++i) {
         out.add_vertex(vertex{
@@ -56,19 +56,23 @@ void importer::load_mesh(const aiMesh* m, const aiScene* scene, size_t mat_index
             .tex_coord = glm::vec2(m->mTextureCoords[0][i].x, m->mTextureCoords[0][i].y)
         });
     }
-    auto   index_count  = m->mNumFaces * 3;
-    size_t index_offset = out.start_index_gather(index_count);
+    auto       index_count      = m->mNumFaces * 3;
+    size_t     index_offset     = out.start_index_gather(index_count);
+    index_type max_vertex_index = 0;
     for(size_t f = 0; f < m->mNumFaces; ++f) {
         assert(m->mFaces[f].mNumIndices == 3);
-        for(int i = 0; i < 3; ++i)
+        for(int i = 0; i < 3; ++i) {
+            max_vertex_index = glm::max(max_vertex_index, m->mFaces[f].mIndices[i]);
             out.add_index(m->mFaces[f].mIndices[i]);
+        }
     }
     out.add_mesh(mesh_info{
-        .vertex_offset  = vertex_offset,
-        .index_offset   = index_offset,
-        .index_count    = index_count,
-        .material_index = m->mMaterialIndex + mat_index_offset,
-        .bounds         = aabb_from_ai(m->mAABB)
+        .vertex_offset    = vertex_offset,
+        .index_offset     = index_offset,
+        .index_count      = index_count,
+        .material_index   = m->mMaterialIndex + mat_index_offset,
+        .max_vertex_index = max_vertex_index,
+        .bounds           = aabb_from_ai(m->mAABB),
     });
 }
 

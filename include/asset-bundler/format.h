@@ -56,8 +56,9 @@ struct environment_header {
 };
 
 struct mesh_header {
-    size_t vertex_offset, index_offset, index_count, material_index;
-    aabb   bounds;
+    size_t     vertex_offset, index_offset, index_count, material_index;
+    index_type max_vertex_index;
+    aabb       bounds;
 };
 
 struct material_header {

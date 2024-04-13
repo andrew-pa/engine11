@@ -29,6 +29,13 @@ void gpu_buffer::set_debug_name(vk::Instance inst, vk::Device dev, std::string&&
     );
 }
 
+VkDeviceAddress gpu_buffer::device_address(vk::Device dev) const {
+    VkBufferDeviceAddressInfo info{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = this->buf
+    };
+    return vkGetBufferDeviceAddress(dev, &info);
+}
+
 gpu_image::gpu_image(
     std::shared_ptr<gpu_allocator> allocator,
     const vk::ImageCreateInfo&     image_cfo,

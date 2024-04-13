@@ -1,5 +1,7 @@
+#include "asset-bundler/format.h"
 #include "egg/renderer/imgui_renderer.h"
 #include "egg/renderer/scene_renderer.h"
+#include "mem_arena.h"
 #include <vulkan/vulkan_format_traits.hpp>
 
 const size_t CUBE_VERTEX_COUNT = 24;
@@ -166,7 +168,10 @@ void generate_cube(
 }
 
 gpu_static_scene_data::gpu_static_scene_data(
-    renderer* r, std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
+    renderer*                            r,
+    const std::shared_ptr<asset_bundle>& bundle,
+    vk::CommandBuffer                    upload_cmds,
+    const renderer_features&             features
 ) {
     staging_buffer = std::make_unique<gpu_buffer>(
         r->gpu_alloc(),
@@ -204,6 +209,7 @@ gpu_static_scene_data::gpu_static_scene_data(
     generate_upload_commands_for_textures(bundle.get(), upload_cmds);
     create_envs_from_bundle(r, bundle.get());
     generate_upload_commands_for_envs(bundle.get(), upload_cmds);
+    if(features.raytracing) build_object_accel_structs(r, bundle.get(), upload_cmds);
 
     r->imgui()->add_window("Static Resources", [this, bundle](bool* open) {
         this->texture_window_gui(open, bundle);
@@ -569,7 +575,121 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(
     return texture_infos;
 }
 
-void gpu_static_scene_data::resource_upload_cleanup() { staging_buffer.reset(); }
+void gpu_static_scene_data::build_object_accel_structs(
+    renderer* r, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds
+) {
+    // create infos for each object's geometry and query for the size of the AS.
+    arena<vk::AccelerationStructureBuildRangeInfoKHR>          ranges;
+    std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> build_geoinfos;
+    std::vector<vk::AccelerationStructureBuildSizesInfoKHR>    build_sizeinfos;
+    std::vector<vk::AccelerationStructureBuildRangeInfoKHR*>   build_rangeinfos;
+    vk::DeviceSize total_accel_struct_size = 0, max_build_scratch_size = 0;
+
+    auto vertex_buffer_addr = vertex_buffer->device_address(r->device());
+    auto index_buffer_addr  = index_buffer->device_address(r->device());
+
+    auto geometry = vk::AccelerationStructureGeometryKHR{
+        vk::GeometryTypeKHR::eTriangles,
+        vk::AccelerationStructureGeometryTrianglesDataKHR{
+                                                          vertex_attribute_description[0].format,
+                                                          vertex_buffer_addr, sizeof(vertex) + vertex_attribute_description[0].offset,
+                                                          (uint32_t)current_bundle->bundle_header().num_total_vertices,
+                                                          vk::IndexType::eUint32,
+                                                          index_buffer_addr
+        }
+    };
+
+    size_t max_num_meshes = 0;
+    for(size_t i = 0; i < current_bundle->num_objects(); ++i)
+        max_num_meshes = glm::max(max_num_meshes, current_bundle->object_meshes(i).len());
+
+    // create an array of pointers to the same geometry structure that is long enough that we can
+    // reuse it for all objects
+    auto geos = std::vector<vk::AccelerationStructureGeometryKHR*>(max_num_meshes, &geometry);
+
+    for(size_t i = 0; i < current_bundle->num_objects(); ++i) {
+        auto                  meshes = current_bundle->object_meshes(i);
+        auto*                 rs     = ranges.alloc_array(meshes.len());
+        std::vector<uint32_t> primitive_counts;
+        for(size_t m = 0; meshes.has_more(); ++m, ++meshes) {
+            rs[m] = vk::AccelerationStructureBuildRangeInfoKHR{
+                (uint32_t)meshes->index_count / 3,
+                (uint32_t)(meshes->index_offset * sizeof(index_type)),
+                (uint32_t)meshes->vertex_offset,
+            };
+            primitive_counts.emplace_back(rs[m].primitiveCount);
+        }
+        build_geoinfos.emplace_back(vk::AccelerationStructureBuildGeometryInfoKHR{
+            vk::AccelerationStructureTypeKHR::eBottomLevel,
+            vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
+            vk::BuildAccelerationStructureModeKHR::eBuild,
+            {},
+            {},
+            (uint32_t)meshes.len(),
+            nullptr,
+            geos.data()
+        });
+        auto sizeinfo = r->device().getAccelerationStructureBuildSizesKHR(
+            vk::AccelerationStructureBuildTypeKHR::eDevice, build_geoinfos[i], primitive_counts
+        );
+        // make sure we have enough room for alignment padding
+        total_accel_struct_size += (sizeinfo.accelerationStructureSize + 255) & ~255;
+        max_build_scratch_size = glm::max(max_build_scratch_size, sizeinfo.buildScratchSize);
+        build_sizeinfos.emplace_back(sizeinfo);
+    }
+
+    // create buffer to store AS, and then create each AS in the buffer
+    object_accel_struct_storage = std::make_unique<gpu_buffer>(
+        r->gpu_alloc(),
+        vk::BufferCreateInfo{
+            {},
+            total_accel_struct_size,
+            vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR,
+        }
+    );
+
+    vk::AccelerationStructureCreateInfoKHR accel_struct_cfo{
+        {}, object_accel_struct_storage->get(), 0, 0, vk::AccelerationStructureTypeKHR::eBottomLevel
+    };
+    for(size_t i = 0; i < current_bundle->num_objects(); ++i) {
+        accel_struct_cfo.setSize(build_sizeinfos[i].accelerationStructureSize);
+        object_accel_structs.emplace_back(
+            r->device().createAccelerationStructureKHRUnique(accel_struct_cfo)
+        );
+        // offsets must be a multiple of 256
+        accel_struct_cfo.setOffset(
+            (accel_struct_cfo.offset + build_sizeinfos[i].accelerationStructureSize + 255) & ~255
+        );
+    }
+
+    // create stratch buffer
+    accel_scratch = std::make_unique<gpu_buffer>(
+        r->gpu_alloc(),
+        vk::BufferCreateInfo{
+            {},
+            max_build_scratch_size,
+            vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+            // TODO: we need specific memory usage stuff for VK_MEMORY_ALLOCATE_DEVICE_ADDRESS
+        }
+    );
+
+    auto accel_scratch_addr = accel_scratch->device_address(r->device());
+
+    // update build infos to point to our new objects
+    for(size_t i = 0; i < build_geoinfos.size(); ++i) {
+        build_geoinfos[i].setDstAccelerationStructure(object_accel_structs[i].get());
+        build_geoinfos[i].setScratchData(accel_scratch_addr);
+    }
+
+    upload_cmds.buildAccelerationStructuresKHR(
+        (uint32_t)build_geoinfos.size(), build_geoinfos.data(), build_rangeinfos.data()
+    );
+}
+
+void gpu_static_scene_data::resource_upload_cleanup() {
+    staging_buffer.reset();
+    accel_scratch.reset();
+}
 
 void gpu_static_scene_data::texture_window_gui(
     bool* open, std::shared_ptr<asset_bundle> current_bundle

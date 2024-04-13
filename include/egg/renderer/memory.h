@@ -63,6 +63,9 @@ class gpu_buffer {
     void set_debug_name(vk::Instance inst, vk::Device dev, std::string&& debug_name);
 
     inline void* cpu_mapped() { return mapping; }
+
+    // Get the device address if VK_EXT_BUFFER_DEVICE_ADDRESS is enabled.
+    VkDeviceAddress device_address(vk::Device dev) const;
 };
 
 class gpu_image {

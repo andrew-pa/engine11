@@ -44,6 +44,7 @@ void add_extensions_required_for_features(
     if(features.raytracing) {
         exts.emplace_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
         exts.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+        exts.emplace_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
     }
 }
 
@@ -61,13 +62,20 @@ void add_device_feature_structs_required_for_features(
             = (vk::PhysicalDeviceRayTracingPipelineFeaturesKHR*)features_memory.alloc_array(
                 sizeof(vk::PhysicalDeviceRayTracingPipelineFeaturesKHR)
             );
+        auto* dev_addr
+            = (vk::PhysicalDeviceBufferDeviceAddressFeatures*)features_memory.alloc_array(
+                sizeof(vk::PhysicalDeviceBufferDeviceAddressFeatures)
+            );
         *accel_stucts = vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
             VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, rtpipe
         };
         *rtpipe = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{
-            VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, device_features.pNext
+            VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, dev_addr
         };
-        device_features.setPNext(rtpipe);
+        *dev_addr = vk::PhysicalDeviceBufferDeviceAddressFeatures{
+            VK_TRUE, VK_FALSE, VK_FALSE, device_features.pNext
+        };
+        device_features.setPNext(accel_stucts);
     }
 }
 

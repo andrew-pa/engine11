@@ -51,7 +51,8 @@ scene_renderer::scene_renderer(
           vk::Format::eD32Sfloat,
           vk::Format::eD32SfloatS8Uint
       },
-      algo(_algo), transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
+      algo(_algo), features(algo->required_features()),
+      transforms(r->allocator, 384, vk::BufferUsageFlagBits::eStorageBuffer),
       shader_uniforms(r->allocator, vk::BufferUsageFlagBits::eUniformBuffer),
       gpu_lights(r->allocator, 16, vk::BufferUsageFlagBits::eStorageBuffer, true),
       should_regenerate_command_buffer(true) {
@@ -268,11 +269,11 @@ rendering_algorithm* scene_renderer::swap_rendering_algorithm(rendering_algorith
 }
 
 void scene_renderer::start_resource_upload(
-    std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
+    const std::shared_ptr<asset_bundle>& bundle, vk::CommandBuffer upload_cmds
 ) {
     current_bundle = bundle;
 
-    scene_data = std::make_unique<gpu_static_scene_data>(r, current_bundle, upload_cmds);
+    scene_data = std::make_unique<gpu_static_scene_data>(r, current_bundle, upload_cmds, features);
 }
 
 void scene_renderer::setup_scene_post_upload() {

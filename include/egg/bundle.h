@@ -88,6 +88,8 @@ class object_mesh_iterator {
 
     bool has_more() const { return count > 0; }
 
+    inline size_t len() const { return count; }
+
     friend class asset_bundle;
 };
 
