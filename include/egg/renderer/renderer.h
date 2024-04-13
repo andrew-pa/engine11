@@ -32,7 +32,7 @@ class renderer {
     uint32_t                       graphics_queue_family_index, present_queue_family_index;
     vk::Queue                      graphics_queue, present_queue;
     std::shared_ptr<gpu_allocator> allocator;
-    void                           init_device(vk::Instance instance);
+    void init_device(vk::Instance instance, const renderer_features& required_features);
 
     vk::UniqueCommandPool command_pool;
 

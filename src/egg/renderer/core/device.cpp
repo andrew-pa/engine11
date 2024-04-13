@@ -1,6 +1,7 @@
 #include "egg/renderer/core/frame_renderer.h"
 #include "egg/renderer/renderer.h"
 #include "error.h"
+#include "mem_arena.h"
 #include <egg/renderer/memory.h>
 #include <iostream>
 #include <unordered_set>
@@ -37,7 +38,40 @@ struct queue_family_indices {
     }
 };
 
-void renderer::init_device(vk::Instance instance) {
+void add_extensions_required_for_features(
+    const renderer_features& features, std::vector<const char*>& exts
+) {
+    if(features.raytracing) {
+        exts.emplace_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+        exts.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+    }
+}
+
+void add_device_feature_structs_required_for_features(
+    const renderer_features&     required_features,
+    arena<uint8_t>&              features_memory,
+    vk::PhysicalDeviceFeatures2& device_features
+) {
+    if(required_features.raytracing) {
+        auto* accel_stucts
+            = (vk::PhysicalDeviceAccelerationStructureFeaturesKHR*)features_memory.alloc_array(
+                sizeof(vk::PhysicalDeviceAccelerationStructureFeaturesKHR)
+            );
+        auto* rtpipe
+            = (vk::PhysicalDeviceRayTracingPipelineFeaturesKHR*)features_memory.alloc_array(
+                sizeof(vk::PhysicalDeviceRayTracingPipelineFeaturesKHR)
+            );
+        *accel_stucts = vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
+            VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, rtpipe
+        };
+        *rtpipe = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{
+            VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, device_features.pNext
+        };
+        device_features.setPNext(rtpipe);
+    }
+}
+
+void renderer::init_device(vk::Instance instance, const renderer_features& required_features) {
     queue_family_indices qfixs;
 
     // find physical device and queue family indices
@@ -55,6 +89,16 @@ void renderer::init_device(vk::Instance instance) {
     std::cout << "using physical device " << props.deviceName << " ("
               << vk::to_string(props.deviceType) << ")\n";
 
+    std::vector<const char*> layer_names = {
+#ifndef NDEBUG
+        "VK_LAYER_KHRONOS_validation",
+#endif
+    };
+
+    std::vector<const char*> extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    add_extensions_required_for_features(required_features, extensions);
+
     // create device create info
     VkPhysicalDeviceVulkan12Features v12_features{
         .sType                  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
@@ -67,21 +111,10 @@ void renderer::init_device(vk::Instance instance) {
     };
     vk::PhysicalDeviceFeatures2 device_features{{}, &v11_features};
 
-    const char* layer_names[] = {
-#ifndef NDEBUG
-        "VK_LAYER_KHRONOS_validation",
-#endif
-        ""
-    };
-    uint32_t layer_count =
-#ifndef NDEBUG
-        1
-#else
-        0
-#endif
-        ;
-
-    const char* extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    arena<uint8_t> features_memory{4096};
+    add_device_feature_structs_required_for_features(
+        required_features, features_memory, device_features
+    );
 
     // create device queue create infos
     std::vector<vk::DeviceQueueCreateInfo> qu_cfo = qfixs.generate_create_infos();
@@ -90,10 +123,10 @@ void renderer::init_device(vk::Instance instance) {
         {},
         (uint32_t)qu_cfo.size(),
         qu_cfo.data(),
-        layer_count,
-        layer_names,
-        1,
-        extensions,
+        (uint32_t)layer_names.size(),
+        layer_names.data(),
+        (uint32_t)extensions.size(),
+        extensions.data(),
         nullptr,
         &device_features
     });

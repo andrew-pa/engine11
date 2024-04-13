@@ -109,7 +109,12 @@ renderer::renderer(
 
     window_surface = vk::UniqueSurfaceKHR(surface, {instance.get()});
 
-    init_device(instance.get());
+    auto* init_lib = rendering_algo_lib_loader->initial_load();
+    auto  crafn = (create_rendering_algorithm_f)load_symbol(init_lib, "create_rendering_algorithm");
+
+    auto* algo = crafn();
+
+    init_device(instance.get(), algo->required_features());
 
     command_pool = dev->createCommandPoolUnique(vk::CommandPoolCreateInfo{
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphics_queue_family_index
@@ -129,14 +134,11 @@ renderer::renderer(
     std::cout << "using format " << vk::to_string(surface_format.format) << " / "
               << vk::to_string(surface_format.colorSpace) << "\n";
 
-    auto* init_lib = rendering_algo_lib_loader->initial_load();
-    auto  crafn = (create_rendering_algorithm_f)load_symbol(init_lib, "create_rendering_algorithm");
-
     // create different rendering layers
     fr = new frame_renderer(this, get_window_extent(window));
     ir = new imgui_renderer(this, window);
     ir->create_swapchain_depd(fr);
-    sr = new scene_renderer(this, std::move(world), crafn());
+    sr = new scene_renderer(this, std::move(world), algo);
     sr->create_swapchain_depd(fr);
 }
 
@@ -205,7 +207,7 @@ void renderer::render_frame() {
     rendering_algo_lib_loader->poll([&](void* new_lib) {
         auto crafn
             = (create_rendering_algorithm_f)load_symbol(new_lib, "create_rendering_algorithm");
-        auto old_algo = sr->swap_rendering_algorithm(crafn());
+        auto* old_algo = sr->swap_rendering_algorithm(crafn());
         graphics_queue.waitIdle();
         present_queue.waitIdle();
         delete old_algo;

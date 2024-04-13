@@ -3,6 +3,7 @@
 #include "egg/renderer/imgui_renderer.h"
 #include "imgui.h"
 #include <iostream>
+#include <stdexcept>
 #include <unordered_set>
 #include <utility>
 
@@ -64,6 +65,9 @@ scene_renderer::scene_renderer(
             i++;
         }
     }
+
+    if(supported_depth_formats.empty())
+        throw std::runtime_error("no supported depth formats available");
 
     algo->init_with_device(r->dev.get(), r->allocator, supported_depth_formats);
 
@@ -248,6 +252,7 @@ rendering_algorithm* scene_renderer::swap_rendering_algorithm(rendering_algorith
         throw std::runtime_error("cannot replace rendering algorithm before scene data is loaded");
     auto* old_algo = algo;
     algo           = new_algo;
+    // TODO: make sure that the new algo is feature compatable with the old one
     std::cout << "\tinitalizing with device\n";
     algo->init_with_device(r->dev.get(), r->allocator, supported_depth_formats);
     std::cout << "\tcreating static objects\n";

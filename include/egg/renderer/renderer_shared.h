@@ -42,15 +42,20 @@ class abstract_imgui_renderer {
 /// synchronizes scene data to GPU and manages actual rendering of the scene via a render pipeline
 class scene_renderer;
 
+struct renderer_features {
+    bool raytracing = false;
+};
+
 /// an actual rendering algorithm ie shaders, pipelines and building command
 /// buffers
 class rendering_algorithm {
   public:
-    virtual void init_with_device(
-        vk::Device                            device,
-        std::shared_ptr<gpu_allocator>        allocator,
-        const std::unordered_set<vk::Format>& supported_depth_formats
-    ) = 0;
+    virtual renderer_features required_features() const = 0;
+    virtual void              init_with_device(
+                     vk::Device                            device,
+                     std::shared_ptr<gpu_allocator>        allocator,
+                     const std::unordered_set<vk::Format>& supported_depth_formats
+                 ) = 0;
     // create render pass, descriptor pools etc
     virtual void create_static_objects(vk::AttachmentDescription present_surface_attachment) = 0;
     virtual vk::RenderPass           get_render_pass()                                       = 0;

@@ -26,6 +26,8 @@ class forward_rendering_algorithm : public rendering_algorithm {
     vk::UniqueShaderModule sky_vertex_shader, sky_fragment_shader;
 
   public:
+    renderer_features required_features() const override;
+
     void init_with_device(
         vk::Device                            device,
         std::shared_ptr<gpu_allocator>        allocator,
