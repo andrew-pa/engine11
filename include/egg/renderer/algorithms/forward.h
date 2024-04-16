@@ -1,7 +1,6 @@
 #pragma once
 #include "egg/renderer/memory.h"
 #include "egg/renderer/renderer_shared.h"
-#include <utility>
 
 class forward_rendering_algorithm : public rendering_algorithm {
     vk::Device                     device;

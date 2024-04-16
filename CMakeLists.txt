@@ -74,6 +74,9 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
     SOURCE_SUBDIR build/cmake)
 set(ZSTD_MULTITHREAD_SUPPORT ON CACHE BOOL "" FORCE)
+set(ZSTD_LEGACY_SUPPORT OFF CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(zstd)
 # TODO: this shouldn't be necessary??
 include_directories(${zstd_SOURCE_DIR}/lib)

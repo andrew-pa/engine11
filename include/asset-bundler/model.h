@@ -1,5 +1,6 @@
 #pragma once
 #include "asset-bundler/format.h"
+#include "vk.h"
 #include <assimp/scene.h>
 #include <filesystem>
 #include <iostream>
@@ -9,7 +10,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <vulkan/vulkan.hpp>
 
 using std::filesystem::path;
 

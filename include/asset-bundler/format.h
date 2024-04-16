@@ -1,8 +1,8 @@
 #pragma once
 #include "glm.h"
+#include "vk.h"
 #include <cstddef>
 #include <cstdint>
-#include <vulkan/vulkan.hpp>
 
 using texture_id                 = uint16_t;
 const texture_id INVALID_TEXTURE = 0;

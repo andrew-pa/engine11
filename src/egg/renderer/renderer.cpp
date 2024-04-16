@@ -73,6 +73,8 @@ renderer::renderer(
         extensions.data()
     });
 
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(instance.get());
+
     // set up vulkan debugging reports
 #ifndef NDEBUG
     auto cbco = vk::DebugUtilsMessengerCreateInfoEXT{

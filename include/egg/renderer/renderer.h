@@ -6,10 +6,10 @@
 #include "egg/bundle.h"
 #include "egg/renderer/memory.h"
 #include "egg/renderer/renderer_shared.h"
+#include "vk.h"
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <memory>
-#include <vulkan/vulkan.hpp>
 
 /*
  * responsibilities:

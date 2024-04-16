@@ -1,10 +1,10 @@
 #pragma once
 #include "egg/renderer/memory.h"
+#include "vk.h"
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <unordered_set>
-#include <vulkan/vulkan.hpp>
 
 #ifdef _MSC_VER
 #    define SHARED_EXPORT __declspec(dllexport)

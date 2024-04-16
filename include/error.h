@@ -1,5 +1,5 @@
 #pragma once
-#include <vulkan/vulkan.hpp>
+#include "vk.h"
 
 struct vulkan_runtime_error : public std::runtime_error {
     vk::Result reason;

@@ -1,7 +1,7 @@
 #pragma once
 #include "asset-bundler/model.h"
 #include "egg/renderer/memory.h"
-#include <vulkan/vulkan.hpp>
+#include "vk.h"
 
 struct environment_process_job_resources {
     vk::UniquePipelineLayout      pipeline_layout;

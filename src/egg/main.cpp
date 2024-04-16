@@ -147,6 +147,8 @@ void create_scene(asset_bundle* bndl, flecs::world* world, input_distributor* in
 }
 
 int main(int argc, char* argv[]) {
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+
     GLFWwindow* window;
 
     if(glfwInit() == 0) return -1;
@@ -215,3 +217,5 @@ int main(int argc, char* argv[]) {
     glfwTerminate();
     return 0;
 }
+
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE

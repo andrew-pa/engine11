@@ -139,6 +139,8 @@ void renderer::init_device(vk::Instance instance, const renderer_features& requi
         &device_features
     });
 
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(dev.get());
+
     VmaAllocatorCreateInfo cfo = {
         .physicalDevice = phy_dev,
         .device         = dev.get(),

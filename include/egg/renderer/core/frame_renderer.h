@@ -1,9 +1,9 @@
 #pragma once
 #include "egg/renderer/renderer.h"
+#include "vk.h"
 #include <GLFW/glfw3.h>
 #include <functional>
 #include <memory>
-#include <vulkan/vulkan.hpp>
 
 struct frame {
     uint32_t          frame_index;

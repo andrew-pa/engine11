@@ -1,11 +1,11 @@
 #pragma once
+#include "vk.h"
 #include <iostream>
 #include <list>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan.hpp>
 
 // TODO: there is some way to make these exactly like std::unique_ptr, which would make them a lot
 // more ergonomic while remaining safe

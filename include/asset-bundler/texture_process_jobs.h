@@ -1,7 +1,7 @@
 #pragma once
 #include "asset-bundler/model.h"
 #include "egg/renderer/memory.h"
-#include <vulkan/vulkan.hpp>
+#include "vk.h"
 #include <vulkan/vulkan_handles.hpp>
 
 struct process_job {
