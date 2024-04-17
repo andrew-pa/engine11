@@ -97,7 +97,7 @@ imgui_renderer::~imgui_renderer() {
 
 void imgui_renderer::create_swapchain_depd(frame_renderer* fr) {
     framebuffers = fr->create_framebuffers(render_pass.get());
-    start_render_pass.setRenderArea(vk::Rect2D(vk::Offset2D(), fr->extent()));
+    start_render_pass.setRenderArea(vk::Rect2D(vk::Offset2D(), fr->get_current_extent()));
 }
 
 void imgui_renderer::start_resource_upload(vk::CommandBuffer upload_cmds) {
@@ -107,8 +107,8 @@ void imgui_renderer::start_resource_upload(vk::CommandBuffer upload_cmds) {
 void imgui_renderer::resource_upload_cleanup() { ImGui_ImplVulkan_DestroyFontUploadObjects(); }
 
 void imgui_renderer::render_frame(frame& frame) {
-    start_render_pass.setFramebuffer(framebuffers[frame.frame_index].get());
-    frame.frame_cmd_buf.beginRenderPass(start_render_pass, vk::SubpassContents::eInline);
+    start_render_pass.setFramebuffer(framebuffers[frame.index].get());
+    frame.cmd_buf.beginRenderPass(start_render_pass, vk::SubpassContents::eInline);
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -126,8 +126,8 @@ void imgui_renderer::render_frame(frame& frame) {
         if(window.second) window.first(&window.second);
 
     ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame.frame_cmd_buf);
-    frame.frame_cmd_buf.endRenderPass();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frame.cmd_buf);
+    frame.cmd_buf.endRenderPass();
 }
 
 void imgui_renderer::add_window(const std::string& name, const std::function<void(bool*)>& draw) {

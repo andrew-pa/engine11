@@ -2,6 +2,7 @@
 #include "asset-bundler/format.h"
 #include "asset-bundler/texture_processor.h"
 #include "fs-shim.h"
+#include <vulkan/vulkan_format_traits.hpp>
 #include <zstd.h>
 
 void output_bundle::add_texture(
@@ -12,7 +13,7 @@ void output_bundle::add_texture(
     int                nchannels,
     stbi_uc*           data
 ) {
-    string_id    ns = add_string(std::move(name));
+    string_id    ns = add_string(name);
     texture_info info{ns, width, height, format_from_channels(nchannels), data};
     tex_proc->submit_texture(id, &info);
     textures.emplace(id, info);
@@ -21,12 +22,14 @@ void output_bundle::add_texture(
 void output_bundle::add_environment(
     const std::string& name, uint32_t width, uint32_t height, int nchannels, float* data
 ) {
-    string_id ns   = add_string(std::move(name));
+    string_id ns   = add_string(name);
     auto      info = tex_proc->submit_environment(ns, width, height, nchannels, data);
     environments.emplace_back(info);
 }
 
-std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
+const size_t MAX_TEXTURE_ALIGN = 16;
+
+std::pair<size_t, size_t> output_bundle::estimate_sizes() const {
     size_t total = sizeof(asset_bundle_format::header);
     total += sizeof(asset_bundle_format::string_header) * strings.size();
     total += sizeof(asset_bundle_format::texture_header) * textures.size();
@@ -35,21 +38,18 @@ std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
     total += sizeof(asset_bundle_format::object_header) * objects.size();
     total += sizeof(asset_bundle_format::group_header) * groups.size();
     total += sizeof(asset_bundle_format::environment_header) * environments.size();
-    total += (16 - (total % 16)) % 16;  // add padding to align data on a 16-byte boundary
     size_t header_size = total;
 
     for(const auto& s : strings)
         total += s.second.size();
     for(const auto& t : textures)
-        total += t.second.len;
+        total += t.second.len + MAX_TEXTURE_ALIGN;
     for(const auto& o : objects)
         total += o.mesh_indices.size() * sizeof(uint32_t);
     for(const auto& o : groups)
         total += o.objects.size() * sizeof(object_id);
     for(const auto& e : environments)
-        total += e.len;
-    if(!environments.empty())  // add some extra space for padding.
-        total += 16;
+        total += e.len + MAX_TEXTURE_ALIGN;
     total += sizeof(vertex) * vertices.size();
     total += sizeof(index_type) * indices.size();
     return {header_size, total};
@@ -57,9 +57,9 @@ std::pair<size_t, size_t> output_bundle::total_and_header_size() const {
 
 void output_bundle::write() {
     // compute total uncompressed size & allocate buffer (RIP this might use a lot of RAM)
-    auto [header_size, total_size] = total_and_header_size();
-    std::cout << "bundle total size " << total_size << " bytes\n";
-    byte* buffer = (byte*)malloc(total_size);
+    auto [header_size, max_size] = estimate_sizes();
+    std::cout << "bundle max size " << max_size << " bytes\n";
+    byte* buffer = (byte*)malloc(max_size);
     assert(buffer != nullptr);
 
     // copy data into buffer in correct format
@@ -100,13 +100,7 @@ void output_bundle::write() {
     header->gpu_data_offset = (size_t)(data_ptr - buffer);
     copy_textures(header_ptr, data_ptr, buffer);
 
-    if(!environments.empty()) {
-        // add padding to make sure we start aligned in the new section
-        auto env_padding = (16 - ((size_t)data_ptr % 16)) % 16;
-        data_ptr += env_padding;
-        total_size -= 16 - env_padding;
-        copy_environments(header_ptr, data_ptr, buffer);
-    }
+    if(!environments.empty()) copy_environments(header_ptr, data_ptr, buffer);
 
     header->vertex_start_offset = (size_t)(data_ptr - buffer);
     memcpy(data_ptr, vertices.data(), vertices.size() * sizeof(vertex));
@@ -116,20 +110,21 @@ void output_bundle::write() {
     memcpy(data_ptr, indices.data(), indices.size() * sizeof(index_type));
     data_ptr += indices.size() * sizeof(index_type);
 
-    std::cout << (data_ptr - buffer) << " == " << total_size << " "
-              << ((data_ptr - buffer) - total_size) << "\n";
-    assert((data_ptr - buffer) == total_size);
+    auto actual_size = data_ptr - buffer;
+    std::cout << "actual size: " << actual_size << " <= " << max_size << " d"
+              << (actual_size - max_size) << "\n";
+    assert(actual_size <= max_size);
 
     // compress data and write it to file
     std::cout << "compressing bundle...\n";
-    size_t compressed_buffer_size = ZSTD_compressBound(total_size);
+    size_t compressed_buffer_size = ZSTD_compressBound(actual_size);
     byte*  compressed_buffer      = (byte*)malloc(compressed_buffer_size);
     // TODO: make compression level configurable
     size_t actual_compressed_size = ZSTD_compress(
-        compressed_buffer, compressed_buffer_size, buffer, total_size, ZSTD_minCLevel() + 2
+        compressed_buffer, compressed_buffer_size, buffer, actual_size, ZSTD_minCLevel() + 2
     );
     free(buffer);
-    auto percent_compressed = ((double)(actual_compressed_size) / (double)(total_size)) * 100.0;
+    auto percent_compressed = ((double)(actual_compressed_size) / (double)(actual_size)) * 100.0;
     std::cout << "writing output (" << actual_compressed_size << " bytes, " << percent_compressed
               << "%)...\n";
     auto* f             = fopen(path_to_string(output_path).c_str(), "wb");
@@ -152,8 +147,11 @@ void output_bundle::copy_strings(byte*& header_ptr, byte*& data_ptr, byte* top) 
     }
 }
 
+inline void move_to_next_multiple(byte*& p, uint8_t m) { p = p + (m - ((uintptr_t)p % m)) % m; }
+
 void output_bundle::copy_textures(byte*& header_ptr, byte*& data_ptr, byte* top) const {
     for(const auto& t : textures) {
+        move_to_next_multiple(data_ptr, vk::blockSize(t.second.img.format));
         *((asset_bundle_format::texture_header*)header_ptr) = asset_bundle_format::texture_header{
             .id     = t.first,
             .name   = t.second.name,
@@ -172,6 +170,7 @@ void output_bundle::copy_textures(byte*& header_ptr, byte*& data_ptr, byte* top)
 
 void output_bundle::copy_environments(byte*& header_ptr, byte*& data_ptr, byte* top) const {
     for(const auto& e : environments) {
+        move_to_next_multiple(data_ptr, vk::blockSize(e.skybox.format));
         *((asset_bundle_format::environment_header*)header_ptr)
             = asset_bundle_format::environment_header{
                 .name                      = e.name,

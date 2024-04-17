@@ -20,7 +20,8 @@ class output_bundle {
 
     std::vector<environment_info> environments;
 
-    std::pair<size_t, size_t> total_and_header_size() const;
+    // returns the size of the header and the maximum size that the bundle could be
+    std::pair<size_t, size_t> estimate_sizes() const;
     void                      copy_strings(byte*& header_ptr, byte*& data_ptr, byte* top) const;
     void                      copy_textures(byte*& header_ptr, byte*& data_ptr, byte* top) const;
     void                      copy_materials(byte*& header_ptr) const;

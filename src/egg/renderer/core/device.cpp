@@ -62,18 +62,11 @@ void add_device_feature_structs_required_for_features(
             = (vk::PhysicalDeviceRayTracingPipelineFeaturesKHR*)features_memory.alloc_array(
                 sizeof(vk::PhysicalDeviceRayTracingPipelineFeaturesKHR)
             );
-        auto* dev_addr
-            = (vk::PhysicalDeviceBufferDeviceAddressFeatures*)features_memory.alloc_array(
-                sizeof(vk::PhysicalDeviceBufferDeviceAddressFeatures)
-            );
         *accel_stucts = vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
             VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, rtpipe
         };
         *rtpipe = vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{
-            VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, dev_addr
-        };
-        *dev_addr = vk::PhysicalDeviceBufferDeviceAddressFeatures{
-            VK_TRUE, VK_FALSE, VK_FALSE, device_features.pNext
+            VK_TRUE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, device_features.pNext
         };
         device_features.setPNext(accel_stucts);
     }
@@ -97,12 +90,6 @@ void renderer::init_device(vk::Instance instance, const renderer_features& requi
     std::cout << "using physical device " << props.deviceName << " ("
               << vk::to_string(props.deviceType) << ")\n";
 
-    std::vector<const char*> layer_names = {
-#ifndef NDEBUG
-        "VK_LAYER_KHRONOS_validation",
-#endif
-    };
-
     std::vector<const char*> extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
     add_extensions_required_for_features(required_features, extensions);
@@ -110,7 +97,8 @@ void renderer::init_device(vk::Instance instance, const renderer_features& requi
     // create device create info
     VkPhysicalDeviceVulkan12Features v12_features{
         .sType                  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .runtimeDescriptorArray = VK_TRUE
+        .runtimeDescriptorArray = VK_TRUE,
+        .bufferDeviceAddress    = required_features.raytracing ? VK_TRUE : VK_FALSE
     };
     VkPhysicalDeviceVulkan11Features v11_features{
         .sType                 = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
@@ -131,8 +119,8 @@ void renderer::init_device(vk::Instance instance, const renderer_features& requi
         {},
         (uint32_t)qu_cfo.size(),
         qu_cfo.data(),
-        (uint32_t)layer_names.size(),
-        layer_names.data(),
+        0,
+        nullptr,
         (uint32_t)extensions.size(),
         extensions.data(),
         nullptr,
@@ -146,6 +134,9 @@ void renderer::init_device(vk::Instance instance, const renderer_features& requi
         .device         = dev.get(),
         .instance       = instance,
     };
+
+    if(required_features.raytracing) cfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+
     allocator = create_allocator(cfo);
 
     graphics_queue = dev->getQueue(qfixs.graphics, 0);

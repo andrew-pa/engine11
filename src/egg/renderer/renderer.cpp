@@ -60,15 +60,22 @@ renderer::renderer(
     uint32_t                 glfw_ext_count = 0;
     auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
     std::vector<const char*> extensions{glfw_req_exts, glfw_req_exts + glfw_ext_count};
-    // extensions.push_back("VK_KHR_portability_enumeration");
+    extensions.push_back("VK_KHR_portability_enumeration");
 #ifndef NDEBUG
     extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
+
+    std::vector<const char*> layers = {
+#ifndef NDEBUG
+        "VK_LAYER_KHRONOS_validation",
+#endif
+    };
+
     instance = vk::createInstanceUnique(vk::InstanceCreateInfo{
         vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR,
         &APP_INFO,
-        0,
-        {},
+        (uint32_t)layers.size(),
+        layers.data(),
         (uint32_t)extensions.size(),
         extensions.data()
     });

@@ -269,6 +269,9 @@ void environment_process_job::build_cmd_buffer(
         skybox->get(), vk::ImageLayout::eTransferSrcOptimal, staging->get(), regions
     );
 
+    auto bs = vk::blockSize(diffuse_map_image_info.format);
+    offset += bs - (offset % bs) % bs;
+
     regions = copy_regions_for_linear_image2d(
         diffuse_map_image_info.extent.width,
         diffuse_map_image_info.extent.height,

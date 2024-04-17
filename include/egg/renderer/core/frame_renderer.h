@@ -6,8 +6,10 @@
 #include <memory>
 
 struct frame {
-    uint32_t          frame_index;
-    vk::CommandBuffer frame_cmd_buf;
+    uint32_t          index;
+    vk::CommandBuffer cmd_buf;
+    vk::Semaphore     image_available;
+    vk::Extent2D      extent;
 };
 
 class frame_renderer : public abstract_frame_renderer {
@@ -18,15 +20,19 @@ class frame_renderer : public abstract_frame_renderer {
     std::vector<vk::Image>           swapchain_images;
     std::vector<vk::UniqueImageView> swapchain_image_views;
     vk::Extent2D                     swapchain_extent;
-    vk::UniqueSemaphore              image_available, render_finished;
-    void                             init_swapchain();
+
+    size_t                           next_image_available_semaphore = 0;
+    std::vector<vk::UniqueSemaphore> image_available_semaphores;
+    vk::UniqueSemaphore              render_finished;
+
+    void init_swapchain();
 
     std::vector<vk::UniqueCommandBuffer> command_buffers;
     std::vector<vk::UniqueFence>         command_buffer_ready_fences;
 
   public:
     frame_renderer(renderer* r, vk::Extent2D swapchain_extent);
-    virtual ~frame_renderer() override = default;
+    ~frame_renderer() override = default;
 
     void                               reset_swapchain(vk::Extent2D new_swapchain_extent);
     std::vector<vk::UniqueFramebuffer> create_framebuffers(
@@ -37,8 +43,6 @@ class frame_renderer : public abstract_frame_renderer {
 
     frame begin_frame();
     void  end_frame(frame&& frame);
-
-    inline vk::Extent2D extent() const { return swapchain_extent; }
 
     vk::Extent2D get_current_extent() const override { return swapchain_extent; }
 

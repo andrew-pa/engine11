@@ -619,13 +619,14 @@ void gpu_static_scene_data::build_object_accel_structs(
             };
             primitive_counts.emplace_back(rs[m].primitiveCount);
         }
+        build_rangeinfos.push_back(rs);
         build_geoinfos.emplace_back(vk::AccelerationStructureBuildGeometryInfoKHR{
             vk::AccelerationStructureTypeKHR::eBottomLevel,
             vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
             vk::BuildAccelerationStructureModeKHR::eBuild,
             {},
             {},
-            (uint32_t)meshes.len(),
+            (uint32_t)primitive_counts.size(),
             nullptr,
             geos.data()
         });
@@ -646,6 +647,9 @@ void gpu_static_scene_data::build_object_accel_structs(
             total_accel_struct_size,
             vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR,
         }
+    );
+    object_accel_struct_storage->set_debug_name(
+        r->vulkan_instance(), r->device(), "RT object BLAS storage"
     );
 
     vk::AccelerationStructureCreateInfoKHR accel_struct_cfo{
@@ -669,9 +673,9 @@ void gpu_static_scene_data::build_object_accel_structs(
             {},
             max_build_scratch_size,
             vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-            // TODO: we need specific memory usage stuff for VK_MEMORY_ALLOCATE_DEVICE_ADDRESS
         }
     );
+    accel_scratch->set_debug_name(r->vulkan_instance(), r->device(), "RT AS build scratch");
 
     auto accel_scratch_addr = accel_scratch->device_address(r->device());
 

@@ -387,14 +387,10 @@ void scene_renderer::render_frame(frame& frame) {
             algo->get_command_buffer_inheritance_info()
         });
 
-        // TODO: nicer interface than r->fr->extent()? could we put the extent in the frame struct?
         cb.setViewport(
-            0,
-            vk::Viewport{
-                0, 0, (float)r->fr->extent().width, (float)r->fr->extent().height, 0.f, 1.f
-            }
+            0, vk::Viewport{0, 0, (float)frame.extent.width, (float)frame.extent.height, 0.f, 1.f}
         );
-        cb.setScissor(0, vk::Rect2D{vk::Offset2D{}, r->fr->extent()});
+        cb.setScissor(0, vk::Rect2D{vk::Offset2D{}, frame.extent});
 
         algo->generate_commands(
             cb,
@@ -412,10 +408,9 @@ void scene_renderer::render_frame(frame& frame) {
         cb.end();
     }
 
-    frame.frame_cmd_buf.beginRenderPass(
-        algo->get_render_pass_begin_info(frame.frame_index),
-        vk::SubpassContents::eSecondaryCommandBuffers
+    frame.cmd_buf.beginRenderPass(
+        algo->get_render_pass_begin_info(frame.index), vk::SubpassContents::eSecondaryCommandBuffers
     );
-    frame.frame_cmd_buf.executeCommands(scene_render_cmd_buffer.get());
-    frame.frame_cmd_buf.endRenderPass();
+    frame.cmd_buf.executeCommands(scene_render_cmd_buffer.get());
+    frame.cmd_buf.endRenderPass();
 }

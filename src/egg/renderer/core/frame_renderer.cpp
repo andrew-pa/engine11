@@ -8,8 +8,21 @@ frame_renderer::frame_renderer(renderer* r, vk::Extent2D swapchain_extent)
     init_swapchain();
 
     vk::SemaphoreCreateInfo spcfo;
-    image_available = r->dev->createSemaphoreUnique(spcfo);
+    // we need enough image available semaphores to make sure we can render to the entire swapchain
+    // plus one extra to wait for the next frame?
+    for(size_t i = 0; i < r->surface_image_count + 1; ++i) {
+        auto s = r->dev->createSemaphoreUnique(spcfo);
+        r->dev->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+            vk::ObjectType::eSemaphore, (uint64_t) static_cast<VkSemaphore>(*s), "image available"
+        });
+        image_available_semaphores.emplace_back(std::move(s));
+    }
     render_finished = r->dev->createSemaphoreUnique(spcfo);
+    r->dev->setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        vk::ObjectType::eSemaphore,
+        (uint64_t) static_cast<VkSemaphore>(*render_finished),
+        "render finished"
+    });
 }
 
 void frame_renderer::reset_swapchain(vk::Extent2D new_swapchain_extent) {
@@ -126,9 +139,13 @@ std::vector<vk::UniqueFramebuffer> frame_renderer::create_framebuffers(
 }
 
 frame frame_renderer::begin_frame() {
-    uint32_t frame_index = -1;
-    auto     err         = r->dev->acquireNextImageKHR(
-        swapchain.get(), UINT64_MAX, image_available.get(), VK_NULL_HANDLE, &frame_index
+    uint32_t frame_index                     = -1;
+    auto     image_available_semaphore_index = next_image_available_semaphore++;
+    if(next_image_available_semaphore >= image_available_semaphores.size())
+        next_image_available_semaphore = 0;
+    auto image_available = image_available_semaphores[image_available_semaphore_index].get();
+    auto err             = r->dev->acquireNextImageKHR(
+        swapchain.get(), UINT64_MAX, image_available, VK_NULL_HANDLE, &frame_index
     );
     if(err != vk::Result::eSuccess) {
         if(err == vk::Result::eSuboptimalKHR || err == vk::Result::eErrorOutOfDateKHR)
@@ -136,7 +153,12 @@ frame frame_renderer::begin_frame() {
         else
             throw vulkan_runtime_error("failed to acquire next image", err);
     }
-    frame f{.frame_index = frame_index, .frame_cmd_buf = command_buffers[frame_index].get()};
+    frame f{
+        .index           = frame_index,
+        .cmd_buf         = command_buffers[frame_index].get(),
+        .image_available = image_available,
+        .extent          = swapchain_extent
+    };
     // wait for command buffer to become ready
     err = r->dev->waitForFences(
         command_buffer_ready_fences[frame_index].get(), VK_TRUE, UINT64_MAX
@@ -144,28 +166,27 @@ frame frame_renderer::begin_frame() {
     if(err != vk::Result::eSuccess)
         throw vulkan_runtime_error("command buffer failed to become ready", err);
     r->dev->resetFences(command_buffer_ready_fences[frame_index].get());
-    f.frame_cmd_buf.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit}
-    );
+    f.cmd_buf.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     return f;
 }
 
 void frame_renderer::end_frame(frame&& frame) {
-    frame.frame_cmd_buf.end();
+    frame.cmd_buf.end();
     vk::PipelineStageFlags wait_stages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
     r->graphics_queue.submit(
         vk::SubmitInfo{
             1,
-            &image_available.get(),
+            &frame.image_available,
             wait_stages,
             1,
-            &command_buffers[frame.frame_index].get(),
+            &command_buffers[frame.index].get(),
             1,
             &render_finished.get()
         },
-        command_buffer_ready_fences[frame.frame_index].get()
+        command_buffer_ready_fences[frame.index].get()
     );
     auto err = r->present_queue.presentKHR(
-        vk::PresentInfoKHR{1, &render_finished.get(), 1, &swapchain.get(), &frame.frame_index}
+        vk::PresentInfoKHR{1, &render_finished.get(), 1, &swapchain.get(), &frame.index}
     );
     if(err != vk::Result::eSuccess) throw vulkan_runtime_error("failed to present frame", err);
 }
