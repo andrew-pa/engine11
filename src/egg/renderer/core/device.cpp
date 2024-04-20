@@ -72,6 +72,22 @@ void add_device_feature_structs_required_for_features(
     }
 }
 
+void add_properties_required_for_features(
+    const renderer_features&       required_features,
+    arena<uint8_t>&                props_memory,
+    vk::PhysicalDeviceProperties2& props
+) {
+    if(required_features.raytracing) {
+        auto* as_props
+            = (vk::PhysicalDeviceAccelerationStructurePropertiesKHR*)props_memory.alloc_array(
+                sizeof(vk::PhysicalDeviceAccelerationStructurePropertiesKHR)
+            );
+        *as_props       = vk::PhysicalDeviceAccelerationStructurePropertiesKHR{};
+        as_props->pNext = props.pNext;
+        props.pNext     = as_props;
+    }
+}
+
 void renderer::init_device(vk::Instance instance, const renderer_features& required_features) {
     queue_family_indices qfixs;
 
@@ -86,24 +102,30 @@ void renderer::init_device(vk::Instance instance, const renderer_features& requi
     }
     if(!qfixs.complete()) throw std::runtime_error("failed to find suitable physical device");
 
-    auto props = phy_dev.getProperties();
-    std::cout << "using physical device " << props.deviceName << " ("
-              << vk::to_string(props.deviceType) << ")\n";
+    dev_props = vk::PhysicalDeviceProperties2{};
+    add_properties_required_for_features(required_features, extra_properties, dev_props);
+    phy_dev.getProperties2(&dev_props);
+    std::cout << "using physical device " << dev_props.properties.deviceName << " ("
+              << vk::to_string(dev_props.properties.deviceType) << ")\n";
 
     std::vector<const char*> extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
     add_extensions_required_for_features(required_features, extensions);
 
     // create device create info
+    VkPhysicalDeviceVulkan13Features v13_features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, .synchronization2 = VK_TRUE
+    };
     VkPhysicalDeviceVulkan12Features v12_features{
         .sType                  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .pNext                  = &v13_features,
         .runtimeDescriptorArray = VK_TRUE,
-        .bufferDeviceAddress    = required_features.raytracing ? VK_TRUE : VK_FALSE
+        .bufferDeviceAddress    = required_features.raytracing ? VK_TRUE : VK_FALSE,
     };
     VkPhysicalDeviceVulkan11Features v11_features{
         .sType                 = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
         .pNext                 = &v12_features,
-        .storagePushConstant16 = VK_TRUE
+        .storagePushConstant16 = VK_TRUE,
     };
     vk::PhysicalDeviceFeatures2 device_features{{}, &v11_features};
 

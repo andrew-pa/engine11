@@ -38,7 +38,7 @@ const vk::ShaderModuleCreateInfo skybox_fragment_shader_create_info{
 };
 
 renderer_features forward_rendering_algorithm::required_features() const {
-    return {.raytracing = false};
+    return {.raytracing = true};
 }
 
 void forward_rendering_algorithm::init_with_device(

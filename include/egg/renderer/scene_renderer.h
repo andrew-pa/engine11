@@ -69,7 +69,10 @@ struct gpu_static_scene_data {
 
   private:
     void load_geometry_from_bundle(
-        renderer* r, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds
+        renderer*                r,
+        asset_bundle*            current_bundle,
+        vk::CommandBuffer        upload_cmds,
+        const renderer_features& features
     );
     void create_textures_from_bundle(renderer* r, asset_bundle* current_bundle);
     void create_envs_from_bundle(renderer* r, asset_bundle* current_bundle);

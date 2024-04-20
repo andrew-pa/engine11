@@ -204,7 +204,7 @@ gpu_static_scene_data::gpu_static_scene_data(
         }
     );
 
-    load_geometry_from_bundle(r, bundle.get(), upload_cmds);
+    load_geometry_from_bundle(r, bundle.get(), upload_cmds, features);
     create_textures_from_bundle(r, bundle.get());
     generate_upload_commands_for_textures(bundle.get(), upload_cmds);
     create_envs_from_bundle(r, bundle.get());
@@ -217,18 +217,26 @@ gpu_static_scene_data::gpu_static_scene_data(
 }
 
 void gpu_static_scene_data::load_geometry_from_bundle(
-    renderer* r, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds
+    renderer*                r,
+    asset_bundle*            current_bundle,
+    vk::CommandBuffer        upload_cmds,
+    const renderer_features& features
 ) {
     auto allocator = r->gpu_alloc();
+
+    vk::BufferUsageFlags geometry_usage_bits = vk::BufferUsageFlagBits::eTransferDst;
+    if(features.raytracing) {
+        geometry_usage_bits
+            |= vk::BufferUsageFlagBits::eShaderDeviceAddress
+               | vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR;
+    }
 
     const auto& bh          = current_bundle->bundle_header();
     auto        vertex_size = bh.num_total_vertices * sizeof(vertex);
     vertex_buffer           = std::make_unique<gpu_buffer>(
         allocator,
         vk::BufferCreateInfo{
-                      {},
-            vertex_size,
-            vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst
+                      {}, vertex_size, vk::BufferUsageFlagBits::eVertexBuffer | geometry_usage_bits
         },
         VmaAllocationCreateInfo{
                       .usage = VMA_MEMORY_USAGE_AUTO,
@@ -245,9 +253,7 @@ void gpu_static_scene_data::load_geometry_from_bundle(
     index_buffer    = std::make_unique<gpu_buffer>(
         allocator,
         vk::BufferCreateInfo{
-               {},
-            index_size,
-            vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst
+               {}, index_size, vk::BufferUsageFlagBits::eIndexBuffer | geometry_usage_bits
         },
         VmaAllocationCreateInfo{
                .usage = VMA_MEMORY_USAGE_AUTO,
@@ -578,6 +584,7 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(
 void gpu_static_scene_data::build_object_accel_structs(
     renderer* r, asset_bundle* current_bundle, vk::CommandBuffer upload_cmds
 ) {
+    std::cout << "build_object_accel_structs\n";
     // create infos for each object's geometry and query for the size of the AS.
     arena<vk::AccelerationStructureBuildRangeInfoKHR>          ranges;
     std::vector<vk::AccelerationStructureBuildGeometryInfoKHR> build_geoinfos;
@@ -587,6 +594,10 @@ void gpu_static_scene_data::build_object_accel_structs(
 
     auto vertex_buffer_addr = vertex_buffer->device_address(r->device());
     auto index_buffer_addr  = index_buffer->device_address(r->device());
+
+    std::cout << std::hex << "vertex buffer addr = " << vertex_buffer_addr << "\n"
+              << "index buffer addr = " << index_buffer_addr << "\n"
+              << std::dec;
 
     auto geometry = vk::AccelerationStructureGeometryKHR{
         vk::GeometryTypeKHR::eTriangles,
@@ -657,6 +668,9 @@ void gpu_static_scene_data::build_object_accel_structs(
     };
     for(size_t i = 0; i < current_bundle->num_objects(); ++i) {
         accel_struct_cfo.setSize(build_sizeinfos[i].accelerationStructureSize);
+        std::cout << "creating BLAS " << i << " size=" << accel_struct_cfo.size
+                  << " offset=" << std::hex << accel_struct_cfo.offset << "\n"
+                  << std::dec;
         object_accel_structs.emplace_back(
             r->device().createAccelerationStructureKHRUnique(accel_struct_cfo)
         );
@@ -685,9 +699,52 @@ void gpu_static_scene_data::build_object_accel_structs(
         build_geoinfos[i].setScratchData(accel_scratch_addr);
     }
 
-    upload_cmds.buildAccelerationStructuresKHR(
-        (uint32_t)build_geoinfos.size(), build_geoinfos.data(), build_rangeinfos.data()
+    std::cout << "total_accel_struct_size = " << total_accel_struct_size << "\n"
+              << "max_build_scratch_size = " << max_build_scratch_size << "\n"
+              << "scratch addr = " << std::hex << accel_scratch_addr << std::dec << "\n";
+
+    // add the commands to build the AS
+    // make sure the input buffers are ready before the build
+    std::array<vk::BufferMemoryBarrier2, 2> buffer_barriers;
+    buffer_barriers.fill(vk::BufferMemoryBarrier2{
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferWrite,
+        vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+        vk::AccessFlagBits2::eShaderRead,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_NULL_HANDLE,
+        0,
+        VK_WHOLE_SIZE
+    });
+    buffer_barriers[0].setBuffer(vertex_buffer->get());
+    buffer_barriers[1].setBuffer(index_buffer->get());
+    upload_cmds.pipelineBarrier2(
+        vk::DependencyInfo{{}, 0, nullptr, buffer_barriers.size(), buffer_barriers.data()}
     );
+    // build one at a time to avoid memory aliasing within `buildAccelerationStructuresKHR`
+    // commands.
+    std::array<vk::BufferMemoryBarrier2, 2> per_build_buffer_barriers;
+    per_build_buffer_barriers.fill(vk::BufferMemoryBarrier2{
+        vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+        vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
+        vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+        vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_NULL_HANDLE,
+        0,
+        VK_WHOLE_SIZE
+    });
+    per_build_buffer_barriers[0].setBuffer(object_accel_struct_storage->get());
+    per_build_buffer_barriers[1].setBuffer(accel_scratch->get());
+    vk::DependencyInfo per_build_dependency{
+        {}, 0, nullptr, per_build_buffer_barriers.size(), per_build_buffer_barriers.data()
+    };
+    for(size_t i = 0; i < build_geoinfos.size(); ++i) {
+        upload_cmds.pipelineBarrier2(per_build_dependency);
+        upload_cmds.buildAccelerationStructuresKHR(1, &build_geoinfos[i], &build_rangeinfos[i]);
+    }
 }
 
 void gpu_static_scene_data::resource_upload_cleanup() {

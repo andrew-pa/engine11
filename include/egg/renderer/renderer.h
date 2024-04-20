@@ -1,12 +1,10 @@
 #pragma once
 #include <filesystem>
-#include <functional>
-#include <unordered_set>
 #define GLFW_INCLUDE_VULKAN
 #include "egg/bundle.h"
 #include "egg/renderer/memory.h"
 #include "egg/renderer/renderer_shared.h"
-#include "vk.h"
+#include "mem_arena.h"
 #include <GLFW/glfw3.h>
 #include <flecs.h>
 #include <memory>
@@ -45,6 +43,9 @@ class renderer {
 
     class shared_library_reloader* rendering_algo_lib_loader;
 
+    arena<uint8_t>                extra_properties;
+    vk::PhysicalDeviceProperties2 dev_props;
+
   public:
     renderer(
         GLFWwindow*                   window,
@@ -66,6 +67,30 @@ class renderer {
     inline std::shared_ptr<gpu_allocator> gpu_alloc() const { return allocator; }
 
     inline abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
+
+    const vk::PhysicalDeviceProperties2& get_physical_device_properties() const {
+        return dev_props;
+    }
+
+    template<typename T>
+    const T& get_physical_device_property() const {
+        const auto stype = T::structureType;
+
+        struct unknown {
+            vk::StructureType sType;
+            unknown*          next;
+        };
+
+        auto* cur = (unknown*)dev_props.pNext;
+        while(cur != nullptr) {
+            if(cur->sType == stype) return *(T*)cur;
+            cur = cur->next;
+        }
+        throw std::runtime_error(
+            std::string("physical device properties did not contain structure: ")
+            + vk::to_string(stype)
+        );
+    }
 
     renderer(renderer&)            = delete;
     renderer& operator=(renderer&) = delete;

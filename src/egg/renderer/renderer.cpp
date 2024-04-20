@@ -55,7 +55,8 @@ renderer::renderer(
     std::shared_ptr<flecs::world> world,
     const std::filesystem::path&  rendering_algorithm_library_path
 )
-    : rendering_algo_lib_loader(new shared_library_reloader(rendering_algorithm_library_path)) {
+    : rendering_algo_lib_loader(new shared_library_reloader(rendering_algorithm_library_path)),
+      extra_properties(2048) {
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
     auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
