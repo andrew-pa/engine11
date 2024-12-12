@@ -70,12 +70,18 @@ scene_renderer::scene_renderer(
     if(supported_depth_formats.empty())
         throw std::runtime_error("no supported depth formats available");
 
+    auto features = algo->required_features();
+
     algo->init_with_device(r->dev.get(), r->allocator, supported_depth_formats);
 
     auto buffers = r->dev->allocateCommandBuffersUnique(
-        vk::CommandBufferAllocateInfo{r->command_pool.get(), vk::CommandBufferLevel::eSecondary, 1}
+        vk::CommandBufferAllocateInfo{r->command_pool.get(), vk::CommandBufferLevel::eSecondary, features.raytracing ? 2u : 1}
     );
     scene_render_cmd_buffer = std::move(buffers[0]);
+
+    if(features.raytracing) {
+        rt_state = scene_raytracing{std::move(buffers[1])};
+    }
 
     setup_ecs();
 
@@ -387,6 +393,8 @@ void scene_renderer::render_frame(frame& frame) {
             algo->get_command_buffer_inheritance_info()
         });
 
+        if(rt_state.has_value()) rt_state->build(this, cb);
+
         cb.setViewport(
             0, vk::Viewport{0, 0, (float)frame.extent.width, (float)frame.extent.height, 0.f, 1.f}
         );
@@ -413,4 +421,41 @@ void scene_renderer::render_frame(frame& frame) {
     );
     frame.cmd_buf.executeCommands(scene_render_cmd_buffer.get());
     frame.cmd_buf.endRenderPass();
+}
+
+void scene_raytracing::build(scene_renderer* sr, vk::CommandBuffer cmd_buf) {
+    // TODO: create info
+    vk::AccelerationStructureBuildGeometryInfoKHR build_info {
+        vk::AccelerationStructureTypeKHR::eTopLevel,
+        vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild | vk::BuildAccelerationStructureFlagBitsKHR::eAllowCompaction,
+        vk::BuildAccelerationStructureModeKHR::eBuild,
+        {},
+        {},
+
+    };
+    auto sizeinfo = sr->r->device().getAccelerationStructureBuildSizesKHR(vk::AccelerationStructureBuildTypeKHR::eDevice, build_info, {});
+
+    if(tlas_storage_size < sizeinfo.accelerationStructureSize) {
+        tlas_storage_size = sizeinfo.accelerationStructureSize;
+        tlas_storage = std::make_unique<gpu_buffer>(sr->r->gpu_alloc(), vk::BufferCreateInfo {
+                {}, tlas_storage_size, vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR
+            });
+        tlas_storage->set_debug_name(sr->r->vulkan_instance(), sr->r->device(), "RT TLAS storage");
+        tlas = sr->r->device().createAccelerationStructureKHRUnique({
+            {}, tlas_storage->get(), 0, tlas_storage_size, vk::AccelerationStructureTypeKHR::eTopLevel
+        });
+    }
+    build_info.setDstAccelerationStructure(tlas.get());
+
+    if(scratch_buffer_size < sizeinfo.buildScratchSize) {
+        scratch_buffer_size = sizeinfo.buildScratchSize;
+        scratch_buffer = std::make_unique<gpu_buffer>(sr->r->gpu_alloc(), vk::BufferCreateInfo {
+                {}, scratch_buffer_size, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress
+            });
+        scratch_buffer->set_debug_name(sr->r->vulkan_instance(), sr->r->device(), "RT TLAS build scratch");
+    }
+    build_info.setScratchData(scratch_buffer->device_address(sr->r->device()));
+
+    //TODO: pipeline barriers
+    cmd_buf.buildAccelerationStructuresKHR({build_info}, {});
 }

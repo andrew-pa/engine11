@@ -633,7 +633,8 @@ void gpu_static_scene_data::build_object_accel_structs(
         build_rangeinfos.push_back(rs);
         build_geoinfos.emplace_back(vk::AccelerationStructureBuildGeometryInfoKHR{
             vk::AccelerationStructureTypeKHR::eBottomLevel,
-            vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
+            vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace
+            | vk::BuildAccelerationStructureFlagBitsKHR::eAllowCompaction,
             vk::BuildAccelerationStructureModeKHR::eBuild,
             {},
             {},

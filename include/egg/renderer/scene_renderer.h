@@ -96,6 +96,17 @@ struct gpu_static_scene_data {
     void texture_window_gui(bool* open, std::shared_ptr<asset_bundle> current_bundle);
 };
 
+struct scene_raytracing {
+    std::unique_ptr<gpu_buffer> tlas_storage, scratch_buffer;
+    size_t tlas_storage_size{}, scratch_buffer_size{};
+    vk::UniqueAccelerationStructureKHR tlas;
+
+    scene_raytracing()
+        : tlas_storage(nullptr), tlas(VK_NULL_HANDLE) {}
+
+    void build(class scene_renderer* sr, vk::CommandBuffer cmd_buf);
+};
+
 class scene_renderer {
     renderer*                     r;
     std::shared_ptr<flecs::world> world;
@@ -112,6 +123,8 @@ class scene_renderer {
     gpu_shared_value<shader_uniform_values> shader_uniforms;
     gpu_shared_value_heap<light_info>       gpu_lights;
 
+    std::optional<scene_raytracing> rt_state;
+
     vk::UniqueCommandBuffer scene_render_cmd_buffer;
     bool                    should_regenerate_command_buffer;
 
@@ -122,6 +135,7 @@ class scene_renderer {
     flecs::query<comp::gpu_transform, comp::renderable>                 renderable_q;
     void                                                                setup_ecs();
 
+    friend struct scene_raytracing;
   public:
     scene_renderer(renderer* r, std::shared_ptr<flecs::world> world, rendering_algorithm* algo);
 
