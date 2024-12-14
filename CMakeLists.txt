@@ -18,14 +18,14 @@ FetchContent_MakeAvailable(glm)
 FetchContent_Declare(
     flecs
     GIT_REPOSITORY https://github.com/SanderMertens/flecs
-    GIT_TAG v3.2.6
+    GIT_TAG v4.0.3
     GIT_PROGRESS TRUE)
 FetchContent_MakeAvailable(flecs)
 
 FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw
-    GIT_TAG 3.3.8
+    GIT_TAG 3.4
     GIT_PROGRESS TRUE)
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -48,7 +48,7 @@ target_compile_features(vmalib PRIVATE cxx_std_14)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui
-    GIT_TAG v1.89.4
+    GIT_TAG v1.91.6
     GIT_PROGRESS TRUE)
 FetchContent_MakeAvailable(imgui)
 
@@ -70,10 +70,11 @@ include_directories(include/ ${imgui_SOURCE_DIR} ${vma_SOURCE_DIR}/include)
 FetchContent_Declare(
     zstd
     GIT_REPOSITORY https://github.com/facebook/zstd
-    GIT_TAG v1.5.5
+    GIT_TAG v1.5.6
     GIT_PROGRESS TRUE
     SOURCE_SUBDIR build/cmake)
 set(ZSTD_MULTITHREAD_SUPPORT ON CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(zstd)
 # TODO: this shouldn't be necessary??
 include_directories(${zstd_SOURCE_DIR}/lib)

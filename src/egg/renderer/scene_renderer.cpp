@@ -125,10 +125,10 @@ scene_renderer::~scene_renderer() {
 }
 
 void scene_renderer::setup_ecs() {
+    // allocate/free GPU transforms in the transform buffer for non-light transformed entities
     observers.emplace_back(
         world->observer<comp::position, comp::rotation>()
-            .term<comp::light>()
-            .not_()
+            .without<comp::light>()
             .event(flecs::OnAdd)
             .event(flecs::OnRemove)
             .each([&](flecs::iter& it, size_t i, const comp::position& p, const comp::rotation& r) {
@@ -143,6 +143,8 @@ void scene_renderer::setup_ecs() {
                 }
             })
     );
+
+    // update transforms on GPU when position/rotations change
     observers.emplace_back(world->observer<comp::position, comp::rotation, comp::gpu_transform>()
                                .event(flecs::OnSet)
                                .each([&](flecs::iter&          it,
@@ -160,6 +162,8 @@ void scene_renderer::setup_ecs() {
                                        shader_uniforms->camera_pos = p.pos;
                                    }
                                }));
+
+    // allocate/update/free camera projection matrix on GPU
     observers.emplace_back(world->observer<comp::camera>()
                                .event(flecs::OnSet)
                                .event(flecs::OnRemove)
@@ -172,19 +176,24 @@ void scene_renderer::setup_ecs() {
                                        transforms.free(cam.proj_transform.second);
                                    }
                                }));
+
+    // regenerate command buffer when new renderables are added that have a transform
     observers.emplace_back(world->observer<comp::gpu_transform, comp::renderable>()
                                .event(flecs::OnAdd)
                                .event(flecs::OnSet)
                                .event(flecs::OnRemove)
-                               .iter([&](flecs::iter&, comp::gpu_transform*, comp::renderable*) {
-                                   should_regenerate_command_buffer = true;
-                               }));
+                               .run([&](flecs::iter&) { should_regenerate_command_buffer = true; })
+    );
+
+    // free lights when they are removed
     observers.emplace_back(world->observer<comp::light>()
                                .event(flecs::OnRemove)
                                .each([&](flecs::iter& it, size_t i, comp::light& lgh) {
                                    lgh.gpu_info.first->type = light_type::invalid;
                                    gpu_lights.free(lgh.gpu_info.second);
                                }));
+
+    // update GPU data for directional lights
     observers.emplace_back(
         world->observer<comp::light, const comp::directional_light, const comp::rotation>()
             .event(flecs::OnSet)
@@ -198,6 +207,8 @@ void scene_renderer::setup_ecs() {
                 };
             })
     );
+
+    // update GPU data for spot lights
     observers.emplace_back(world
                                ->observer<
                                    comp::light,
@@ -220,6 +231,8 @@ void scene_renderer::setup_ecs() {
                                        .param2    = params.outer_cutoff,
                                    };
                                }));
+
+    // update GPU data for point lights
     observers.emplace_back(
         world->observer<comp::light, const comp::point_light, const comp::position>()
             .event(flecs::OnSet)
@@ -234,8 +247,10 @@ void scene_renderer::setup_ecs() {
                 };
             })
     );
+
     active_camera_q = world->query<tag::active_camera, comp::gpu_transform, comp::camera>();
-    renderable_q    = world->query<comp::gpu_transform, comp::renderable>();
+
+    renderable_q = world->query<comp::gpu_transform, comp::renderable>();
 }
 
 const vk::PushConstantRange scene_data_push_consts{
