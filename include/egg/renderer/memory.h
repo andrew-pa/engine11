@@ -104,14 +104,14 @@ class gpu_shared_value : public gpu_buffer {
   public:
     gpu_shared_value(std::shared_ptr<gpu_allocator> a, vk::BufferUsageFlags usage)
         : gpu_buffer(
-            a,
-            vk::BufferCreateInfo{{}, sizeof(T), usage},
-            VmaAllocationCreateInfo{
-                .flags
-                = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
-                .usage = VMA_MEMORY_USAGE_AUTO
-            }
-        ) {}
+              a,
+              vk::BufferCreateInfo{{}, sizeof(T), usage},
+              VmaAllocationCreateInfo{
+                  .flags
+                  = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
+                  .usage = VMA_MEMORY_USAGE_AUTO
+              }
+          ) {}
 
     inline T* val() { return (T*)cpu_mapped(); }
 
@@ -149,19 +149,19 @@ class gpu_shared_value_heap : public gpu_buffer {
         bool                           include_header = false
     )
         : gpu_buffer(
-            allocator,
-            vk::BufferCreateInfo(
-                {
+              allocator,
+              vk::BufferCreateInfo(
+                  {
     },
-                initial_max_size * sizeof(T) + (include_header ? sizeof(header) : 0),
-                buffer_usage
-            ),
-            VmaAllocationCreateInfo{
-                .flags
-                = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
-                .usage = VMA_MEMORY_USAGE_AUTO
-            }
-        ),
+                  initial_max_size * sizeof(T) + (include_header ? sizeof(header) : 0),
+                  buffer_usage
+              ),
+              VmaAllocationCreateInfo{
+                  .flags
+                  = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
+                  .usage = VMA_MEMORY_USAGE_AUTO
+              }
+          ),
           free_blocks{free_block{0, initial_max_size}},
           header_offset(include_header ? sizeof(header) : 0), hdr(nullptr),
           total_size(initial_max_size) {

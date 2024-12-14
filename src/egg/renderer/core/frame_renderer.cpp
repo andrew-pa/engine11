@@ -167,5 +167,10 @@ void frame_renderer::end_frame(frame&& frame) {
     auto err = r->present_queue.presentKHR(
         vk::PresentInfoKHR{1, &render_finished.get(), 1, &swapchain.get(), &frame.frame_index}
     );
-    if(err != vk::Result::eSuccess) throw vulkan_runtime_error("failed to present frame", err);
+    if(err != vk::Result::eSuccess) {
+        if(err == vk::Result::eSuboptimalKHR)
+            std::cout << "warning: suboptimal swapchain\n";
+        else
+            throw vulkan_runtime_error("failed to present frame", err);
+    }
 }

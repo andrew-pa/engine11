@@ -96,7 +96,7 @@ void forward_rendering_algorithm::create_static_objects(
 
     vk::AttachmentReference refs[]{
         {0, vk::ImageLayout::eColorAttachmentOptimal       },
- // we could possibly specify that we're not going to use the stencil, might be faster
+        // we could possibly specify that we're not going to use the stencil, might be faster
         {1, vk::ImageLayout::eDepthStencilAttachmentOptimal}
     };
 

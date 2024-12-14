@@ -199,15 +199,21 @@ gpu_static_scene_data::gpu_static_scene_data(
         }
     );
 
+    std::cout << "load_geometry_from_bundle\n";
     load_geometry_from_bundle(r, bundle.get(), upload_cmds);
+    std::cout << "create_textures_from_bundle\n";
     create_textures_from_bundle(r, bundle.get());
+    std::cout << "generate_upload_commands_for_textures\n";
     generate_upload_commands_for_textures(bundle.get(), upload_cmds);
+    std::cout << "create_envs_from_bundle\n";
     create_envs_from_bundle(r, bundle.get());
+    std::cout << "generate_upload_commands_for_envs\n";
     generate_upload_commands_for_envs(bundle.get(), upload_cmds);
 
     r->imgui()->add_window("Static Resources", [this, bundle](bool* open) {
         this->texture_window_gui(open, bundle);
     });
+    std::cout << "GPU static scene data created\n";
 }
 
 void gpu_static_scene_data::load_geometry_from_bundle(
@@ -510,18 +516,18 @@ std::vector<vk::DescriptorImageInfo> gpu_static_scene_data::setup_descriptors(
 
     // TODO: we should create the descriptor set layout in the scene_renderer?
     vk::DescriptorSetLayoutBinding bindings[] = {
-  // transforms storage buffer
+        // transforms storage buffer
         {0, vk::DescriptorType::eStorageBuffer,        1, vk::ShaderStageFlagBits::eAll     },
- // scene textures
+        // scene textures
         {1,
          vk::DescriptorType::eCombinedImageSampler,
          (uint32_t)current_bundle->num_textures(),
          vk::ShaderStageFlagBits::eAll                                                      },
- // per-frame shader uniforms
+        // per-frame shader uniforms
         {2, vk::DescriptorType::eUniformBuffer,        1, vk::ShaderStageFlagBits::eAll     },
- // lights storage buffer
+        // lights storage buffer
         {3, vk::DescriptorType::eStorageBuffer,        1, vk::ShaderStageFlagBits::eAll     },
- // environment skybox
+        // environment skybox
         {4, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment}
     };
 

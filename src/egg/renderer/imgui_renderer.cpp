@@ -31,7 +31,7 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
 
     // create swapchain independent create info for render pass
     vk::AttachmentDescription attachments[]{
-        {vk::AttachmentDescriptionFlags(), // swapchain color
+        {vk::AttachmentDescriptionFlags(),  // swapchain color
          r->surface_format.format,
          vk::SampleCountFlagBits::e1,
          vk::AttachmentLoadOp::eLoad,

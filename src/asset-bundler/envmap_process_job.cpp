@@ -283,9 +283,9 @@ void environment_process_job::build_cmd_buffer(
 }
 
 const vk::DescriptorSetLayoutBinding desc_set_bindings[] = {
-  // input environment map texture
+    // input environment map texture
     {0, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eCompute},
- // output cubemap
+    // output cubemap
     {1, vk::DescriptorType::eStorageImage,         1, vk::ShaderStageFlagBits::eCompute},
 };
 

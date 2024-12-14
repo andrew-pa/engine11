@@ -171,7 +171,7 @@ environment_info texture_processor::submit_environment(
 ) {
     environment_info info{
         .name = name,
- // TODO: these are fixed but should be based on some kind of quality level
+        // TODO: these are fixed but should be based on some kind of quality level
         .skybox             = image_info{2048, 2048, 1, 6, vk::Format::eR8G8B8A8Unorm     },
         .diffuse_irradiance = image_info{128,  128,  1, 6, vk::Format::eR16G16B16A16Sfloat}
     };

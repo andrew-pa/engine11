@@ -265,7 +265,7 @@ rendering_algorithm* scene_renderer::swap_rendering_algorithm(rendering_algorith
 void scene_renderer::start_resource_upload(
     std::shared_ptr<asset_bundle> bundle, vk::CommandBuffer upload_cmds
 ) {
-    current_bundle = bundle;
+    current_bundle = std::move(bundle);
 
     scene_data = std::make_unique<gpu_static_scene_data>(r, current_bundle, upload_cmds);
 }

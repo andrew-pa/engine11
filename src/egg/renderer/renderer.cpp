@@ -173,7 +173,9 @@ void renderer::start_resource_upload(const std::shared_ptr<asset_bundle>& assets
 
     upload_cmds->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
+    std::cout << "uploading scene resources\n";
     sr->start_resource_upload(assets, upload_cmds.get());
+    std::cout << "uploading ImGui resources\n";
     ir->start_resource_upload(upload_cmds.get());
 
     upload_cmds->end();

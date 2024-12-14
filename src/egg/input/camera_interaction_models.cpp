@@ -28,14 +28,14 @@ void fly_camera_interaction_model::register_with_distributor(class input_distrib
         "Rotate Camera Y",
         axis_mapping{
             .mouse = mouse_axis_mapping{.axis = 0, .mode = mouse_mapping_mode::delta},
- // .key = key_axis_mapping{GLFW_KEY_LEFT, GLFW_KEY_RIGHT}
+            // .key = key_axis_mapping{GLFW_KEY_LEFT, GLFW_KEY_RIGHT}
     }
     );
     pitch = dist->register_axis_mapping(
         "Rotate Camera X",
         axis_mapping{
             .mouse = mouse_axis_mapping{.axis = 1, .mode = mouse_mapping_mode::delta},
- // .key = key_axis_mapping{GLFW_KEY_DOWN, GLFW_KEY_UP}
+            // .key = key_axis_mapping{GLFW_KEY_DOWN, GLFW_KEY_UP}
     }
     );
 }
