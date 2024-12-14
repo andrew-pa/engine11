@@ -75,15 +75,16 @@ imgui_renderer::imgui_renderer(renderer* r, GLFWwindow* window) : r(r) {
         .Device          = r->dev.get(),
         .QueueFamily     = r->graphics_queue_family_index,
         .Queue           = r->graphics_queue,
-        .PipelineCache   = VK_NULL_HANDLE,
         .DescriptorPool  = desc_pool.get(),
-        .Subpass         = 0,
+        .RenderPass      = render_pass.get(),
         .MinImageCount   = r->surface_image_count,
         .ImageCount      = r->surface_image_count,
+        .PipelineCache   = VK_NULL_HANDLE,
+        .Subpass         = 0,
         .Allocator       = nullptr,
         .CheckVkResultFn = nullptr,
     };
-    ImGui_ImplVulkan_Init(&imvk_init_info, render_pass.get());
+    ImGui_ImplVulkan_Init(&imvk_init_info);
 
     add_window("ImGui Demo", ImGui::ShowDemoWindow);
     add_window("ImGui Metrics", ImGui::ShowMetricsWindow);
@@ -101,10 +102,10 @@ void imgui_renderer::create_swapchain_depd(frame_renderer* fr) {
 }
 
 void imgui_renderer::start_resource_upload(vk::CommandBuffer upload_cmds) {
-    ImGui_ImplVulkan_CreateFontsTexture(upload_cmds);
+    ImGui_ImplVulkan_CreateFontsTexture();
 }
 
-void imgui_renderer::resource_upload_cleanup() { ImGui_ImplVulkan_DestroyFontUploadObjects(); }
+void imgui_renderer::resource_upload_cleanup() { ImGui_ImplVulkan_DestroyFontsTexture(); }
 
 void imgui_renderer::render_frame(frame& frame) {
     start_render_pass.setFramebuffer(framebuffers[frame.frame_index].get());

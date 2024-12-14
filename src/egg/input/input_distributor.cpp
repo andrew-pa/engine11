@@ -44,15 +44,14 @@ void input_distributor::init_callbacks(GLFWwindow* window) {
 }
 
 void input_distributor::init_ecs(flecs::world& world) {
-    world.system<comp::interactable>("Interaction")
-        .iter([&](flecs::iter& it, comp::interactable* intrs) {
-            for(auto i : it) {
-                auto  e    = it.entity(i);
-                auto& intr = intrs[i];
-                if(intr.active) intr.model->process_input(input_state, e, it.delta_time());
-            }
-            this->after_distribution();
-        });
+    world.system<comp::interactable>("Interaction").run([&](flecs::iter& it) {
+        while(it.next()) {
+            auto e    = it.entity(0);
+            auto intr = it.field<comp::interactable>(0);
+            if(intr->active) intr->model->process_input(input_state, e, it.delta_time());
+        }
+        this->after_distribution();
+    });
 }
 
 void input_distributor::process_mouse_pos(vec2 p) {

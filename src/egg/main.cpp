@@ -16,7 +16,7 @@ class component_gui {
     flecs::query<C>               comps;
     const char*                   window_title;
 
-    virtual bool editor(C* li, flecs::entity e) = 0;
+    virtual bool editor(flecs::field<C> li, flecs::entity e) = 0;
 
   public:
     component_gui(const std::shared_ptr<flecs::world>& world, const char* window_title)
@@ -25,10 +25,11 @@ class component_gui {
     void window(bool* open) {
         if(ImGui::Begin(window_title, open)) {
             world->defer_begin();
-            comps.iter([this](flecs::iter& it, C* components) {
-                for(auto i : it) {
+            comps.run([this](flecs::iter& it) {
+                while(it.next()) {
+                    auto i = it.id(0);
+                    auto c = it.field<C>(0);
                     ImGui::PushID(i);
-                    auto* c = &components[i];
                     if(editor(c, it.entity(i))) it.entity(i).modified<C>();
                     ImGui::Separator();
                     ImGui::PopID();
@@ -41,7 +42,7 @@ class component_gui {
 };
 
 class camera_gui : public component_gui<comp::camera> {
-    bool editor(comp::camera* cam_comp, flecs::entity cam) override {
+    bool editor(flecs::field<comp::camera> cam_comp, flecs::entity cam) override {
         // TODO: just make a {positions,rotations}_gui?
         vec3 pos = cam.get<comp::position>()->pos;
         if(ImGui::DragFloat3("Position", &pos[0], 0.05f, -1000.f, 1000.f))

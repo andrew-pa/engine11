@@ -10,8 +10,9 @@ clean:
 
 # Configure build system (run CMake).
 config:
+    cmake -S . -B {{out_dir}} -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=Debug -GNinja
+    # Create symlink for compile_commands.json so editors can find it.
     ln -svr {{out_dir}} ./compile_commands.json || true
-    cmake -S . -B {{out_dir}} -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=Debug -DGLFW_USE_WAYLAND=ON -GNinja
 
 # Run code formatter.
 fmt:

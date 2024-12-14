@@ -132,8 +132,12 @@ void output_bundle::write() {
     auto percent_compressed = ((double)(actual_compressed_size) / (double)(total_size)) * 100.0;
     std::cout << "writing output (" << actual_compressed_size << " bytes, " << percent_compressed
               << "%)...\n";
-    auto* f             = fopen(path_to_string(output_path).c_str(), "wb");
-    auto  bytes_written = fwrite(compressed_buffer, 1, actual_compressed_size, f);
+    auto* f = fopen(path_to_string(output_path).c_str(), "wb");
+    if(f == nullptr) {
+        std::cout << "could not create output file " << output_path << "\n";
+        throw std::runtime_error("could not create output file");
+    }
+    auto bytes_written = fwrite(compressed_buffer, 1, actual_compressed_size, f);
     std::cout << "wrote " << bytes_written << " bytes " << ferror(f) << "\n";
     assert(bytes_written == actual_compressed_size);
     free(compressed_buffer);
