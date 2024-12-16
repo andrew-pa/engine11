@@ -249,6 +249,8 @@ void scene_renderer::setup_ecs() {
     active_camera_q = world->query<tag::active_camera, comp::gpu_transform, comp::camera>();
 
     renderable_q = world->query<comp::gpu_transform, comp::renderable>();
+
+    algo->setup_ecs(world.get());
 }
 
 const vk::PushConstantRange scene_data_push_consts{

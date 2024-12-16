@@ -3,7 +3,6 @@
 #include "egg/renderer/memory.h"
 #include "error.h"
 #include <fs-shim.h>
-#include <fstream>
 #include <iostream>
 #include <vulkan/vulkan_format_traits.hpp>
 
@@ -36,6 +35,16 @@ const uint32_t skybox_fragment_shader_bytecode[] = {
 const vk::ShaderModuleCreateInfo skybox_fragment_shader_create_info{
     {}, sizeof(skybox_fragment_shader_bytecode), skybox_fragment_shader_bytecode
 };
+
+/*
+ * shadow mapping:
+ * - create shadow depth buffer for each directional light
+ * - compute view/projection matrixes for each directional light
+ * - record commands to render the scene for each light into the depth buffer
+ *      - this means that the algo needs to control which camera gets used
+ * - bind shadow depth buffers for shaders, also transforms
+ * - do shadow map sampling in main shader
+ */
 
 void forward_rendering_algorithm::init_with_device(
     vk::Device                            device,
@@ -74,6 +83,28 @@ void forward_rendering_algorithm::init_with_device(
 
     std::cout << "using depth buffer format: " << vk::to_string(depth_buffer_create_info.format)
               << "\n";
+
+    shadow_maps_create_info = vk::ImageCreateInfo{
+        {},
+        vk::ImageType::e2D,
+        depth_buffer_create_info.format,
+        {2048, 2048, 1},
+        1,
+        1,
+        vk::SampleCountFlagBits::e1,
+        vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        vk::SharingMode::eExclusive,
+        {},
+        {},
+        vk::ImageLayout::eUndefined
+    };
+
+
+}
+
+void forward_rendering_algorithm::setup_ecs(flecs::world* world) {
+    directional_lights = world->query<comp::light, comp::directional_light>();
 }
 
 void forward_rendering_algorithm::create_static_objects(
@@ -309,12 +340,37 @@ vk::RenderPassBeginInfo* forward_rendering_algorithm::get_render_pass_begin_info
     return &this->render_pass_begin_info;
 }
 
+void forward_rendering_algorithm::generate_shadow_commands(flecs::iter& lights) {
+    if(shadow_map_views.size() != lights.count() || shadow_maps == nullptr) {
+        // recreate shadow map to match light count
+        shadow_map_views.clear();
+        shadow_maps_create_info.setArrayLayers(lights.count());
+        shadow_maps = std::make_unique<gpu_image>(allocator, shadow_maps_create_info, VmaAllocationCreateInfo{.usage = VMA_MEMORY_USAGE_AUTO});
+        vk::ImageViewCreateInfo view_cfo {
+            {},
+            shadow_maps->get(),
+            vk::ImageViewType::e2D,
+            shadow_maps_create_info.format,
+            vk::ComponentMapping{},
+            vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1}
+        };
+        for(size_t i = 0; i < lights.count(); ++i) {
+            view_cfo.subresourceRange.setBaseArrayLayer(i);
+            shadow_map_views.emplace_back(device.createImageViewUnique(view_cfo));
+        }
+    }
+
+}
+
 void forward_rendering_algorithm::generate_commands(
     vk::CommandBuffer                                          cb,
     vk::DescriptorSet                                          scene_data_desc_set,
     std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_draw_cmds,
     std::function<void(vk::CommandBuffer, vk::PipelineLayout)> generate_skybox_cmds
 ) {
+    directional_lights.run([&](flecs::iter& i) {
+        this->generate_shadow_commands(i);
+    });
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, pipeline_layout.get(), 0, scene_data_desc_set, {}

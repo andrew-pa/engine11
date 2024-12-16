@@ -13,4 +13,4 @@ add_shaders(egg-forward-renderer
         skybox.frag)
 target_link_libraries(egg-forward-renderer
     glm
-    Vulkan::Vulkan VulkanMemoryAllocator vmalib)
+    Vulkan::Vulkan VulkanMemoryAllocator vmalib flecs)

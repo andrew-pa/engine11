@@ -1,4 +1,5 @@
 #pragma once
+#include "egg/components.h"
 #include "egg/renderer/memory.h"
 #include "egg/renderer/renderer_shared.h"
 #include <utility>
@@ -25,12 +26,20 @@ class forward_rendering_algorithm : public rendering_algorithm {
     vk::UniquePipeline     sky_pipeline;
     vk::UniqueShaderModule sky_vertex_shader, sky_fragment_shader;
 
+    vk::ImageCreateInfo shadow_maps_create_info;
+    std::unique_ptr<gpu_image> shadow_maps;
+    std::vector<vk::UniqueImageView> shadow_map_views;
+    flecs::query<comp::light, comp::directional_light> directional_lights;
+
+    void generate_shadow_commands(flecs::iter& lights);
   public:
     void init_with_device(
         vk::Device                            device,
         std::shared_ptr<gpu_allocator>        allocator,
         const std::unordered_set<vk::Format>& supported_depth_formats
     ) override;
+
+    void setup_ecs(flecs::world* world) override;
 
     void create_static_objects(vk::AttachmentDescription present_surface_attachment) override;
 
