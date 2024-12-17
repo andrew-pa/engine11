@@ -1,7 +1,5 @@
 #pragma once
 #include <filesystem>
-#include <functional>
-#include <unordered_set>
 #define GLFW_INCLUDE_VULKAN
 #include "egg/bundle.h"
 #include "egg/renderer/memory.h"
@@ -39,17 +37,16 @@ class renderer {
     vk::UniqueCommandBuffer upload_cmds;
     vk::UniqueFence         upload_fence;
 
-    frame_renderer* fr;
-    imgui_renderer* ir;
-    scene_renderer* sr;
-
-    class shared_library_reloader* rendering_algo_lib_loader;
+    frame_renderer*                      fr;
+    imgui_renderer*                      ir;
+    scene_renderer*                      sr;
+    std::unique_ptr<rendering_algorithm> rendering_algo;
 
   public:
     renderer(
-        GLFWwindow*                   window,
-        std::shared_ptr<flecs::world> world,
-        const std::filesystem::path&  rendering_algorithm_library_path
+        GLFWwindow*                            window,
+        std::shared_ptr<flecs::world>          world,
+        std::unique_ptr<rendering_algorithm>&& rendering_algo
     );
 
     void start_resource_upload(const std::shared_ptr<asset_bundle>& assets);
@@ -59,13 +56,13 @@ class renderer {
 
     void render_frame();
 
-    inline vk::Instance vulkan_instance() const { return instance.get(); }
+    vk::Instance vulkan_instance() const { return instance.get(); }
 
-    inline vk::Device device() const { return dev.get(); }
+    vk::Device device() const { return dev.get(); }
 
-    inline std::shared_ptr<gpu_allocator> gpu_alloc() const { return allocator; }
+    std::shared_ptr<gpu_allocator> gpu_alloc() const { return allocator; }
 
-    inline abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
+    abstract_imgui_renderer* imgui() const { return (abstract_imgui_renderer*)ir; }
 
     renderer(renderer&)            = delete;
     renderer& operator=(renderer&) = delete;

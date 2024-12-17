@@ -4,7 +4,6 @@
 #include "egg/renderer/imgui_renderer.h"
 #include "egg/renderer/memory.h"
 #include "egg/renderer/scene_renderer.h"
-#include "egg/shared_library_reloader.h"
 #include "error.h"
 #include <fs-shim.h>
 #include <iostream>
@@ -51,11 +50,11 @@ vk::Extent2D get_window_extent(GLFWwindow* window) {
 }
 
 renderer::renderer(
-    GLFWwindow*                   window,
-    std::shared_ptr<flecs::world> world,
-    const std::filesystem::path&  rendering_algorithm_library_path
+    GLFWwindow*                            window,
+    std::shared_ptr<flecs::world>          world,
+    std::unique_ptr<rendering_algorithm>&& rendering_algo
 )
-    : rendering_algo_lib_loader(new shared_library_reloader(rendering_algorithm_library_path)) {
+    : rendering_algo(std::move(rendering_algo)) {
     // create Vulkan instance
     uint32_t                 glfw_ext_count = 0;
     auto*                    glfw_req_exts  = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
@@ -129,14 +128,11 @@ renderer::renderer(
     std::cout << "using format " << vk::to_string(surface_format.format) << " / "
               << vk::to_string(surface_format.colorSpace) << "\n";
 
-    auto* init_lib = rendering_algo_lib_loader->initial_load();
-    auto  crafn = (create_rendering_algorithm_f)load_symbol(init_lib, "create_rendering_algorithm");
-
     // create different rendering layers
     fr = new frame_renderer(this, get_window_extent(window));
     ir = new imgui_renderer(this, window);
     ir->create_swapchain_depd(fr);
-    sr = new scene_renderer(this, std::move(world), crafn());
+    sr = new scene_renderer(this, std::move(world), this->rendering_algo.get());
     sr->create_swapchain_depd(fr);
 }
 
@@ -144,8 +140,8 @@ renderer::~renderer() {
     graphics_queue.waitIdle();
     present_queue.waitIdle();
 
+    rendering_algo.reset();
     delete sr;
-    delete rendering_algo_lib_loader;
 
     delete ir;
     delete fr;
@@ -204,15 +200,6 @@ void renderer::resize(GLFWwindow* window) {
 }
 
 void renderer::render_frame() {
-    rendering_algo_lib_loader->poll([&](void* new_lib) {
-        auto crafn
-            = (create_rendering_algorithm_f)load_symbol(new_lib, "create_rendering_algorithm");
-        auto old_algo = sr->swap_rendering_algorithm(crafn());
-        graphics_queue.waitIdle();
-        present_queue.waitIdle();
-        delete old_algo;
-    });
-
     auto frame = fr->begin_frame();
     sr->render_frame(frame);
     ir->render_frame(frame);

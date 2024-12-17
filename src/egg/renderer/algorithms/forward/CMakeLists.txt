@@ -1,6 +1,5 @@
 
-add_library(egg-forward-renderer SHARED
-    shared.cpp
+add_library(egg-forward-renderer STATIC
     ../../memory.cpp
     forward.cpp)
 target_compile_features(egg-forward-renderer PUBLIC cxx_std_20)
