@@ -11,12 +11,14 @@ class app {
     GLFWwindow* window;
 
   protected:
-    std::shared_ptr<flecs::world>         world;
-    std::unique_ptr<renderer>             rndr;
-    std::shared_ptr<asset_bundle>         assets;
-    std::unique_ptr<input_distributor>    inpd;
-    virtual std::shared_ptr<asset_bundle> load_assets()  = 0;
-    virtual void                          create_scene() = 0;
+    std::shared_ptr<flecs::world>      world;
+    std::unique_ptr<renderer>          rndr;
+    std::shared_ptr<asset_bundle>      assets;
+    std::unique_ptr<input_distributor> inpd;
+
+    virtual std::unique_ptr<rendering_algorithm> create_rendering_algorithm() = 0;
+    virtual std::shared_ptr<asset_bundle>        load_assets()                = 0;
+    virtual void                                 create_scene()               = 0;
 
   public:
     app() = default;

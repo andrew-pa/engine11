@@ -9,7 +9,6 @@ add_library(egg STATIC
     renderer/memory.cpp
     input/input_distributor.cpp
     input/camera_interaction_models.cpp
-    shared_library_reloader.cpp
     components.cpp
     bundle.cpp
     app.cpp)

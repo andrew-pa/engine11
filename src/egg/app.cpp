@@ -16,7 +16,7 @@ void app::init(std::string_view window_title) {
     world = std::make_shared<flecs::world>();
     world->set<flecs::Rest>({});
 
-    rndr   = std::make_shared<renderer>(window, world, argv[2]);
+    rndr   = std::make_unique<renderer>(window, world, create_rendering_algorithm());
     assets = load_assets();
     rndr->start_resource_upload(assets);
 

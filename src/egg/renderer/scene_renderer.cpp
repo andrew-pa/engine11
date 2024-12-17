@@ -120,8 +120,6 @@ scene_renderer::~scene_renderer() {
     for(auto ob : observers)
         ob.destruct();
     world.reset();
-
-    delete algo;
 }
 
 void scene_renderer::setup_ecs() {

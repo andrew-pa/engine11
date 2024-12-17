@@ -11,6 +11,7 @@
 #include <utility>
 #include "egg/components_gui.h"
 #include "egg/app.h"
+#include "egg/renderer/algorithms/forward.h"
 
 struct wander {
     aabb  bounds;
@@ -27,6 +28,10 @@ class demo_app : public app {
 protected:
     std::shared_ptr<asset_bundle> load_assets() override {
         return std::make_shared<asset_bundle>(assets_path);
+    }
+
+    std::unique_ptr<rendering_algorithm> create_rendering_algorithm() override {
+        return std::make_unique<forward_rendering_algorithm>();
     }
 
     void setup_ecs_systems() {
