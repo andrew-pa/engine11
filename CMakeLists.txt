@@ -97,6 +97,11 @@ include_directories(include/ ${stb_SOURCE_DIR})
 add_library(stblib src/stb.cpp)
 
 #####
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
 add_subdirectory(src/egg)
 add_subdirectory(src/egg/renderer/algorithms/forward)
 add_subdirectory(src/asset-bundler)
+add_subdirectory(apps/demo)

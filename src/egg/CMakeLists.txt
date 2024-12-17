@@ -1,6 +1,5 @@
 
-add_executable(egg
-    main.cpp
+add_library(egg STATIC
     renderer/renderer.cpp
     renderer/core/frame_renderer.cpp
     renderer/core/device.cpp
@@ -12,7 +11,8 @@ add_executable(egg
     input/camera_interaction_models.cpp
     shared_library_reloader.cpp
     components.cpp
-    bundle.cpp)
+    bundle.cpp
+    app.cpp)
 target_compile_features(egg PUBLIC cxx_std_20)
 target_link_libraries(egg
     flecs::flecs_static
